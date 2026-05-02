@@ -1,0 +1,89 @@
+schema_version: "1.0.0"
+id: express-api
+name: "Express.js REST API"
+version: "1.0.0"
+description: "Layered Express REST API with routing, request handling, business logic, data access, middleware, configuration, and utilities separated."
+category: stack
+language: javascript
+frameworks:
+  - express
+detection:
+  dependencies:
+    any:
+      - express
+    none:
+      - next
+  source_indicators:
+    - "express()"
+    - "app.listen"
+    - "router.get"
+    - "router.post"
+structure:
+  required_dirs:
+    - path: src/routes
+      purpose: "Route definitions organized by resource."
+    - path: src/controllers
+      purpose: "Request handlers that receive HTTP input, call services, and return responses."
+    - path: src/services
+      purpose: "Business logic with no HTTP request or response awareness."
+    - path: src/models
+      purpose: "Data models and database interactions."
+    - path: src/middleware
+      purpose: "Cross-cutting request behavior such as auth, validation, and error handling."
+  recommended_dirs:
+    - path: src/config
+      purpose: "Environment and application configuration."
+    - path: src/utils
+      purpose: "Small shared helpers with no framework coupling."
+    - path: src/validators
+      purpose: "Request and domain validation schemas."
+separation:
+  rules:
+    - concern: routing
+      belongs_in: src/routes
+      indicators:
+        - "router.get"
+        - "router.post"
+        - "app.get"
+    - concern: request_handling
+      belongs_in: src/controllers
+      indicators:
+        - "req.body"
+        - "res.json"
+        - "res.status"
+    - concern: business_logic
+      belongs_in: src/services
+      anti_indicators:
+        - "req."
+        - "res."
+        - "next("
+    - concern: data_access
+      belongs_in: src/models
+      indicators:
+        - "prisma."
+        - ".findOne"
+        - ".create("
+        - "SELECT"
+patterns:
+  error_handling:
+    recommended: "Use centralized error-handling middleware."
+  data_flow:
+    direction: "Route -> Controller -> Service -> Model"
+    rules:
+      - "Routes call controllers."
+      - "Controllers call services."
+      - "Services do not import request or response objects."
+  naming:
+    files: "Use consistent camelCase or kebab-case file names."
+    controllers: "[resource].controller.ts"
+    services: "[resource].service.ts"
+anti_patterns:
+  - id: god_file
+    severity: critical
+    description: "Single file mixes routes, data access, validation, and business logic."
+  - id: raw_sql_in_routes
+    severity: warning
+    description: "SQL queries appear directly in route handlers."
+  - id: hardcoded_secrets
+    severity: critical
+    description: "Secrets or credentials are hardcoded in source files."

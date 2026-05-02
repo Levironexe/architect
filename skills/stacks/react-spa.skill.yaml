@@ -1,0 +1,66 @@
+schema_version: "1.0.0"
+id: react-spa
+name: "React Single Page Application"
+version: "1.0.0"
+description: "React SPA structure with UI components, hooks, pages, services, and utilities separated."
+category: stack
+language: javascript
+frameworks:
+  - react
+detection:
+  dependencies:
+    any:
+      - react
+    none:
+      - next
+  source_indicators:
+    - "from 'react'"
+    - "from \"react\""
+    - "useState("
+    - "useEffect("
+structure:
+  required_dirs:
+    - path: src/components
+      purpose: "Reusable UI components."
+    - path: src/hooks
+      purpose: "Reusable stateful behavior and view logic."
+    - path: src/services
+      purpose: "API calls and external integrations."
+  recommended_dirs:
+    - path: src/pages
+      purpose: "Route-level screens or page components."
+    - path: src/utils
+      purpose: "Small shared helpers."
+separation:
+  rules:
+    - concern: ui_component
+      belongs_in: src/components
+      indicators:
+        - "return <"
+        - "React.FC"
+    - concern: state_logic
+      belongs_in: src/hooks
+      indicators:
+        - "useState"
+        - "useEffect"
+    - concern: api_access
+      belongs_in: src/services
+      indicators:
+        - "fetch("
+        - "axios."
+patterns:
+  data_flow:
+    direction: "Page -> Component -> Hook -> Service"
+    rules:
+      - "Components do not perform inline API calls during render."
+      - "Shared behavior moves into custom hooks."
+  naming:
+    components: "PascalCase component files."
+    hooks: "use-prefixed hook names."
+anti_patterns:
+  - id: business_logic_in_components
+    severity: warning
+    description: "Business logic is embedded directly in UI components."
+  - id: inline_api_calls_in_render
+    severity: critical
+    description: "API calls occur directly during render."

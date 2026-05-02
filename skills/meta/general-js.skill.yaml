@@ -1,0 +1,45 @@
+schema_version: "1.0.0"
+id: general-js
+name: "General JavaScript/TypeScript"
+version: "1.0.0"
+description: "Language-level JavaScript and TypeScript hygiene for naming, imports, errors, and environment handling."
+category: meta
+language: javascript
+frameworks: []
+detection:
+  source_indicators:
+    - "import "
+    - "export "
+structure:
+  required_dirs: []
+  recommended_dirs:
+    - path: src
+      purpose: "Primary source directory."
+    - path: tests
+      purpose: "Automated tests."
+separation:
+  rules:
+    - concern: configuration
+      belongs_in: src/config
+      indicators:
+        - "process.env"
+    - concern: utility
+      belongs_in: src/utils
+patterns:
+  naming:
+    files: "Use consistent descriptive file names."
+    variables: "Use descriptive camelCase names for local values."
+  error_handling:
+    recommended: "Handle promise rejections and avoid empty catch blocks."
+  data_flow:
+    direction: "External imports -> internal modules -> relative helpers"
+    rules:
+      - "Group imports consistently."
+      - "Keep environment access centralized."
+anti_patterns:
+  - id: empty_catch
+    severity: warning
+    description: "Errors are swallowed without handling or explanation."
+  - id: hardcoded_env_values
+    severity: critical
+    description: "Environment-specific values are hardcoded in source."

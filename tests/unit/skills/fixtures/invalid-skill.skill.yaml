@@ -1,0 +1,15 @@
+id: invalid-missing-schema
+name: "Invalid Skill"
+version: "1.0.0"
+description: "Missing schema_version."
+category: stack
+language: javascript
+frameworks: []
+detection: {}
+structure:
+  required_dirs: []
+  recommended_dirs: []
+separation:
+  rules: []
+patterns: {}
+anti_patterns: []

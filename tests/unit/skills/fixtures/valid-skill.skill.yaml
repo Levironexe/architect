@@ -1,0 +1,29 @@
+schema_version: "1.0.0"
+id: custom-valid
+name: "Custom Valid Skill"
+version: "1.0.0"
+description: "A valid skill used by loader tests."
+category: stack
+language: javascript
+frameworks:
+  - custom
+detection:
+  dependencies:
+    any:
+      - custom-framework
+structure:
+  required_dirs:
+    - path: src/custom
+      purpose: "Custom source files."
+  recommended_dirs: []
+separation:
+  rules:
+    - concern: custom
+      belongs_in: src/custom
+patterns:
+  naming:
+    files: "kebab-case"
+anti_patterns:
+  - id: custom_smell
+    severity: warning
+    description: "Custom smell."

@@ -1,0 +1,62 @@
+schema_version: "1.0.0"
+id: nextjs-app-router
+name: "Next.js App Router"
+version: "1.0.0"
+description: "Next.js App Router structure with app routes, shared components, library code, and server actions separated."
+category: stack
+language: javascript
+frameworks:
+  - next
+  - react
+detection:
+  dependencies:
+    any:
+      - next
+  files:
+    - next.config.js
+    - next.config.mjs
+    - next.config.ts
+    - app
+  source_indicators:
+    - "next/"
+    - "\"use client\""
+    - "'use client'"
+structure:
+  required_dirs:
+    - path: app
+      purpose: "App Router routes, layouts, and server components."
+    - path: components
+      purpose: "Shared UI components."
+    - path: lib
+      purpose: "Shared server/client utilities and data access helpers."
+  recommended_dirs:
+    - path: actions
+      purpose: "Server actions grouped away from UI components."
+    - path: hooks
+      purpose: "Client-only reusable behavior."
+separation:
+  rules:
+    - concern: routing
+      belongs_in: app
+    - concern: shared_ui
+      belongs_in: components
+    - concern: server_action
+      belongs_in: actions
+      indicators:
+        - "\"use server\""
+        - "'use server'"
+patterns:
+  data_flow:
+    direction: "Route -> Server Component/Action -> Lib"
+    rules:
+      - "Use server components by default."
+      - "Use client components only for interactivity."
+  naming:
+    routes: "Use App Router file conventions."
+anti_patterns:
+  - id: use_client_everywhere
+    severity: warning
+    description: "Client directive is applied broadly instead of only where needed."
+  - id: client_data_fetching_by_default
+    severity: warning
+    description: "Data fetching is moved to client components without a user interaction need."

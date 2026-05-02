@@ -1,0 +1,56 @@
+{
+  "name": "architect-cli",
+  "version": "0.1.0",
+  "description": "Structural health scanner for vibe-coded JavaScript and TypeScript projects.",
+  "type": "module",
+  "bin": {
+    "architect": "dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli/index.ts",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "cli",
+    "architecture",
+    "analysis",
+    "typescript"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.92.0",
+    "@babel/parser": "^7.28.5",
+    "@babel/traverse": "^7.28.5",
+    "chalk": "^5.6.2",
+    "cli-table3": "^0.6.5",
+    "commander": "^14.0.0",
+    "glob": "^11.0.3",
+    "ignore": "^7.0.5",
+    "js-yaml": "^4.1.1",
+    "jscpd": "^4.0.9",
+    "madge": "^8.0.0",
+    "openai": "^6.35.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^24.9.1",
+    "eslint": "^9.39.1",
+    "globals": "^16.4.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.2",
+    "vitest": "^4.0.7"
+  }
+}
