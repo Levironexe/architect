@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { executeScan, runCli } from '../../../src/cli/index';
+import { executeScan, runCli, runProjectScan } from '../../../src/cli/index';
 import { captureOutput } from '../test-helpers';
 import { MockProvider } from '../llm/mock-provider';
 
@@ -228,5 +228,18 @@ describe('scan command', () => {
     expect(output.stdout).toContain('Ranked issues');
     expect(output.stdout).toContain('Next step');
     expect(output.stdout).toContain('architect plan');
+  });
+
+  it('exposes reusable scan results without rendering output', async () => {
+    const fixturePath = path.resolve('tests/fixtures/messy-express');
+
+    const output = await captureOutput(async () => {
+      const result = await runProjectScan(fixturePath);
+
+      expect(result.summary.totalFiles).toBeGreaterThan(0);
+      expect(result.issues?.length).toBeGreaterThan(0);
+    });
+
+    expect(output.stdout).toBe('');
   });
 });

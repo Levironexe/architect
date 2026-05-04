@@ -12,10 +12,10 @@ full or partial health score signals, and can optionally classify function conce
 - `npm run lint` runs ESLint
 - `npm test` runs the Vitest suite
 
-## Planned commands
+## Commands
 
 - `architect scan <directory>` discovers files and reports metrics
-- `architect plan` is a placeholder for future refactoring-plan generation
+- `architect plan <directory>` generates a validated refactoring roadmap from the full scan result
 - `architect skill` is a placeholder for future skill management
 
 ## Development flow
@@ -33,6 +33,39 @@ npm run dev -- --version
 - `architect --version` prints the current package version
 - `architect scan <directory>` requires a directory argument and reports invalid usage to stderr
 - `architect scan <directory> --no-color` prints a plain-text metrics table, detected architecture, structure comparison, concern classification status, pattern consistency, dependency insights, duplication findings, health report, ranked issues, next-step guidance, and summary without ANSI codes
+- `architect plan <directory>` prints phased refactoring steps with complexity, risk, source and target locations, dependency notes, assumptions, and validation findings
+- `architect plan <directory> --format md` prints Markdown suitable for GitHub issues or documentation
+- `architect plan <directory> --format json` prints the structured `RefactorPlan` object for automation
+- `architect plan <directory> --format prompt` prints a paste-ready AI-agent prompt with matched skill guidance and safety constraints
+- `architect plan <directory> --no-color` removes ANSI color from terminal output
+
+## Example plans
+
+```bash
+cd architect-cli
+npm run build
+node dist/cli/index.js plan tests/fixtures/messy-express --no-color
+```
+
+Expected highlights:
+
+- A `Refactoring plan` heading with complexity, risk, and current health
+- Phases such as preparing target structure, reducing hotspots, and stabilizing dependencies
+- Ordered steps with source, target, reason, dependency notes, and imports to update
+- A footer listing `--format md`, `--format json`, and `--format prompt`
+
+```bash
+cd architect-cli
+node dist/cli/index.js plan tests/fixtures/messy-express --format md --no-color
+node dist/cli/index.js plan tests/fixtures/messy-express --format json
+node dist/cli/index.js plan tests/fixtures/messy-express --format prompt --no-color
+```
+
+Expected highlights:
+
+- Markdown uses checklist-style steps for issue trackers
+- JSON parses as the same structured plan rendered by other formats
+- Prompt output includes project context, ordered plan, behavior-preservation constraints, import-update constraints, and matched architecture skill rules when available
 
 ## Optional AI concern classification
 

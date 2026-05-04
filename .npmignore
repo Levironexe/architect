@@ -1,3 +1,6 @@
+node_modules/
+build/
+coverage/
 src/
 tests/
 vitest.config.ts
@@ -5,3 +8,6 @@ tsconfig.json
 eslint.config.mjs
 *.log
 .env*
+.DS_Store
+*.tmp
+*.swp
