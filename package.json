@@ -9,7 +9,9 @@
   "files": [
     "dist",
     "skills",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md"
   ],
   "engines": {
     "node": ">=20.0.0"
@@ -22,16 +24,20 @@
     "test:watch": "vitest"
   },
   "keywords": [
-    "cli",
     "architecture",
-    "analysis",
-    "typescript"
+    "code-quality",
+    "refactoring",
+    "cli",
+    "vibe-coding",
+    "vibe-coded",
+    "typescript",
+    "static-analysis"
   ],
   "license": "MIT",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.92.0",
     "@babel/parser": "^7.28.5",
     "@babel/traverse": "^7.28.5",
+    "@inquirer/prompts": "^8.4.2",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",
     "commander": "^14.0.0",
@@ -40,7 +46,7 @@
     "js-yaml": "^4.1.1",
     "jscpd": "^4.0.9",
     "madge": "^8.0.0",
-    "openai": "^6.35.0"
+    "ora": "^9.4.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

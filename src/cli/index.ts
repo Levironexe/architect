@@ -1,33 +1,20 @@
+#!/usr/bin/env node
 import { Command, CommanderError } from 'commander';
 import { existsSync } from 'node:fs';
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { analyzeFile } from '../analyzers/ast-parser.js';
-import { analyzeDependencyGraph } from '../analyzers/dependency-graph.js';
-import { analyzeDuplication } from '../analyzers/duplication.js';
-import { discoverFiles } from '../analyzers/file-walker.js';
-import { renderPlanJson } from '../formatters/plan-json.js';
-import { renderPlanMarkdown } from '../formatters/plan-markdown.js';
-import { renderPlanPrompt } from '../formatters/plan-prompt.js';
-import { renderPlanTerminal } from '../formatters/plan-terminal.js';
-import { classifyConcerns } from '../llm/concern-classifier.js';
-import type { LLMProvider } from '../llm/provider.js';
-import { generateRefactorPlan, primarySkillFrom } from '../planner/plan-generator.js';
-import { validateRefactorPlan } from '../planner/plan-validator.js';
-import { createEmptySummary, type FileAnalysis, type ParseError, type ScanResult } from '../types/analysis.js';
-import type { PlanOutputFormat } from '../types/plan.js';
+import type { ScanThresholds } from '../types/scan-output.js';
+import { renderScanJson } from '../reporters/scan-json.js';
 import { renderScanReport } from '../reporters/terminal.js';
-import { scoreDuplication } from '../scoring/duplication-score.js';
-import { calculateHealthScore, calculatePartialHealthScore, toScoreDimension, unavailableDimension } from '../scoring/health-score.js';
-import { scoreModularity } from '../scoring/modularity-score.js';
-import { scoreSeparation } from '../scoring/separation-score.js';
-import { analyzePatterns } from '../scoring/pattern-analysis.js';
-import { scoreConsistency } from '../scoring/consistency-score.js';
-import { buildIssues, createReportGuidance } from '../scoring/issue-builder.js';
-import { collectProjectCharacteristics, detectSkills } from '../skills/detector.js';
-import { loadSkills } from '../skills/loader.js';
-import { compareStructure } from '../skills/structure-check.js';
-import { ensureDirectoryPath } from '../utils/path.js';
+import { runContextCommand } from './context-runner.js';
+import { runInitCommand, type InitCommandOptions } from './init-runner.js';
+import { runProjectScan } from './scan-runner.js';
+import { listSkillsWithActiveStatus, renderSkillList } from '../skills/lister.js';
+import { isInteractiveTerminal, promptForDirectory } from '../utils/interactive.js';
+import { parseThresholdOption, ThresholdParseError } from '../utils/thresholds.js';
+
+export { runProjectScan } from './scan-runner.js';
 
 const CLI_NAME = 'architect';
 const CLI_VERSION = '0.1.0';
@@ -35,17 +22,25 @@ const CLI_VERSION = '0.1.0';
 type ScanCommandOptions = {
   color?: boolean;
   noColor?: boolean;
-  llmProvider?: LLMProvider | null;
+  json?: boolean;
+  verbose?: boolean;
+  threshold?: string;
 };
 
-type PlanCommandOptions = ScanCommandOptions & {
-  format?: string;
+type ScanHandler = (directory: string | undefined, options: ScanCommandOptions) => Promise<number>;
+type ContextCommandOptions = {
+  techstack: string[];
 };
+type ContextHandler = (options: ContextCommandOptions) => Promise<number>;
+type InitHandler = (directory: string, options: InitCommandOptions) => Promise<number>;
+type SkillListHandler = () => Promise<number>;
 
-type ScanHandler = (directory: string, options: ScanCommandOptions) => Promise<number>;
-type PlanHandler = (directory: string, options: PlanCommandOptions) => Promise<number>;
-
-export function createProgram(onScan: ScanHandler, onPlan: PlanHandler): Command {
+export function createProgram(
+  onScan: ScanHandler,
+  onContext: ContextHandler,
+  onInit: InitHandler,
+  onSkillList: SkillListHandler = executeSkillList
+): Command {
   const program = new Command();
 
   program
@@ -56,24 +51,46 @@ export function createProgram(onScan: ScanHandler, onPlan: PlanHandler): Command
   program
     .command('scan')
     .description('Discover project files and report metrics')
-    .argument('<directory>', 'Directory to scan')
+    .argument('[directory]', 'Directory to scan; prompts interactively when omitted')
     .option('--no-color', 'Disable ANSI color output')
+    .option('--json', 'Emit machine-readable JSON output')
+    .option('--verbose', 'Emit detailed scan diagnostics')
+    .option('--threshold <values>', 'Customize thresholds, for example: loc=300,complexity=15')
     .exitOverride()
-    .action(async (directory: string, options: ScanCommandOptions) => {
+    .action(async (directory: string | undefined, options: ScanCommandOptions) => {
       await onScan(directory, options);
     });
 
   program
-    .command('plan')
-    .description('Generate a refactoring plan')
-    .argument('<directory>', 'Directory to analyze and plan')
-    .option('--format <format>', 'Output format: terminal, md, json, or prompt', 'terminal')
-    .option('--no-color', 'Disable ANSI color output')
+    .command('context')
+    .description('Print the full architecture blueprint for one or more skills')
+    .requiredOption('--techstack <stacks...>', 'One or more skill IDs or display names to render')
     .exitOverride()
-    .action(async (directory: string, options: PlanCommandOptions) => {
-      await onPlan(directory, options);
+    .action(async (options: ContextCommandOptions) => {
+      await onContext(options);
     });
-  program.command('skill').description('Manage Architect skills (placeholder)').exitOverride();
+
+  program
+    .command('init')
+    .description('Generate coding-agent guidance files for a project')
+    .argument('<directory>', 'Directory to initialize')
+    .option('--skill <id>', 'Override automatic skill detection')
+    .option('--integration <agent>', 'Override automatic agent detection')
+    .option('--update', 'Overwrite existing Architect guidance files')
+    .exitOverride()
+    .action(async (directory: string, options: InitCommandOptions) => {
+      await onInit(directory, options);
+    });
+
+  const skillCmd = program.command('skill').description('Manage Architect skills').exitOverride();
+
+  skillCmd
+    .command('list')
+    .description('List all available skills, marking which are active in the current directory')
+    .exitOverride()
+    .action(async () => {
+      await onSkillList();
+    });
 
   return program;
 }
@@ -85,8 +102,16 @@ export async function runCli(argv: string[]): Promise<number> {
       commandExitCode = await executeScan(directory, options);
       return commandExitCode;
     },
+    async (options) => {
+      commandExitCode = await executeContext(options);
+      return commandExitCode;
+    },
     async (directory, options) => {
-      commandExitCode = await executePlan(directory, options);
+      commandExitCode = await executeInit(directory, options);
+      return commandExitCode;
+    },
+    async () => {
+      commandExitCode = await executeSkillList();
       return commandExitCode;
     }
   );
@@ -109,15 +134,36 @@ export async function runCli(argv: string[]): Promise<number> {
   }
 }
 
-export async function executeScan(directory: string, options: ScanCommandOptions = {}): Promise<number> {
-  if (!existsSync(directory)) {
-    process.stderr.write(`Target directory does not exist: ${directory}\n`);
+export async function executeScan(directory: string | undefined, options: ScanCommandOptions = {}): Promise<number> {
+  const targetDirectory = await resolveScanTarget(directory, options);
+  if (!targetDirectory) {
+    return 3;
+  }
+
+  if (!existsSync(targetDirectory)) {
+    process.stderr.write(`Target directory does not exist: ${targetDirectory}\nCheck the path and run architect scan <directory>.\n`);
+    return 3;
+  }
+
+  const thresholds = parseScanThresholds(options);
+  if (!thresholds) {
     return 3;
   }
 
   try {
-    const result = await runProjectScan(directory, options);
-    renderScanReport(result, { color: options.color !== false && options.noColor !== true });
+    const result = await runProjectScan(targetDirectory, { ...options, thresholds });
+    if (options.json) {
+      process.stdout.write(renderScanJson({
+        result,
+        targetDir: result.summary.targetDir,
+        verbose: options.verbose === true,
+        durationMs: result.summary.scanDurationMs,
+        warnings: result.warnings ?? [],
+        diagnostics: result.diagnostics ?? []
+      }));
+    } else {
+      renderScanReport(result, { color: options.color !== false && options.noColor !== true, verbose: options.verbose === true });
+    }
     return 0;
   } catch (error) {
     if (error instanceof Error) {
@@ -129,25 +175,10 @@ export async function executeScan(directory: string, options: ScanCommandOptions
   }
 }
 
-export async function executePlan(directory: string, options: PlanCommandOptions = {}): Promise<number> {
-  if (!existsSync(directory)) {
-    process.stderr.write(`Target directory does not exist: ${directory}\n`);
-    return 3;
-  }
-
-  const format = normalizePlanFormat(options.format ?? 'terminal');
-  if (!format) {
-    process.stderr.write('Unsupported plan format. Supported formats: terminal, md, json, prompt\n');
-    return 3;
-  }
-
+export async function executeContext(options: ContextCommandOptions): Promise<number> {
   try {
-    const scan = await runProjectScan(directory, options);
-    const primarySkill = primarySkillFrom(scan);
-    const plan = validateRefactorPlan(generateRefactorPlan({ scan, primarySkill }));
-    const color = options.color !== false && options.noColor !== true;
-    const output = renderPlan(format, plan, scan, primarySkill, color);
-    process.stdout.write(output);
+    const output = await runContextCommand(options.techstack ?? []);
+    process.stdout.write(`${output}\n`);
     return 0;
   } catch (error) {
     if (error instanceof Error) {
@@ -159,115 +190,76 @@ export async function executePlan(directory: string, options: PlanCommandOptions
   }
 }
 
-export async function runProjectScan(directory: string, options: ScanCommandOptions = {}): Promise<ScanResult> {
-  const targetDirectory = ensureDirectoryPath(directory);
-  const startedAt = Date.now();
-  const discoveredFiles = await discoverFiles(targetDirectory);
-  const analyses: FileAnalysis[] = [];
-  const parseErrors: ParseError[] = [];
+export async function executeInit(directory: string, options: InitCommandOptions = {}): Promise<number> {
+  if (!existsSync(directory)) {
+    process.stderr.write(`Target directory does not exist: ${directory}\nCheck the path and run architect init <directory>.\n`);
+    return 3;
+  }
 
-  for (const filePath of discoveredFiles) {
-    try {
-      analyses.push(await analyzeFile(filePath, targetDirectory));
-    } catch (error) {
-      parseErrors.push({
-        path: filePath,
-        relativePath: filePath.replace(`${targetDirectory}/`, ''),
-        error: error instanceof Error ? error.message : 'Unknown parse error'
-      });
+  try {
+    const summary = await runInitCommand(directory, options);
+
+    process.stdout.write(`Initialized ${summary.integration} guidance with skill ${summary.skillId}\n`);
+    if (summary.filesWritten.length > 0) {
+      process.stdout.write(`Files written:\n${summary.filesWritten.map((file) => `- ${file}`).join('\n')}\n`);
     }
+    if (summary.filesSkipped.length > 0) {
+      process.stdout.write(`Files skipped:\n${summary.filesSkipped.map((file) => `- ${file}`).join('\n')}\n`);
+    }
+    for (const warning of summary.warnings) {
+      process.stderr.write(`${warning}\n`);
+    }
+
+    return 0;
+  } catch (error) {
+    if (error instanceof Error) {
+      process.stderr.write(`${error.message}\n`);
+      return 3;
+    }
+
+    throw error;
+  }
+}
+
+export async function executeSkillList(): Promise<number> {
+  try {
+    const checks = await listSkillsWithActiveStatus(process.cwd());
+    process.stdout.write(renderSkillList(checks));
+    return 0;
+  } catch (error) {
+    if (error instanceof Error) {
+      process.stderr.write(`${error.message}\n`);
+      return 3;
+    }
+
+    throw error;
+  }
+}
+
+async function resolveScanTarget(directory: string | undefined, options: ScanCommandOptions): Promise<string | null> {
+  if (directory) {
+    return directory;
   }
 
-  const dependencyGraph = await analyzeDependencyGraph(targetDirectory, analyses, parseErrors);
-  const duplication = await analyzeDuplication(targetDirectory, analyses, parseErrors);
-  const skillLoadResult = await loadSkills();
-  const characteristics = await collectProjectCharacteristics(targetDirectory, discoveredFiles, analyses);
-  const matchedSkills = detectSkills(characteristics, skillLoadResult.skills);
-  const structureComparison = await compareStructure(targetDirectory, matchedSkills);
-  const result = buildScanResult(targetDirectory, analyses, parseErrors, dependencyGraph, duplication, Date.now() - startedAt);
-  result.skillLoadWarnings = skillLoadResult.warnings;
-  result.matchedSkills = matchedSkills;
-  result.structureComparison = structureComparison;
-  const modularityScore = scoreModularity(analyses);
-  const duplicationScore = scoreDuplication(duplication);
-  result.scores = calculatePartialHealthScore(modularityScore, duplicationScore);
-  const classification = await classifyConcerns({
-    projectRoot: targetDirectory,
-    files: analyses,
-    matchedSkills,
-    provider: options.llmProvider
-  });
-  result.classifications = classification.classifications;
-  result.classificationStatus = classification.status;
-  const separationScore = scoreSeparation(classification.classifications);
-  const patternFindings = analyzePatterns(classification.classifications);
-  const consistencyScore = scoreConsistency(patternFindings);
-  result.patternFindings = patternFindings;
-  const health = calculateHealthScore({
-    separation: separationScore
-      ? toScoreDimension('separation', separationScore)
-      : unavailableDimension('separation', 30, 'Concern classification was unavailable'),
-    consistency: consistencyScore
-      ? toScoreDimension('consistency', consistencyScore)
-      : unavailableDimension('consistency', 25, 'Pattern consistency analysis was unavailable'),
-    modularity: toScoreDimension('modularity', modularityScore),
-    duplication: toScoreDimension('duplication', duplicationScore)
-  });
-  result.health = health.health;
-  result.dimensions = health.dimensions;
-  result.issues = buildIssues(result);
-  result.guidance = createReportGuidance(result);
-
-  return result;
-}
-
-function normalizePlanFormat(format: string): PlanOutputFormat | null {
-  if (format === 'terminal' || format === 'md' || format === 'json' || format === 'prompt') {
-    return format;
+  if (options.json || !isInteractiveTerminal()) {
+    process.stderr.write('Target directory required. Pass a directory, for example: architect scan .\n');
+    return null;
   }
 
-  return null;
+  return promptForDirectory();
 }
 
-function renderPlan(format: PlanOutputFormat, plan: ReturnType<typeof validateRefactorPlan>, scan: ScanResult, primarySkill: ReturnType<typeof primarySkillFrom>, color: boolean): string {
-  if (format === 'md') return renderPlanMarkdown(plan);
-  if (format === 'json') return renderPlanJson(plan);
-  if (format === 'prompt') return renderPlanPrompt(plan, scan, primarySkill);
-  return renderPlanTerminal(plan, { color });
-}
+function parseScanThresholds(options: ScanCommandOptions): ScanThresholds | null {
+  try {
+    return parseThresholdOption(options.threshold);
+  } catch (error) {
+    if (error instanceof ThresholdParseError) {
+      process.stderr.write(`${error.message}\n`);
+      return null;
+    }
 
-function buildScanResult(
-  targetDirectory: string,
-  files: FileAnalysis[],
-  parseErrors: ParseError[],
-  dependencyGraph: ScanResult['dependencyGraph'],
-  duplication: ScanResult['duplication'],
-  scanDurationMs: number
-): ScanResult {
-  const summary = createEmptySummary(targetDirectory);
-
-  summary.totalFiles = files.length;
-  summary.skippedFiles = parseErrors.length;
-  summary.totalLoc = files.reduce((total, file) => total + file.loc, 0);
-  summary.totalLines = files.reduce((total, file) => total + file.totalLines, 0);
-  summary.flaggedFiles = files.filter((file) => file.isOversized).length;
-  summary.flaggedFunctions = files.reduce(
-    (total, file) => total + file.functions.filter((item: { isFlagged: boolean }) => item.isFlagged).length,
-    0
-  );
-  summary.dependencyHotspots = dependencyGraph.hotspots.length;
-  summary.circularDependencies = dependencyGraph.circularDependencies.length;
-  summary.duplicateFindings = duplication.findings.length;
-  summary.duplicatedLines = duplication.duplicatedLines;
-  summary.scanDurationMs = scanDurationMs;
-
-  return {
-    summary,
-    files,
-    parseErrors,
-    dependencyGraph,
-    duplication
-  };
+    throw error;
+  }
 }
 
 async function main(): Promise<void> {
@@ -277,6 +269,6 @@ async function main(): Promise<void> {
 
 const executedFilePath = fileURLToPath(import.meta.url);
 
-if (process.argv[1] === executedFilePath) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(executedFilePath)) {
   void main();
 }

@@ -1,3 +1,4 @@
+schema_version: "2.0.0"
 id: invalid-missing-schema
 name: "Invalid Skill"
 version: "1.0.0"
@@ -10,6 +11,19 @@ structure:
   required_dirs: []
   recommended_dirs: []
 separation:
-  rules: []
+  rules:
+    - concern: invalid
+      belongs_in: src/invalid
+      example: |
+        export const invalidThing = true;
 patterns: {}
-anti_patterns: []
+anti_patterns:
+  - id: invalid_smell
+    severity: warning
+    description: "Invalid smell."
+    bad_example: |
+      export const invalidThing = true;
+    good_example: |
+      export function createInvalidThing() {
+        return true;
+      }

@@ -13,11 +13,15 @@ import {
   type FunctionInfo,
   type ImportInfo
 } from '../types/analysis.js';
+import type { ScanThresholds } from '../types/scan-output.js';
 
 const builtinModuleSet = new Set(builtinModules);
 type AstNode = Record<string, unknown> & { type?: string };
 
-export async function analyzeFile(filePath: string, rootDirectory: string): Promise<FileAnalysis> {
+export async function analyzeFile(filePath: string, rootDirectory: string, thresholds: ScanThresholds = {
+  locThreshold: DEFAULT_LOC_THRESHOLD,
+  complexityThreshold: DEFAULT_COMPLEXITY_THRESHOLD
+}): Promise<FileAnalysis> {
   const source = readFileSync(filePath, 'utf8');
   const parsed = parse(source, {
     sourceType: 'unambiguous',
@@ -43,11 +47,11 @@ export async function analyzeFile(filePath: string, rootDirectory: string): Prom
   walkNode(parsed as unknown as AstNode, undefined, (node, parent) => {
     switch (node.type) {
       case 'FunctionDeclaration':
-        functions.push(createFunctionInfo(node, getIdentifierName(node.id)));
+        functions.push(createFunctionInfo(node, thresholds.complexityThreshold, getIdentifierName(node.id)));
         break;
       case 'FunctionExpression':
       case 'ArrowFunctionExpression':
-        functions.push(createFunctionInfo(node, inferFunctionName(node, parent)));
+        functions.push(createFunctionInfo(node, thresholds.complexityThreshold, inferFunctionName(node, parent)));
         break;
       case 'ClassDeclaration':
       case 'ClassExpression':
@@ -107,13 +111,13 @@ export async function analyzeFile(filePath: string, rootDirectory: string): Prom
     classes,
     imports,
     exports,
-    isOversized: lineMetrics.loc > DEFAULT_LOC_THRESHOLD,
+    isOversized: lineMetrics.loc > thresholds.locThreshold,
     hasCriticalComplexity,
     parseError: null
   };
 }
 
-function createFunctionInfo(node: AstNode, name?: string): FunctionInfo {
+function createFunctionInfo(node: AstNode, complexityThreshold: number, name?: string): FunctionInfo {
   const complexity = calculateComplexity(node);
   const location = getLocation(node);
   const params = getArray(node.params);
@@ -125,7 +129,7 @@ function createFunctionInfo(node: AstNode, name?: string): FunctionInfo {
     endLine: location?.end.line ?? 0,
     loc: location ? location.end.line - location.start.line + 1 : 0,
     complexity,
-    isFlagged: complexity > DEFAULT_COMPLEXITY_THRESHOLD
+    isFlagged: complexity > complexityThreshold
   };
 }
 

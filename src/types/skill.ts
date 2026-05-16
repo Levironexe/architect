@@ -1,4 +1,4 @@
-export const SUPPORTED_SKILL_SCHEMA_VERSION = '1.0.0';
+export const SUPPORTED_SKILL_SCHEMA_VERSION = '2.0.0';
 
 export type SkillCategory = 'stack' | 'pattern' | 'meta';
 export type SkillConfidence = 'high' | 'medium' | 'low';
@@ -47,6 +47,8 @@ export interface SeparationRules {
 export interface SeparationRule {
   concern: string;
   belongsIn: string;
+  ruleText: string;
+  example: string;
   indicators?: string[];
   antiIndicators?: string[];
 }
@@ -67,6 +69,8 @@ export interface AntiPattern {
   id: string;
   severity: IssueSeverity;
   description: string;
+  badExample: string;
+  goodExample: string;
 }
 
 export interface SkillWarning {

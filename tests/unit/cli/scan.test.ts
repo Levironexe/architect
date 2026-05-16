@@ -2,9 +2,8 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { executeScan, runCli, runProjectScan } from '../../../src/cli/index';
+import { runCli, runProjectScan } from '../../../src/cli/index';
 import { captureOutput } from '../test-helpers';
-import { MockProvider } from '../llm/mock-provider';
 
 describe('scan command', () => {
   it('reports a nonexistent target directory on stderr with exit code 3', async () => {
@@ -30,7 +29,6 @@ describe('scan command', () => {
     expect(output.stdout).toContain('server.ts');
     expect(output.stdout).toContain('Critical functions');
     expect(output.stdout).toContain('- Flagged functions: 1');
-    expect(output.stdout).toContain('Concern classification');
   });
 
   it('preserves summary content without ANSI codes when --no-color is used', async () => {
@@ -143,7 +141,7 @@ describe('scan command', () => {
     expect(output.stdout).toContain('missing  src/services');
   });
 
-  it('prints health score output', async () => {
+  it('prints health score output with only modularity and duplication dimensions', async () => {
     const fixturePath = path.resolve('tests/fixtures/messy-express');
 
     const output = await captureOutput(async () => {
@@ -155,7 +153,8 @@ describe('scan command', () => {
     expect(output.stdout).toContain('Overall score:');
     expect(output.stdout).toContain('modularity:');
     expect(output.stdout).toContain('duplication:');
-    expect(output.stdout).toContain('consistency: unavailable');
+    expect(output.stdout).not.toContain('separation');
+    expect(output.stdout).not.toContain('consistency');
   });
 
   it('prints React and no-primary fixture skill-aware states', async () => {
@@ -177,59 +176,6 @@ describe('scan command', () => {
     expect(cleanOutput.stdout).toContain('Unavailable because no primary architecture skill was detected');
   });
 
-  it('reports no-credential classification fallback without breaking metrics-only output', async () => {
-    const fixturePath = path.resolve('tests/fixtures/messy-express');
-
-    const output = await captureOutput(async () => {
-      const exitCode = await executeScan(fixturePath, { noColor: true });
-      expect(exitCode).toBe(0);
-    });
-
-    expect(output.stdout).toContain('Concern classification');
-    expect(output.stdout).toContain('Skipped: No AI provider configured');
-    expect(output.stdout).toContain('Health report');
-    expect(output.stdout).toContain('partial');
-  });
-
-  it('reports completed concern classification with an injected mock provider', async () => {
-    const fixturePath = path.resolve('tests/fixtures/concern-classification-project');
-    const provider = new MockProvider(
-      JSON.stringify({
-        files: [
-          {
-            file: 'src/app.ts',
-            functions: [
-              { name: 'configureApp', concern: 'configuration', confidence: 0.8, isMisplaced: false },
-              { name: 'requireAuth', concern: 'middleware', confidence: 0.9, isMisplaced: false },
-              { name: 'getUserRoute', concern: 'routing', confidence: 0.9, isMisplaced: true, reason: 'Route handler belongs in src/routes' },
-              { name: 'validateUserInput', concern: 'validation', confidence: 0.9, isMisplaced: false },
-              { name: 'findUserById', concern: 'data_access', confidence: 0.9, isMisplaced: false },
-              { name: 'calculateUserStatus', concern: 'business_logic', confidence: 0.8, isMisplaced: false },
-              { name: 'formatUser', concern: 'utility', confidence: 0.7, isMisplaced: false },
-              { name: 'UserCard', concern: 'ui_component', confidence: 0.7, isMisplaced: false },
-              { name: 'testUserFactory', concern: 'test', confidence: 0.7, isMisplaced: false }
-            ]
-          }
-        ]
-      })
-    );
-
-    const output = await captureOutput(async () => {
-      const exitCode = await executeScan(fixturePath, { noColor: true, llmProvider: provider });
-      expect(exitCode).toBe(0);
-    });
-
-    expect(output.stdout).toContain('Completed via mock');
-    expect(output.stdout).toContain('Mixed-concern files: src/app.ts');
-    expect(output.stdout).toContain('getUserRoute (routing)');
-    expect(output.stdout).toContain('separation:');
-    expect(output.stdout).toContain('Pattern consistency');
-    expect(output.stdout).toContain('insufficient evidence');
-    expect(output.stdout).toContain('Ranked issues');
-    expect(output.stdout).toContain('Next step');
-    expect(output.stdout).toContain('architect plan');
-  });
-
   it('exposes reusable scan results without rendering output', async () => {
     const fixturePath = path.resolve('tests/fixtures/messy-express');
 
@@ -238,6 +184,17 @@ describe('scan command', () => {
 
       expect(result.summary.totalFiles).toBeGreaterThan(0);
       expect(result.issues?.length).toBeGreaterThan(0);
+    });
+
+    expect(output.stdout).toBe('');
+  });
+
+  it('rejects --provider as an unknown option', async () => {
+    const fixturePath = path.resolve('tests/fixtures/messy-express');
+
+    const output = await captureOutput(async () => {
+      const exitCode = await runCli(['scan', fixturePath, '--provider', 'claude']);
+      expect(exitCode).not.toBe(0);
     });
 
     expect(output.stdout).toBe('');

@@ -1,4 +1,4 @@
-schema_version: "1.0.0"
+schema_version: "2.0.0"
 id: react-spa
 name: "React Single Page Application"
 version: "1.0.0"
@@ -35,16 +35,36 @@ separation:
   rules:
     - concern: ui_component
       belongs_in: src/components
+      rule_text: "Components render UI from props and delegated hooks instead of embedding network or business logic."
+      example: |
+        export function UserCard({ user }) {
+          return <article>{user.name}</article>;
+        }
       indicators:
         - "return <"
         - "React.FC"
     - concern: state_logic
       belongs_in: src/hooks
+      rule_text: "Reusable stateful behavior belongs in hooks so pages and components stay declarative."
+      example: |
+        export function useUsers() {
+          const [users, setUsers] = useState([]);
+          useEffect(() => {
+            void usersService.list().then(setUsers);
+          }, []);
+          return { users };
+        }
       indicators:
         - "useState"
         - "useEffect"
     - concern: api_access
       belongs_in: src/services
+      rule_text: "HTTP calls and third-party integrations belong in services that hooks and components consume."
+      example: |
+        export async function listUsers() {
+          const response = await fetch('/api/users');
+          return response.json();
+        }
       indicators:
         - "fetch("
         - "axios."
@@ -61,6 +81,31 @@ anti_patterns:
   - id: business_logic_in_components
     severity: warning
     description: "Business logic is embedded directly in UI components."
+    bad_example: |
+      export function SignupForm() {
+        const handleSubmit = async (event) => {
+          event.preventDefault();
+          const payload = validateSignup(new FormData(event.currentTarget));
+          await fetch('/api/signup', { method: 'POST', body: JSON.stringify(payload) });
+        };
+
+        return <form onSubmit={handleSubmit}>...</form>;
+      }
+    good_example: |
+      export function SignupForm() {
+        const { submit, error } = useSignupForm();
+        return <form onSubmit={submit}>...</form>;
+      }
   - id: inline_api_calls_in_render
     severity: critical
     description: "API calls occur directly during render."
+    bad_example: |
+      export function UsersPage() {
+        fetch('/api/users').then(() => undefined);
+        return <div>Loading...</div>;
+      }
+    good_example: |
+      export function UsersPage() {
+        const { users } = useUsers();
+        return <UsersList users={users} />;
+      }

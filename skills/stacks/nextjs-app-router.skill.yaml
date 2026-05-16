@@ -1,4 +1,4 @@
-schema_version: "1.0.0"
+schema_version: "2.0.0"
 id: nextjs-app-router
 name: "Next.js App Router"
 version: "1.0.0"
@@ -38,10 +38,28 @@ separation:
   rules:
     - concern: routing
       belongs_in: app
+      rule_text: "The app directory owns route structure, layouts, pages, and route handlers using App Router conventions."
+      example: |
+        export default async function UsersPage() {
+          const users = await listUsers();
+          return <UsersTable users={users} />;
+        }
     - concern: shared_ui
       belongs_in: components
+      rule_text: "Reusable UI belongs in components so route files stay focused on composition and data loading."
+      example: |
+        export function UsersTable({ users }) {
+          return <table>{users.map((user) => <tr key={user.id}>{user.name}</tr>)}</table>;
+        }
     - concern: server_action
       belongs_in: actions
+      rule_text: "Server mutations and form handlers live in actions with an explicit server boundary."
+      example: |
+        'use server';
+
+        export async function createUser(formData) {
+          return saveUser({ name: formData.get('name') });
+        }
       indicators:
         - "\"use server\""
         - "'use server'"
@@ -57,6 +75,31 @@ anti_patterns:
   - id: use_client_everywhere
     severity: warning
     description: "Client directive is applied broadly instead of only where needed."
+    bad_example: |
+      'use client';
+
+      export default function RootLayout({ children }) {
+        return <html><body>{children}</body></html>;
+      }
+    good_example: |
+      export default function RootLayout({ children }) {
+        return <html><body>{children}</body></html>;
+      }
   - id: client_data_fetching_by_default
     severity: warning
     description: "Data fetching is moved to client components without a user interaction need."
+    bad_example: |
+      'use client';
+
+      export default function UsersPage() {
+        const [users, setUsers] = useState([]);
+        useEffect(() => {
+          fetch('/api/users').then((response) => response.json()).then(setUsers);
+        }, []);
+        return <UsersTable users={users} />;
+      }
+    good_example: |
+      export default async function UsersPage() {
+        const users = await listUsers();
+        return <UsersTable users={users} />;
+      }

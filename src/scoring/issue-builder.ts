@@ -32,30 +32,6 @@ export function buildIssues(result: ScanResult): ReportIssue[] {
     }
   }
 
-  for (const classification of result.classifications ?? []) {
-    if (classification.mixedConcerns) {
-      issues.push({
-        severity: 'critical',
-        category: 'separation',
-        location: classification.file,
-        message: `${classification.file} mixes three or more concerns.`,
-        suggestion: 'Split routing, validation, data access, and business logic into separate architectural areas.'
-      });
-    }
-  }
-
-  for (const finding of result.patternFindings ?? []) {
-    if (finding.confidence !== 'insufficient' && finding.deviations.length > 0) {
-      issues.push({
-        severity: finding.patternCount >= 3 ? 'critical' : 'warning',
-        category: 'consistency',
-        location: finding.concern,
-        message: `${finding.concern} uses ${finding.patternCount} competing patterns.`,
-        suggestion: `Converge deviations toward the dominant ${finding.dominantPattern ?? 'detected'} pattern.`
-      });
-    }
-  }
-
   if ((result.duplication.duplicationPercentage ?? 0) > 15) {
     issues.push({
       severity: result.duplication.duplicationPercentage > 30 ? 'critical' : 'warning',
@@ -85,7 +61,7 @@ export function createReportGuidance(result: ScanResult): ReportGuidance {
     message: hasCritical
       ? 'Critical structural issues found. Generate a refactoring roadmap before adding features.'
       : 'Use the health report to guide the next refactoring pass.',
-    command: 'architect plan'
+    command: undefined
   };
 }
 

@@ -1,4 +1,4 @@
-schema_version: "1.0.0"
+schema_version: "2.0.0"
 id: general-js
 name: "General JavaScript/TypeScript"
 version: "1.0.0"
@@ -21,10 +21,25 @@ separation:
   rules:
     - concern: configuration
       belongs_in: src/config
+      rule_text: "Environment and runtime configuration should be centralized so the rest of the codebase consumes stable config values instead of raw env reads."
+      example: |
+        export const appConfig = {
+          apiBaseUrl: process.env.API_BASE_URL ?? 'http://localhost:3000'
+        };
       indicators:
         - "process.env"
     - concern: utility
       belongs_in: src/utils
+      rule_text: "Generic helpers with no domain or framework coupling belong in utils for broad reuse."
+      example: |
+        export function chunk(items, size) {
+          return items.reduce((groups, item, index) => {
+            const groupIndex = Math.floor(index / size);
+            groups[groupIndex] ??= [];
+            groups[groupIndex].push(item);
+            return groups;
+          }, []);
+        }
 patterns:
   naming:
     files: "Use consistent descriptive file names."
@@ -40,6 +55,21 @@ anti_patterns:
   - id: empty_catch
     severity: warning
     description: "Errors are swallowed without handling or explanation."
+    bad_example: |
+      try {
+        await saveUser(user);
+      } catch (error) {}
+    good_example: |
+      try {
+        await saveUser(user);
+      } catch (error) {
+        logger.error('Failed to save user', error);
+        throw error;
+      }
   - id: hardcoded_env_values
     severity: critical
     description: "Environment-specific values are hardcoded in source."
+    bad_example: |
+      export const apiBaseUrl = 'https://api.production.example.com';
+    good_example: |
+      export const apiBaseUrl = appConfig.apiBaseUrl;

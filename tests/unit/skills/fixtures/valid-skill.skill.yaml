@@ -1,4 +1,4 @@
-schema_version: "1.0.0"
+schema_version: "2.0.0"
 id: custom-valid
 name: "Custom Valid Skill"
 version: "1.0.0"
@@ -20,6 +20,11 @@ separation:
   rules:
     - concern: custom
       belongs_in: src/custom
+      rule_text: "Custom concerns stay in the shared custom source area."
+      example: |
+        export function createCustomThing() {
+          return { ok: true };
+        }
 patterns:
   naming:
     files: "kebab-case"
@@ -27,3 +32,11 @@ anti_patterns:
   - id: custom_smell
     severity: warning
     description: "Custom smell."
+    bad_example: |
+      export const customThing = () => {
+        console.log('too much');
+      };
+    good_example: |
+      export function createCustomThing() {
+        return { ok: true };
+      }

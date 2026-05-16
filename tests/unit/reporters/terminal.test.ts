@@ -340,10 +340,10 @@ describe('renderScanReport', () => {
             isAvailable: false
           },
           scores: {
-            modularity: { score: 100, weight: 25, label: 'healthy', reasons: [] },
-            duplication: { score: 100, weight: 20, label: 'healthy', reasons: [] },
-            partialHealthScore: 100,
-            availableWeight: 45
+            overall: 100,
+            label: 'healthy',
+            modularity: { score: 100, weight: 50, label: 'healthy', reasons: [] },
+            duplication: { score: 100, weight: 50, label: 'healthy', reasons: [] }
           }
         },
         { color: false }
@@ -354,76 +354,12 @@ describe('renderScanReport', () => {
     expect(output.stdout).toContain('Languages: TypeScript');
     expect(output.stdout.indexOf('Project overview')).toBeLessThan(output.stdout.indexOf('Detected architecture'));
     expect(output.stdout.indexOf('Detected architecture')).toBeLessThan(output.stdout.indexOf('Structure comparison'));
-    expect(output.stdout.indexOf('Structure comparison')).toBeLessThan(output.stdout.indexOf('Concern classification'));
-    expect(output.stdout.indexOf('Concern classification')).toBeLessThan(output.stdout.indexOf('Pattern consistency'));
-    expect(output.stdout.indexOf('Pattern consistency')).toBeLessThan(output.stdout.indexOf('Dependency insights'));
+    expect(output.stdout.indexOf('Structure comparison')).toBeLessThan(output.stdout.indexOf('Dependency insights'));
     expect(output.stdout.indexOf('Duplication findings')).toBeLessThan(output.stdout.indexOf('Health report'));
     expect(output.stdout).toContain('Unavailable because no primary architecture skill was detected');
+    expect(output.stdout).not.toContain('Concern classification');
+    expect(output.stdout).not.toContain('Pattern consistency');
     expect(output.stdout).not.toContain('\u001b[');
-  });
-
-  it('prints pattern consistency findings', async () => {
-    const output = await captureOutput(() => {
-      renderScanReport(
-        {
-          summary: {
-            targetDir: '/tmp/project',
-            totalFiles: 1,
-            skippedFiles: 0,
-            totalLoc: 1,
-            totalLines: 1,
-            flaggedFiles: 0,
-            flaggedFunctions: 0,
-            dependencyHotspots: 0,
-            circularDependencies: 0,
-            duplicateFindings: 0,
-            duplicatedLines: 0,
-            scanDurationMs: 1
-          },
-          files: [
-            {
-              path: '/tmp/project/index.ts',
-              relativePath: 'index.ts',
-              loc: 1,
-              blankLines: 0,
-              commentLines: 0,
-              totalLines: 1,
-              functions: [],
-              classes: [],
-              imports: [],
-              exports: [],
-              isOversized: false,
-              hasCriticalComplexity: false,
-              parseError: null
-            }
-          ],
-          parseErrors: [],
-          patternFindings: [
-            {
-              concern: 'data_access',
-              dominantPattern: 'repository',
-              patternCount: 2,
-              deviations: [{ location: 'src/a.ts', pattern: 'inline', expectedPattern: 'repository' }],
-              confidence: 'medium',
-              reason: '2 patterns detected'
-            },
-            {
-              concern: 'validation',
-              dominantPattern: null,
-              patternCount: 0,
-              deviations: [],
-              confidence: 'insufficient',
-              reason: 'Insufficient evidence'
-            }
-          ]
-        },
-        { color: false }
-      );
-    });
-
-    expect(output.stdout).toContain('Pattern consistency');
-    expect(output.stdout).toContain('data_access: 2 pattern(s), dominant repository, 1 deviation(s)');
-    expect(output.stdout).toContain('validation: insufficient evidence');
   });
 
   it('prints health score and dimension breakdown', async () => {
@@ -462,19 +398,11 @@ describe('renderScanReport', () => {
             }
           ],
           parseErrors: [],
-          health: {
-            score: 78,
-            label: 'warning',
-            state: 'partial',
-            availableWeight: 45,
-            totalWeight: 100,
-            reasons: ['separation unavailable']
-          },
-          dimensions: {
-            separation: { id: 'separation', score: null, weight: 30, label: 'unavailable', state: 'unavailable', reasons: ['classification unavailable'] },
-            consistency: { id: 'consistency', score: null, weight: 25, label: 'unavailable', state: 'unavailable', reasons: ['patterns unavailable'] },
-            modularity: { id: 'modularity', score: 60, weight: 25, label: 'warning', state: 'available', reasons: ['large file'] },
-            duplication: { id: 'duplication', score: 100, weight: 20, label: 'healthy', state: 'available', reasons: ['0% duplication'] }
+          scores: {
+            overall: 80,
+            label: 'healthy',
+            modularity: { score: 60, weight: 50, label: 'warning', reasons: ['large file'] },
+            duplication: { score: 100, weight: 50, label: 'healthy', reasons: ['0% duplication'] }
           }
         },
         { color: false }
@@ -482,128 +410,11 @@ describe('renderScanReport', () => {
     });
 
     expect(output.stdout).toContain('Health report');
-    expect(output.stdout).toContain('Overall score: 78 warning (partial)');
-    expect(output.stdout).toContain('separation: unavailable unavailable');
+    expect(output.stdout).toContain('Overall score: 80 healthy');
     expect(output.stdout).toContain('modularity: 60 warning');
-  });
-
-  it('prints skipped concern classification status', async () => {
-    const output = await captureOutput(() => {
-      renderScanReport(
-        {
-          summary: {
-            targetDir: '/tmp/project',
-            totalFiles: 1,
-            skippedFiles: 0,
-            totalLoc: 1,
-            totalLines: 1,
-            flaggedFiles: 0,
-            flaggedFunctions: 0,
-            dependencyHotspots: 0,
-            circularDependencies: 0,
-            duplicateFindings: 0,
-            duplicatedLines: 0,
-            scanDurationMs: 1
-          },
-          files: [
-            {
-              path: '/tmp/project/index.ts',
-              relativePath: 'index.ts',
-              loc: 1,
-              blankLines: 0,
-              commentLines: 0,
-              totalLines: 1,
-              functions: [],
-              classes: [],
-              imports: [],
-              exports: [],
-              isOversized: false,
-              hasCriticalComplexity: false,
-              parseError: null
-            }
-          ],
-          parseErrors: [],
-          classificationStatus: {
-            mode: 'skipped',
-            reason: 'No AI provider configured.',
-            warnings: []
-          }
-        },
-        { color: false }
-      );
-    });
-
-    expect(output.stdout).toContain('Concern classification');
-    expect(output.stdout).toContain('Skipped: No AI provider configured.');
-  });
-
-  it('prints completed concern classification without leaking secret-looking warnings', async () => {
-    const output = await captureOutput(() => {
-      renderScanReport(
-        {
-          summary: {
-            targetDir: '/tmp/project',
-            totalFiles: 1,
-            skippedFiles: 0,
-            totalLoc: 1,
-            totalLines: 1,
-            flaggedFiles: 0,
-            flaggedFunctions: 0,
-            dependencyHotspots: 0,
-            circularDependencies: 0,
-            duplicateFindings: 0,
-            duplicatedLines: 0,
-            scanDurationMs: 1
-          },
-          files: [
-            {
-              path: '/tmp/project/index.ts',
-              relativePath: 'index.ts',
-              loc: 1,
-              blankLines: 0,
-              commentLines: 0,
-              totalLines: 1,
-              functions: [],
-              classes: [],
-              imports: [],
-              exports: [],
-              isOversized: false,
-              hasCriticalComplexity: false,
-              parseError: null
-            }
-          ],
-          parseErrors: [],
-          classifications: [
-            {
-              file: 'index.ts',
-              dominantConcern: 'routing',
-              mixedConcerns: false,
-              warnings: [],
-              functions: [
-                {
-                  name: 'routeUser',
-                  concern: 'routing',
-                  confidence: 0.9,
-                  isMisplaced: true,
-                  reason: 'belongs in src/routes'
-                }
-              ]
-            }
-          ],
-          classificationStatus: {
-            mode: 'completed',
-            provider: 'mock',
-            warnings: ['api_key=[redacted]']
-          }
-        },
-        { color: false }
-      );
-    });
-
-    expect(output.stdout).toContain('Completed via mock');
-    expect(output.stdout).toContain('routeUser (routing)');
-    expect(output.stderr).toContain('[redacted]');
-    expect(output.stderr).not.toContain('sk-secret');
+    expect(output.stdout).toContain('duplication: 100 healthy');
+    expect(output.stdout).not.toContain('separation');
+    expect(output.stdout).not.toContain('consistency');
   });
 
   it('prints ranked issues and roadmap guidance', async () => {
@@ -659,8 +470,7 @@ describe('renderScanReport', () => {
             }
           ],
           guidance: {
-            message: 'Critical structural issues found.',
-            command: 'architect plan'
+            message: 'Critical structural issues found. Generate a refactoring roadmap before adding features.'
           }
         },
         { color: false }
@@ -670,6 +480,6 @@ describe('renderScanReport', () => {
     expect(output.stdout).toContain('Ranked issues');
     expect(output.stdout.indexOf('CRITICAL')).toBeLessThan(output.stdout.indexOf('WARNING'));
     expect(output.stdout).toContain('Next step');
-    expect(output.stdout).toContain('architect plan');
+    expect(output.stdout).toContain('Critical structural issues found');
   });
 });

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { Chalk } from 'chalk';
 
 import { createEmptyDependencyGraphSummary, createEmptyDuplicationSummary, type DuplicationFinding, type FileAnalysis, type FunctionInfo, type ScanResult } from '../types/analysis.js';
+import type { ScanDiagnostic } from '../types/scan-output.js';
 
 export function renderDiscoveryReport(targetDirectory: string, files: string[]): void {
   if (files.length === 0) {
@@ -17,7 +18,7 @@ export function renderDiscoveryReport(targetDirectory: string, files: string[]):
   }
 }
 
-export function renderScanReport(result: ScanResult, options: { color?: boolean } = {}): void {
+export function renderScanReport(result: ScanResult, options: { color?: boolean; verbose?: boolean } = {}): void {
   const chalk = new Chalk({ level: options.color === false ? 0 : 1 });
   const dependencyGraph = result.dependencyGraph ?? createEmptyDependencyGraphSummary(false);
   const duplication = result.duplication ?? createEmptyDuplicationSummary(false);
@@ -35,8 +36,6 @@ export function renderScanReport(result: ScanResult, options: { color?: boolean 
   renderProjectOverview(result);
   renderDetectedArchitecture(result);
   renderStructureComparison(result);
-  renderConcernClassification(result);
-  renderPatternFindings(result);
   process.stdout.write(`${pad('FILE', 28)} ${pad('LOC', 5)} ${pad('FN', 4)} ${pad('CL', 4)} ${pad('IMP', 5)} ${pad('EXP', 5)} STATUS\n`);
 
   for (const file of result.files) {
@@ -101,6 +100,9 @@ export function renderScanReport(result: ScanResult, options: { color?: boolean 
   renderHealthReport(result);
   renderIssues(result);
   renderGuidance(result);
+  if (options.verbose) {
+    renderVerboseDiagnostics(result.diagnostics ?? []);
+  }
 
   process.stdout.write(`\nSummary:\n`);
   process.stdout.write(`- Files scanned: ${result.summary.totalFiles}\n`);
@@ -127,19 +129,32 @@ export function renderScanReport(result: ScanResult, options: { color?: boolean 
     process.stderr.write(`WARN  Failed to parse ${parseError.relativePath}: ${parseError.error}\n`);
   }
 
-  for (const warning of result.skillLoadWarnings ?? []) {
-    process.stderr.write(`WARN  Ignored invalid architecture skill ${warning.file}: ${warning.message}\n`);
+  if (result.parseErrors.length > 0) {
+    const noun = result.parseErrors.length === 1 ? 'file' : 'files';
+    process.stderr.write(`WARN  Skipped ${result.parseErrors.length} ${noun} due to syntax errors. Run with --verbose to see file paths and parser reasons.\n`);
   }
 
-  if (result.classificationStatus?.mode !== 'skipped') {
-    for (const warning of result.classificationStatus?.warnings ?? []) {
-      process.stderr.write(`WARN  AI concern classification: ${warning}\n`);
-    }
+  for (const warning of result.skillLoadWarnings ?? []) {
+    process.stderr.write(`WARN  Ignored invalid architecture skill ${warning.file}: ${warning.message}\n`);
   }
 
   if ((dependencyGraph.isPartial || duplication.isPartial) && result.summary.skippedFiles > 0) {
     const noun = result.summary.skippedFiles === 1 ? 'file was' : 'files were';
     process.stderr.write(`WARN  Dependency and duplication findings may be partial because ${result.summary.skippedFiles} ${noun} skipped\n`);
+  }
+}
+
+function renderVerboseDiagnostics(diagnostics: ScanDiagnostic[]): void {
+  process.stdout.write(`\nVerbose diagnostics:\n`);
+
+  if (diagnostics.length === 0) {
+    process.stdout.write(`- No additional diagnostics recorded\n`);
+    return;
+  }
+
+  for (const diagnostic of diagnostics) {
+    const details = diagnostic.details ? ` ${JSON.stringify(diagnostic.details)}` : '';
+    process.stdout.write(`- ${diagnostic.phase}: ${diagnostic.message}${details}\n`);
   }
 }
 
@@ -192,101 +207,21 @@ function renderStructureComparison(result: ScanResult): void {
   process.stdout.write(`\n`);
 }
 
-function renderConcernClassification(result: ScanResult): void {
-  const status = result.classificationStatus;
-
-  process.stdout.write(`Concern classification:\n`);
-
-  if (!status) {
-    process.stdout.write(`- Unavailable\n\n`);
-    return;
-  }
-
-  if (status.mode === 'skipped') {
-    process.stdout.write(`- Skipped: ${status.reason ?? 'AI provider was not configured.'}\n\n`);
-    return;
-  }
-
-  if (status.mode === 'failed') {
-    process.stdout.write(`- Failed${status.provider ? ` via ${status.provider}` : ''}: ${status.reason ?? 'Provider failed.'}\n\n`);
-    return;
-  }
-
-  process.stdout.write(`- ${status.mode === 'completed' ? 'Completed' : 'Partially completed'} via ${status.provider ?? 'AI provider'}\n`);
-
-  const mixedFiles = (result.classifications ?? []).filter((classification) => classification.mixedConcerns);
-  const misplaced = (result.classifications ?? []).flatMap((classification) =>
-    classification.functions
-      .filter((fn) => fn.isMisplaced)
-      .map((fn) => `${classification.file} :: ${fn.name} (${fn.concern})${fn.reason ? ` - ${fn.reason}` : ''}`)
-  );
-
-  if (mixedFiles.length > 0) {
-    process.stdout.write(`- Mixed-concern files: ${mixedFiles.map((item) => item.file).join(', ')}\n`);
-  }
-
-  if (misplaced.length > 0) {
-    process.stdout.write(`- Misplaced functions:\n`);
-
-    for (const entry of misplaced) {
-      process.stdout.write(`  - ${entry}\n`);
-    }
-  }
-
-  if (mixedFiles.length === 0 && misplaced.length === 0) {
-    process.stdout.write(`- No mixed-concern files or misplaced functions reported\n`);
-  }
-
-  process.stdout.write(`\n`);
-}
-
-function renderPatternFindings(result: ScanResult): void {
-  const findings = result.patternFindings ?? [];
-
-  process.stdout.write(`Pattern consistency:\n`);
-
-  if (findings.length === 0) {
-    process.stdout.write(`- Unavailable because no concern classifications were available\n\n`);
-    return;
-  }
-
-  for (const finding of findings) {
-    if (finding.confidence === 'insufficient') {
-      process.stdout.write(`- ${finding.concern}: insufficient evidence\n`);
-      continue;
-    }
-
-    process.stdout.write(
-      `- ${finding.concern}: ${finding.patternCount} pattern(s), dominant ${finding.dominantPattern ?? 'unknown'}`
-    );
-
-    if (finding.deviations.length > 0) {
-      process.stdout.write(`, ${finding.deviations.length} deviation(s)`);
-    }
-
-    process.stdout.write(`\n`);
-  }
-
-  process.stdout.write(`\n`);
-}
 
 function renderHealthReport(result: ScanResult): void {
   process.stdout.write(`\nHealth report:\n`);
 
-  if (!result.health || !result.dimensions) {
-    renderLegacyPartialHealthScore(result);
+  const scores = result.scores;
+
+  if (!scores) {
+    process.stdout.write(`- Unavailable\n`);
     return;
   }
 
-  const score = result.health.score === null ? 'unavailable' : String(result.health.score);
-  process.stdout.write(`- Overall score: ${score} ${result.health.label} (${result.health.state})\n`);
-  process.stdout.write(`- Available weight: ${result.health.availableWeight}/${result.health.totalWeight}\n`);
+  process.stdout.write(`- Overall score: ${scores.overall} ${scores.label}\n`);
   process.stdout.write(`- Dimensions:\n`);
-
-  for (const dimension of Object.values(result.dimensions)) {
-    const dimensionScore = dimension.score === null ? 'unavailable' : String(dimension.score);
-    process.stdout.write(`  - ${dimension.id}: ${dimensionScore} ${dimension.label} (${dimension.state}) - ${dimension.reasons.join('; ')}\n`);
-  }
+  process.stdout.write(`  - modularity: ${scores.modularity.score} ${scores.modularity.label} - ${scores.modularity.reasons.join('; ')}\n`);
+  process.stdout.write(`  - duplication: ${scores.duplication.score} ${scores.duplication.label} - ${scores.duplication.reasons.join('; ')}\n`);
 }
 
 function renderIssues(result: ScanResult): void {
@@ -322,18 +257,6 @@ function renderGuidance(result: ScanResult): void {
   process.stdout.write(`\n`);
 }
 
-function renderLegacyPartialHealthScore(result: ScanResult): void {
-  const scores = result.scores;
-
-  if (!scores) {
-    process.stdout.write(`- Unavailable\n`);
-    return;
-  }
-
-  process.stdout.write(`- Partial score: ${scores.partialHealthScore}\n`);
-  process.stdout.write(`- Modularity: ${scores.modularity.score} ${scores.modularity.label}\n`);
-  process.stdout.write(`- Duplication: ${scores.duplication.score} ${scores.duplication.label}\n`);
-}
 
 function formatDuplicationFinding(finding: DuplicationFinding): string {
   const [left, right] = finding.occurrences;

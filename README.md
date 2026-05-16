@@ -1,155 +1,135 @@
 # Architect CLI
 
-Architect CLI scans JavaScript and TypeScript projects for structural signals such as file size,
-function counts, cyclomatic complexity, project-local dependency risks, and substantial duplicate code blocks.
-It also matches projects against bundled architecture skills, reports skill-aware structure and
-full or partial health score signals, and can optionally classify function concerns with an AI provider.
+Architect is a read-only structural health scanner for JavaScript and TypeScript projects. It finds oversized files, complex functions, dependency risks, duplicated code, architecture-skill mismatches, partial scan conditions, and optional AI concern-classification signals, then turns those findings into terminal reports, JSON output, or refactoring plans.
 
-## Scripts
+## Installation
 
-- `npm run dev -- --help` runs the CLI from source with `tsx`
-- `npm run build` compiles the CLI to `dist/`
-- `npm run lint` runs ESLint
-- `npm test` runs the Vitest suite
+```bash
+npm install -g architect-cli
+```
 
-## Commands
-
-- `architect scan <directory>` discovers files and reports metrics
-- `architect plan <directory>` generates a validated refactoring roadmap from the full scan result
-- `architect skill` is a placeholder for future skill management
-
-## Development flow
+For local development in this repository:
 
 ```bash
 cd architect-cli
 npm install
-npm run dev -- --help
-npm run dev -- --version
-```
-
-## Current CLI behavior
-
-- `architect --help` lists the available `scan`, `plan`, and `skill` commands
-- `architect --version` prints the current package version
-- `architect scan <directory>` requires a directory argument and reports invalid usage to stderr
-- `architect scan <directory> --no-color` prints a plain-text metrics table, detected architecture, structure comparison, concern classification status, pattern consistency, dependency insights, duplication findings, health report, ranked issues, next-step guidance, and summary without ANSI codes
-- `architect plan <directory>` prints phased refactoring steps with complexity, risk, source and target locations, dependency notes, assumptions, and validation findings
-- `architect plan <directory> --format md` prints Markdown suitable for GitHub issues or documentation
-- `architect plan <directory> --format json` prints the structured `RefactorPlan` object for automation
-- `architect plan <directory> --format prompt` prints a paste-ready AI-agent prompt with matched skill guidance and safety constraints
-- `architect plan <directory> --no-color` removes ANSI color from terminal output
-
-## Example plans
-
-```bash
-cd architect-cli
 npm run build
-node dist/cli/index.js plan tests/fixtures/messy-express --no-color
 ```
 
-Expected highlights:
-
-- A `Refactoring plan` heading with complexity, risk, and current health
-- Phases such as preparing target structure, reducing hotspots, and stabilizing dependencies
-- Ordered steps with source, target, reason, dependency notes, and imports to update
-- A footer listing `--format md`, `--format json`, and `--format prompt`
+## Quick Start
 
 ```bash
-cd architect-cli
-node dist/cli/index.js plan tests/fixtures/messy-express --format md --no-color
-node dist/cli/index.js plan tests/fixtures/messy-express --format json
-node dist/cli/index.js plan tests/fixtures/messy-express --format prompt --no-color
+architect scan .
+architect scan . --provider none --no-color
+architect plan . --format md
 ```
 
-Expected highlights:
+The first command scans the current project. The second forces metrics-only mode and plain output. The third generates a Markdown refactoring roadmap from the same scan signals.
 
-- Markdown uses checklist-style steps for issue trackers
-- JSON parses as the same structured plan rendered by other formats
-- Prompt output includes project context, ordered plan, behavior-preservation constraints, import-update constraints, and matched architecture skill rules when available
+## Command Reference
 
-## Optional AI concern classification
+### `architect scan [directory]`
 
-`architect scan` works without any AI credentials. When no provider is configured, the scan runs in
-metrics-only mode and prints a `Concern classification` section explaining that classification was
-skipped. Existing file, dependency, duplication, skill, and score results remain available.
+Scans a project directory. If the directory is omitted in an interactive terminal, Architect prompts for one. In non-interactive environments, pass the directory explicitly.
 
-To enable classification, configure one provider:
+Options:
+
+- `--threshold <values>`: Customize finding thresholds, for example `loc=250,complexity=12`.
+- `--provider <provider>`: Choose `claude`, `openai`, `ollama`, or `none`.
+- `--json`: Emit one parseable JSON object with `schemaVersion`, `command`, `run`, `result`, `warnings`, and `diagnostics`.
+- `--verbose`: Include scan diagnostics such as thresholds, skipped inputs, partial states, and provider fallback reasons.
+- `--no-color`: Disable ANSI color while preserving severity and status words.
+
+Examples:
+
+```bash
+architect scan ./src --threshold loc=300,complexity=15
+architect scan ./app --provider none --verbose --no-color
+architect scan ./service --json > architect-scan.json
+```
+
+### `architect plan <directory>`
+
+Generates a refactoring roadmap from scan output and matched architecture skills.
+
+Options:
+
+- `--format <format>`: Choose `terminal`, `md`, `json`, or `prompt`.
+- `--no-color`: Disable ANSI color in terminal output.
+
+Examples:
+
+```bash
+architect plan . --format terminal
+architect plan . --format md > refactor-plan.md
+architect plan . --format prompt --no-color
+```
+
+## Scoring Model
+
+Architect reports an overall health state from available dimensions:
+
+- **Modularity**: oversized files, complex functions, and concentration of code.
+- **Duplication**: repeated blocks and duplicated line counts.
+- **Separation**: optional AI classification of function concerns.
+- **Consistency**: optional pattern consistency from classified concerns.
+
+When AI classification is unavailable, Architect reports a partial health score instead of pretending every dimension was measured.
+
+## LLM Provider Setup
+
+Architect works without AI credentials. Use metrics-only mode explicitly with:
+
+```bash
+architect scan . --provider none
+```
+
+To enable AI concern classification, configure one provider:
 
 ```bash
 export ANTHROPIC_API_KEY=...
-# or
+architect scan . --provider claude
+
 export OPENAI_API_KEY=...
-# or use a local Ollama service
+architect scan . --provider openai
+
 export ARCHITECT_LLM_PROVIDER=ollama
+architect scan . --provider ollama
 ```
 
-The classification prompt is metadata-only. It includes relative file paths, function names,
-parameter counts, line ranges, imports, and matched skill separation rules. It does not include full
-source files or function bodies.
+Secrets are read from environment variables and are not printed in reports, warnings, or JSON output.
 
-Optional smoke test with a real provider:
+## Example Output
 
-```bash
-cd architect-cli
-npm run build
-node dist/cli/index.js scan tests/fixtures/messy-express --no-color
+```text
+Architect scan: /path/to/project
+
+Project overview:
+- Files scanned: 1
+- Total LOC: 301
+- Languages: TypeScript
+
+Concern classification:
+- Skipped: No AI provider configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY, use --provider ollama, or run with --provider none for metrics-only mode.
+
+Health report:
+- Overall score: 58 warning (partial)
+
+Ranked issues:
+- CRITICAL modularity [server.ts]: server.ts is oversized at 301 LOC. Split this file around its dominant responsibilities before adding more features.
 ```
 
-Expected highlights:
+## Troubleshooting
 
-- The `Concern classification` section reports completed, partial, failed, or skipped status
-- Mixed-concern files and misplaced functions appear when the provider returns them
-- API keys and environment values are not printed to stdout or stderr
+- Missing directory: pass a path, for example `architect scan .`.
+- Missing provider credentials: set `ANTHROPIC_API_KEY`, set `OPENAI_API_KEY`, use `--provider ollama`, or run `--provider none`.
+- Parse failures: run with `--verbose` to see file paths and parser reasons.
+- CI or accessibility output: use `--no-color` and prefer `--json` for automation.
 
-## Example scans
+## Contributing
 
-```bash
-cd architect-cli
-npx tsx src/cli/index.ts scan tests/fixtures/messy-express --no-color
-```
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for local setup, tests, coding expectations, pull requests, and issue reporting.
 
-Expected highlights:
+## License
 
-- A `Detected architecture` section identifies `Express.js REST API (express-api)`
-- A `Structure comparison` section lists missing Express layers such as routes, controllers, and services
-- A `Concern classification` section reports skipped mode unless an AI provider is configured
-- A `Health report` section reports full or partial score state and dimension breakdown
-- A `Ranked issues` section lists critical and warning findings with suggested next actions
-- A `Next step` section points to `architect plan` for a refactoring roadmap
-
-```bash
-cd architect-cli
-npx tsx src/cli/index.ts scan tests/fixtures/dependency-graph-project --no-color
-```
-
-Expected highlights:
-
-- A `Dependency insights` section is printed
-- `src/shared/format.ts` is reported as a hotspot depended on by 3 files
-- The report includes a circular dependency and at least one unreferenced file
-- The summary includes dependency hotspot and circular dependency totals
-
-```bash
-cd architect-cli
-npx tsx src/cli/index.ts scan tests/fixtures/duplicate-blocks-project --no-color
-```
-
-Expected highlights:
-
-- A `Duplication findings` section is printed
-- A duplicate block is reported for `src/a.ts` and `src/b.ts`
-- The summary includes duplicate finding and duplicated-line totals
-
-## Graceful parse skips
-
-```bash
-cd architect-cli
-npx tsx src/cli/index.ts scan tests/fixtures/broken-project --no-color
-```
-
-Expected highlights:
-
-- A parse warning is written to stderr for `broken.ts`
-- The scan still renders dependency and duplication sections plus the final summary
-- A partial-results warning is written to stderr when skipped files may affect structural findings
-- The summary reports `- Files scanned: 0` and `- Skipped files: 1`
+MIT. See the `license` field in [package.json](./package.json).

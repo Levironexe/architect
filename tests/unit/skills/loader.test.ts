@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { loadSkills } from '../../../src/skills/loader';
 
-const validSkill = `schema_version: "1.0.0"
+const validSkill = `schema_version: "2.0.0"
 id: shared-skill
 name: "Shared Skill"
 version: "1.0.0"
@@ -26,8 +26,24 @@ separation:
   rules:
     - concern: shared
       belongs_in: src/shared
+      rule_text: "Shared concerns belong in the shared source area."
+      example: |
+        export function useSharedFeature() {
+          return true;
+        }
 patterns: {}
-anti_patterns: []
+anti_patterns:
+  - id: shared_smell
+    severity: warning
+    description: "Shared logic should not sprawl across unrelated files."
+    bad_example: |
+      export const doEverything = () => {
+        console.log('shared');
+      };
+    good_example: |
+      export function useSharedFeature() {
+        return true;
+      }
 `;
 
 describe('loadSkills', () => {
@@ -43,6 +59,23 @@ describe('loadSkills', () => {
     expect(result.skills.map((skill) => skill.id)).toEqual(['shared-skill']);
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]?.message).toContain('schema_version');
+  });
+
+  it('rejects skills that omit required guidance fields', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'architect-skills-'));
+    const builtInDir = path.join(root, 'built-in');
+    await fs.mkdir(builtInDir, { recursive: true });
+    await fs.writeFile(path.join(builtInDir, 'valid.skill.yaml'), validSkill);
+    await fs.writeFile(
+      path.join(builtInDir, 'missing-guidance.skill.yaml'),
+      validSkill.replace('rule_text: "Shared concerns belong in the shared source area."\n', '')
+    );
+
+    const result = await loadSkills({ builtInDir, userDir: path.join(root, 'missing-user-dir') });
+
+    expect(result.skills.map((skill) => skill.id)).toEqual(['shared-skill']);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]?.file).toContain('missing-guidance.skill.yaml');
   });
 
   it('lets valid user-installed skills override built-ins with the same id', async () => {

@@ -115,11 +115,10 @@ export interface ScanSummary {
   scanDurationMs: number;
 }
 
-import type { FullScoreBreakdown, ScoreBreakdown } from './scoring.js';
+import type { ScoreBreakdown } from './scoring.js';
 import type { SkillMatch, SkillWarning, StructureComparison } from './skill.js';
-import type { ClassificationStatus, ConcernClassification } from './concern.js';
-import type { PatternFinding } from './pattern.js';
 import type { ReportGuidance, ReportIssue } from './issue.js';
+import type { ScanDiagnostic, ScanWarning, SkippedInput } from './scan-output.js';
 
 export interface ScanResult {
   summary: ScanSummary;
@@ -131,13 +130,11 @@ export interface ScanResult {
   matchedSkills?: SkillMatch[];
   structureComparison?: StructureComparison | null;
   scores?: ScoreBreakdown;
-  health?: FullScoreBreakdown['health'];
-  dimensions?: FullScoreBreakdown['dimensions'];
-  patternFindings?: PatternFinding[];
   issues?: ReportIssue[];
   guidance?: ReportGuidance;
-  classifications?: ConcernClassification[];
-  classificationStatus?: ClassificationStatus;
+  warnings?: ScanWarning[];
+  diagnostics?: ScanDiagnostic[];
+  skippedInputs?: SkippedInput[];
 }
 
 export interface ScanOptions {

@@ -175,14 +175,16 @@ function parseSeparation(value: unknown): ArchitectureSkill['separation'] | null
 
     const concern = readString(item, 'concern');
     const belongsIn = readString(item, 'belongs_in');
+    const ruleText = readString(item, 'rule_text');
+    const example = readString(item, 'example');
     const indicators = item.indicators === undefined ? undefined : readStringArray(item.indicators);
     const antiIndicators = item.anti_indicators === undefined ? undefined : readStringArray(item.anti_indicators);
 
-    if (!concern || !belongsIn || indicators === null || antiIndicators === null) {
+    if (!concern || !belongsIn || !ruleText || !example || indicators === null || antiIndicators === null) {
       return null;
     }
 
-    rules.push({ concern, belongsIn, indicators, antiIndicators });
+    rules.push({ concern, belongsIn, ruleText, example, indicators, antiIndicators });
   }
 
   return { rules };
@@ -243,12 +245,20 @@ function parseAntiPatterns(value: unknown): AntiPattern[] | null {
     const id = readString(item, 'id');
     const severity = readString(item, 'severity');
     const description = readString(item, 'description');
+    const badExample = readString(item, 'bad_example');
+    const goodExample = readString(item, 'good_example');
 
-    if (!id || !severity || !description || !SEVERITIES.has(severity)) {
+    if (!id || !severity || !description || !badExample || !goodExample || !SEVERITIES.has(severity)) {
       return null;
     }
 
-    antiPatterns.push({ id, severity: severity as AntiPattern['severity'], description });
+    antiPatterns.push({
+      id,
+      severity: severity as AntiPattern['severity'],
+      description,
+      badExample,
+      goodExample
+    });
   }
 
   return antiPatterns;

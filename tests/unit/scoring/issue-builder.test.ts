@@ -2,35 +2,64 @@ import { describe, expect, it } from 'vitest';
 
 import { buildIssues, createReportGuidance } from '../../../src/scoring/issue-builder';
 import type { ScanResult } from '../../../src/types/analysis';
-import { classification } from './scoring-fixtures';
 
 describe('issue builder', () => {
-  it('sorts critical issues before warnings and info-like lower priority entries', () => {
+  it('sorts critical issues before warnings', () => {
     const issues = buildIssues(createResult());
 
     expect(issues[0]?.severity).toBe('critical');
     expect(issues.every((issue) => issue.suggestion.length > 0)).toBe(true);
-    expect(issues.map((issue) => issue.category)).toContain('separation');
-    expect(issues.map((issue) => issue.category)).toContain('complexity');
+  });
+
+  it('flags oversized files as critical modularity issues', () => {
+    const issues = buildIssues(createResult());
+    const oversizedIssue = issues.find((issue) => issue.category === 'modularity');
+
+    expect(oversizedIssue).toBeDefined();
+    expect(oversizedIssue?.severity).toBe('critical');
+  });
+
+  it('flags high-complexity functions as warnings', () => {
+    const issues = buildIssues(createResult());
+    const complexityIssue = issues.find((issue) => issue.category === 'complexity');
+
+    expect(complexityIssue).toBeDefined();
+    expect(complexityIssue?.severity).toBe('warning');
+  });
+
+  it('flags high duplication as an issue', () => {
+    const result = createResult();
+    result.duplication.duplicationPercentage = 20;
+
+    const issues = buildIssues(result);
+    const dupIssue = issues.find((issue) => issue.category === 'duplication');
+
+    expect(dupIssue).toBeDefined();
+  });
+
+  it('does not create separation or consistency issues (no LLM)', () => {
+    const issues = buildIssues(createResult());
+
+    expect(issues.find((issue) => issue.category === 'separation')).toBeUndefined();
+    expect(issues.find((issue) => issue.category === 'consistency')).toBeUndefined();
   });
 
   it('does not create false critical issues for clean results', () => {
     const clean = createResult();
     clean.files[0] = { ...clean.files[0]!, isOversized: false, loc: 20, functions: [] };
-    clean.classifications = [classification('src/service.ts', ['business_logic'])];
-    clean.patternFindings = [];
     clean.duplication.duplicationPercentage = 0;
     clean.dependencyGraph.hotspots = [];
 
     expect(buildIssues(clean).filter((issue) => issue.severity === 'critical')).toEqual([]);
   });
 
-  it('creates roadmap guidance', () => {
+  it('creates guidance without a plan command reference', () => {
     const result = createResult();
     result.issues = buildIssues(result);
+    const guidance = createReportGuidance(result);
 
-    expect(createReportGuidance(result).command).toBe('architect plan');
-    expect(createReportGuidance(result).message).toContain('Critical');
+    expect(guidance.message).toContain('Critical');
+    expect(guidance.command).toBeUndefined();
   });
 });
 
@@ -90,17 +119,6 @@ function createResult(): ScanResult {
       duplicatedLines: 0,
       duplicationPercentage: 20,
       isPartial: false
-    },
-    classifications: [classification('src/app.ts', ['routing', 'validation', 'data_access'])],
-    patternFindings: [
-      {
-        concern: 'data_access',
-        dominantPattern: 'repository',
-        patternCount: 3,
-        deviations: [{ location: 'src/app.ts', pattern: 'inline', expectedPattern: 'repository' }],
-        confidence: 'low',
-        reason: '3 patterns detected'
-      }
-    ]
+    }
   };
 }

@@ -1,71 +1,71 @@
 import { describe, expect, it } from 'vitest';
 
+import { calculateHealthScore, clampScore, labelForScore } from '../../../src/scoring/health-score';
 import { scoreDuplication } from '../../../src/scoring/duplication-score';
-import { calculateHealthScore, calculatePartialHealthScore, clampScore, labelForScore, unavailableDimension } from '../../../src/scoring/health-score';
 import { scoreModularity } from '../../../src/scoring/modularity-score';
-import { dimension } from './scoring-fixtures';
 
-describe('calculatePartialHealthScore', () => {
-  it('combines modularity and duplication using available weights', () => {
-    const result = calculatePartialHealthScore(
-      { score: 70, weight: 25, label: 'warning', reasons: [] },
-      { score: 100, weight: 20, label: 'healthy', reasons: [] }
+describe('calculateHealthScore', () => {
+  it('computes overall score as 50/50 weighted average of modularity and duplication', () => {
+    const result = calculateHealthScore(
+      { score: 80, weight: 50, label: 'healthy', reasons: [] },
+      { score: 60, weight: 50, label: 'warning', reasons: [] }
     );
 
-    expect(result.availableWeight).toBe(45);
-    expect(result.partialHealthScore).toBe(83);
+    expect(result.overall).toBe(70);
+    expect(result.label).toBe('warning');
   });
 
-  it('can be composed from dimension scorers', () => {
-    const result = calculatePartialHealthScore(
+  it('returns healthy label when both dimensions are high', () => {
+    const result = calculateHealthScore(
+      { score: 100, weight: 50, label: 'healthy', reasons: [] },
+      { score: 100, weight: 50, label: 'healthy', reasons: [] }
+    );
+
+    expect(result.overall).toBe(100);
+    expect(result.label).toBe('healthy');
+  });
+
+  it('returns critical label when both dimensions are low', () => {
+    const result = calculateHealthScore(
+      { score: 20, weight: 50, label: 'critical', reasons: [] },
+      { score: 10, weight: 50, label: 'critical', reasons: [] }
+    );
+
+    expect(result.overall).toBe(15);
+    expect(result.label).toBe('critical');
+  });
+
+  it('includes modularity and duplication sub-scores in result', () => {
+    const modularity = { score: 90, weight: 50, label: 'healthy' as const, reasons: ['ok'] };
+    const duplication = { score: 70, weight: 50, label: 'warning' as const, reasons: ['10% dup'] };
+    const result = calculateHealthScore(modularity, duplication);
+
+    expect(result.modularity).toBe(modularity);
+    expect(result.duplication).toBe(duplication);
+  });
+
+  it('can be composed from real dimension scorers', () => {
+    const result = calculateHealthScore(
       scoreModularity([]),
       scoreDuplication({ findings: [], duplicatedLines: 0, duplicationPercentage: 0, isPartial: false })
     );
 
-    expect(result.partialHealthScore).toBeGreaterThan(0);
+    expect(result.overall).toBeGreaterThan(0);
+    expect(['healthy', 'warning', 'critical']).toContain(result.label);
   });
 });
 
 describe('health score helpers', () => {
-  it('clamps scores and maps labels consistently', () => {
+  it('clamps scores to 0-100 range', () => {
     expect(clampScore(110)).toBe(100);
     expect(clampScore(-5)).toBe(0);
+    expect(clampScore(75)).toBe(75);
+  });
+
+  it('maps score thresholds to correct labels', () => {
     expect(labelForScore(80)).toBe('healthy');
+    expect(labelForScore(79)).toBe('warning');
     expect(labelForScore(50)).toBe('warning');
     expect(labelForScore(49)).toBe('critical');
-  });
-
-  it('creates unavailable dimensions without scoring them as failures', () => {
-    const result = unavailableDimension('separation', 30, 'classification unavailable');
-
-    expect(result.score).toBeNull();
-    expect(result.label).toBe('unavailable');
-    expect(result.state).toBe('unavailable');
-  });
-
-  it('combines all dimensions into a complete weighted health score', () => {
-    const result = calculateHealthScore({
-      separation: dimension('separation', 70, 30),
-      consistency: dimension('consistency', 40, 25),
-      modularity: dimension('modularity', 100, 25),
-      duplication: dimension('duplication', 100, 20)
-    });
-
-    expect(result.health.state).toBe('complete');
-    expect(result.health.score).toBe(76);
-    expect(result.health.label).toBe('warning');
-  });
-
-  it('marks missing dimensions as partial and excludes them from weighted calculation', () => {
-    const result = calculateHealthScore({
-      separation: unavailableDimension('separation', 30, 'classification unavailable'),
-      consistency: unavailableDimension('consistency', 25, 'pattern evidence unavailable'),
-      modularity: dimension('modularity', 60, 25),
-      duplication: dimension('duplication', 100, 20)
-    });
-
-    expect(result.health.state).toBe('partial');
-    expect(result.health.availableWeight).toBe(45);
-    expect(result.health.score).toBe(78);
   });
 });
