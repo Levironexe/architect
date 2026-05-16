@@ -1,11 +1,13 @@
 schema_version: "2.0.0"
 id: s3-storage
 name: "AWS S3 / R2 Storage"
-version: "1.0.0"
-description: "Object storage with pre-signed URLs for direct browser uploads, key-based references, and server-side S3 client."
+version: "2.0.0"
+description: "Object storage with pre-signed URLs for direct browser uploads, key-based DB references, server-side S3 client singleton, file type validation before signing, and secure download URLs."
 category: pattern
 language: javascript
 frameworks: []
+dependencies:
+  none: []
 detection:
   dependencies:
     any:
@@ -16,89 +18,218 @@ detection:
     - "PutObjectCommand"
     - "getSignedUrl"
     - "from '@aws-sdk/client-s3'"
+    - "s3-request-presigner"
 structure:
   required_dirs: []
   recommended_dirs:
     - path: src/lib
-      purpose: "S3 client singleton configuration — imported by services only."
+      purpose: "S3 client singleton in s3.ts — the only file that calls `new S3Client()`. Reads credentials from environment variables (or IAM role when deployed on EC2/ECS). Imported by the upload service only — never by route handlers or components directly."
     - path: src/services
-      purpose: "Upload and download service logic — generates pre-signed URLs and manages object keys."
+      purpose: "Upload and download service logic in upload.service.ts — createUploadUrl() generates a pre-signed PUT URL, createDownloadUrl() generates a pre-signed GET URL. Validates allowed MIME types before generating the URL to prevent arbitrary file uploads."
 separation:
   rules:
     - concern: presigned_urls
       belongs_in: src/services
-      rule_text: "Never proxy file bytes through your server. The upload flow is: (1) client requests a pre-signed PUT URL from your API, (2) client uploads directly to S3, (3) client notifies your API with the S3 key. This avoids server memory pressure and bandwidth costs."
+      rule_text: "Never proxy file bytes through your server. The upload flow is: (1) client calls your API to request a pre-signed PUT URL, (2) client uploads directly to S3 using that URL, (3) client notifies your API with the S3 key after upload completes. Server memory is never touched by file bytes."
       example: |
         // src/services/upload.service.ts
         import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-        import { PutObjectCommand } from '@aws-sdk/client-s3';
+        import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
         import { s3 } from '@/lib/s3';
-        export async function createUploadUrl(filename: string, contentType: string) {
-          const key = `uploads/${Date.now()}-${filename}`;
-          const url = await getSignedUrl(s3, new PutObjectCommand({
-            Bucket: process.env.S3_BUCKET, Key: key, ContentType: contentType
-          }), { expiresIn: 300 });
+        import { randomUUID } from 'crypto';
+
+        const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+        export async function createUploadUrl(originalFilename: string, contentType: string) {
+          // Validate MIME type server-side before signing
+          if (!ALLOWED_MIME_TYPES.includes(contentType)) {
+            throw new Error(`File type ${contentType} is not allowed`);
+          }
+          // Randomize key to prevent path traversal and name collisions
+          const ext = originalFilename.split('.').pop();
+          const key = `uploads/${randomUUID()}.${ext}`;
+          const url = await getSignedUrl(
+            s3,
+            new PutObjectCommand({
+              Bucket: process.env.S3_BUCKET!,
+              Key: key,
+              ContentType: contentType, // required: browser upload rejects 403 without this
+            }),
+            { expiresIn: 300 } // 5 minutes — enough for large files, short enough to limit misuse
+          );
           return { url, key };
         }
+
+        export async function createDownloadUrl(key: string) {
+          return getSignedUrl(
+            s3,
+            new GetObjectCommand({ Bucket: process.env.S3_BUCKET!, Key: key }),
+            { expiresIn: 3600 } // 1 hour
+          );
+        }
+      indicators:
+        - "getSignedUrl"
+        - "PutObjectCommand"
+        - "expiresIn"
     - concern: key_storage
       belongs_in: src/models
-      rule_text: "Store the S3 object key (e.g. uploads/1234-photo.jpg) in your database — NOT the full S3 URL. Generate signed download URLs on-demand. This allows bucket migration without changing stored data."
+      rule_text: "Store the S3 object key (e.g. `uploads/abc123.jpg`) in your database — NOT the full S3 URL. Generate signed download URLs on-demand when serving the file to clients. This allows bucket migration, CDN changes, and URL policy changes without data migrations."
       example: |
-        // ✓ Store key only
-        await db.update({ avatarKey: 'uploads/1234-photo.jpg' });
-        // ✓ Generate download URL when needed
-        const downloadUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: BUCKET, Key: avatarKey }));
+        // ✓ Store key in DB — not the full URL
+        await db.user.update({
+          where: { id: userId },
+          data: { avatarKey: 'uploads/abc123-abc.jpg' }, // key only
+        });
+
+        // ✓ Generate download URL on-demand in an API response
+        const user = await db.user.findUnique({ where: { id: userId } });
+        const avatarUrl = user.avatarKey
+          ? await createDownloadUrl(user.avatarKey)
+          : null;
+        return { ...user, avatarUrl }; // URL expires — never cached in DB
+      indicators:
+        - "avatarKey"
+        - "fileKey"
+        - "imageKey"
+        - "objectKey"
     - concern: client_singleton
       belongs_in: src/lib
-      rule_text: "Create the S3 client singleton in src/lib/s3.ts. Never instantiate S3Client outside this file. AWS credentials must come from environment variables — never hardcoded."
+      rule_text: "Create the S3 client as a module-level singleton in src/lib/s3.ts. Never call `new S3Client()` outside this file. Credentials must come from environment variables or an IAM instance role — never hardcoded."
       example: |
         // src/lib/s3.ts
         import { S3Client } from '@aws-sdk/client-s3';
-        export const s3 = new S3Client({ region: process.env.AWS_REGION! });
+
+        // Singleton: AWS SDK reuses HTTP connections for performance
+        export const s3 = new S3Client({
+          region: process.env.AWS_REGION ?? 'us-east-1',
+          // No credentials field: uses AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY env vars
+          // or IAM instance role automatically
+        });
       anti_indicators:
         - "new S3Client({"
+    - concern: upload_confirmation
+      belongs_in: src/api
+      rule_text: "After the client uploads directly to S3, it must call your API with the key to confirm the upload. Your API then validates that the key actually exists in S3 before storing it in the database. Without confirmation, an attacker can store arbitrary S3 keys pointing to non-existent or malicious objects."
+      example: |
+        // app/api/upload/confirm/route.ts
+        import { HeadObjectCommand } from '@aws-sdk/client-s3';
+        import { s3 } from '@/lib/s3';
+
+        export async function POST(req: Request) {
+          const { key } = await req.json();
+          // Validate that the object actually exists in S3 before saving key to DB
+          await s3.send(new HeadObjectCommand({ Bucket: process.env.S3_BUCKET!, Key: key }));
+          // Only now save to DB
+          await db.user.update({ where: { id: userId }, data: { avatarKey: key } });
+          return Response.json({ success: true });
+        }
+      indicators:
+        - "HeadObjectCommand"
+        - "confirm"
 patterns:
   data_flow:
-    direction: "Client requests presigned URL → API generates URL → Client uploads directly to S3 → Client notifies API with key"
+    direction: "Client → POST /upload/presign (server validates MIME) → S3 pre-signed PUT URL → Client uploads directly to S3 → Client POST /upload/confirm → Server verifies object exists → DB stores key"
     rules:
       - "File bytes never touch your server — client uploads directly to S3."
-      - "Store S3 object keys in DB, not full URLs."
-      - "Generate download URLs on-demand with short expiry."
+      - "Validate MIME type in createUploadUrl() before generating the signed URL."
+      - "Store S3 object keys in DB — generate signed download URLs on-demand."
+      - "Confirm uploads server-side with HeadObjectCommand before persisting the key."
+      - "Set ContentType on PutObjectCommand — browsers reject pre-signed uploads without it."
   error_handling:
-    recommended: "Set Content-Type and expiresIn on all pre-signed URLs. Validate file type and size server-side before generating the URL."
+    recommended: "Catch NoSuchKey (S3ServiceException code NoSuchKey) when generating download URLs — return null or 404 if the object was deleted. Set maxFileSize on the client and validate server-side in the presign endpoint."
+  naming:
+    client: "src/lib/s3.ts — singleton S3Client; credentials from environment variables only"
+    upload_service: "src/services/upload.service.ts — createUploadUrl() and createDownloadUrl() live here"
+    key_pattern: "[folder]/[uuid].[ext] — e.g. uploads/a1b2c3d4-ef56-7890-abcd-ef1234567890.jpg"
 anti_patterns:
   - id: proxy_upload
     severity: warning
-    description: "Receiving uploaded files in your server and re-uploading to S3 — doubles bandwidth cost, risks memory exhaustion, and adds latency."
+    description: "Receiving uploaded files in your server and re-uploading to S3 — doubles bandwidth cost, risks memory exhaustion on large files, and adds significant latency. A 50 MB file received by your server means 100 MB of total bandwidth usage."
     bad_example: |
       // ❌ File received by server, then uploaded to S3
       app.post('/upload', upload.single('file'), async (req, res) => {
-        await s3.send(new PutObjectCommand({ Body: req.file.buffer, Bucket: BUCKET, Key: key }));
-        res.json({ key });
+        await s3.send(new PutObjectCommand({
+          Body: req.file.buffer, // 50 MB in server RAM
+          Bucket: process.env.S3_BUCKET,
+          Key: `uploads/${req.file.originalname}`,
+        }));
+        res.json({ key: `uploads/${req.file.originalname}` });
       });
     good_example: |
       // ✓ Server generates presigned URL — client uploads directly
       app.post('/upload/presign', async (req, res) => {
         const { url, key } = await createUploadUrl(req.body.filename, req.body.contentType);
-        res.json({ url, key });
+        res.json({ url, key }); // file never touches server
       });
   - id: store_full_url
     severity: warning
-    description: "Storing full S3 URLs in the database — breaks when bucket, region, or CDN changes. The URL becomes stale and requires a data migration."
+    description: "Storing full S3 URLs in the database — breaks when bucket, region, CDN domain, or URL signing policy changes. Migrating data is expensive; migrating a key column is trivial."
     bad_example: |
-      // ❌ Full URL stored — breaks on bucket or CDN migration
-      await db.update({ avatarUrl: 'https://my-bucket.s3.us-east-1.amazonaws.com/uploads/photo.jpg' });
-    good_example: |
-      // ✓ Store key only — generate URL on demand
-      await db.update({ avatarKey: 'uploads/1234-photo.jpg' });
-  - id: hardcoded_credentials
-    severity: critical
-    description: "Embedding AWS access keys directly in source code — exposes credentials in git history and to anyone with repo access."
-    bad_example: |
-      // ❌ Hardcoded credentials — major security risk
-      new S3Client({
-        credentials: { accessKeyId: 'AKIA...', secretAccessKey: 'abc123...' }
+      // ❌ Full URL stored — breaks on bucket migration or CDN change
+      await db.user.update({
+        where: { id: userId },
+        data: { avatarUrl: 'https://my-bucket.s3.us-east-1.amazonaws.com/uploads/photo.jpg' },
       });
     good_example: |
-      // ✓ Credentials from environment or IAM role — no hardcoding
+      // ✓ Store key only — generate signed URL on every read
+      await db.user.update({
+        where: { id: userId },
+        data: { avatarKey: 'uploads/abc123.jpg' },
+      });
+  - id: hardcoded_credentials
+    severity: critical
+    description: "Embedding AWS access keys directly in source code or committing them in .env files. Secrets in git history are permanent — even if removed in a later commit, they remain in git log and forks."
+    bad_example: |
+      // ❌ Hardcoded credentials — leaked in git history forever
+      new S3Client({
+        region: 'us-east-1',
+        credentials: {
+          accessKeyId: 'AKIAIOSFODNN7EXAMPLE',
+          secretAccessKey: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+        },
+      });
+    good_example: |
+      // ✓ AWS SDK reads credentials from environment automatically
+      // Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in .env (never committed)
+      // or use IAM role on EC2/ECS — no credentials needed in code
       new S3Client({ region: process.env.AWS_REGION });
+  - id: missing_content_type_on_presign
+    severity: warning
+    description: "Generating a pre-signed PutObjectCommand without setting ContentType. S3 pre-signed URLs are signed against specific request parameters — if ContentType is in the signature but the browser upload omits or changes it, S3 returns a 403 Forbidden."
+    bad_example: |
+      // ❌ No ContentType — browser upload fails with 403
+      const url = await getSignedUrl(s3, new PutObjectCommand({
+        Bucket: process.env.S3_BUCKET,
+        Key: key,
+        // Missing: ContentType
+      }), { expiresIn: 300 });
+    good_example: |
+      // ✓ ContentType in the command matches what the browser will send
+      const url = await getSignedUrl(s3, new PutObjectCommand({
+        Bucket: process.env.S3_BUCKET,
+        Key: key,
+        ContentType: contentType, // e.g. 'image/jpeg'
+      }), { expiresIn: 300 });
+      // Client must set 'Content-Type': contentType header when PUT-ing to this URL
+  - id: no_file_type_validation
+    severity: critical
+    description: "Generating a pre-signed upload URL without validating the file's MIME type server-side. An attacker can request a signed URL for a .exe, .html (phishing), or .svg (XSS) file and upload it to your bucket — it will be served from your domain."
+    bad_example: |
+      // ❌ No MIME type validation — attacker uploads malware.exe to your S3 bucket
+      export async function POST(req: Request) {
+        const { filename, contentType } = await req.json();
+        // contentType can be anything the client sends
+        const url = await getSignedUrl(s3, new PutObjectCommand({
+          Bucket: process.env.S3_BUCKET, Key: `uploads/${filename}`, ContentType: contentType,
+        }), { expiresIn: 300 });
+        return Response.json({ url });
+      }
+    good_example: |
+      // ✓ Validate against allowlist before signing
+      const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+      export async function POST(req: Request) {
+        const { filename, contentType } = await req.json();
+        if (!ALLOWED.has(contentType)) return Response.json({ error: 'File type not allowed' }, { status: 400 });
+        const { url, key } = await createUploadUrl(filename, contentType);
+        return Response.json({ url, key });
+      }

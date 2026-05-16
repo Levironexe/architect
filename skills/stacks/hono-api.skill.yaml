@@ -1,7 +1,7 @@
 schema_version: "2.0.0"
 id: hono-api
 name: "Hono API"
-version: "1.0.0"
+version: "1.1.0"
 description: "Lightweight, edge-first Hono API with Zod validation, platform-agnostic handlers, and middleware chaining."
 category: stack
 language: javascript
@@ -33,12 +33,17 @@ structure:
     - path: src/types
       purpose: "Shared TypeScript interfaces and error types."
     - path: src/lib
-      purpose: "Client singletons and environment configuration."
+      purpose: "Singleton instances (database connections, KV clients) initialized once and reused across the app. Environment parsing and config validation live here. No route definitions or business logic."
 separation:
   rules:
     - concern: routing
       belongs_in: src/routes
       rule_text: "Route files define HTTP endpoints and call services. Use Hono's zValidator middleware for input validation. No business logic or DB queries in route handlers."
+      indicators:
+        - "new Hono()"
+        - ".get("
+        - ".post("
+        - "zValidator"
       example: |
         // src/routes/users.ts
         import { Hono } from 'hono';
