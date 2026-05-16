@@ -1,7 +1,7 @@
 schema_version: "2.0.0"
 id: express-api
 name: "Express.js REST API"
-version: "1.0.0"
+version: "1.1.0"
 description: "Layered Express REST API with routing, request handling, business logic, data access, middleware, configuration, and utilities separated."
 category: stack
 language: javascript
@@ -95,7 +95,7 @@ patterns:
       - "Controllers call services."
       - "Services do not import request or response objects."
   naming:
-    files: "Use consistent camelCase or kebab-case file names."
+    files: "Use kebab-case for all file names. Suffix by layer: users.route.ts, users.controller.ts, users.service.ts, users.model.ts, auth.middleware.ts."
     controllers: "[resource].controller.ts"
     services: "[resource].service.ts"
 anti_patterns:
@@ -109,7 +109,20 @@ anti_patterns:
         res.status(201).json(user);
       });
     good_example: |
+      // src/routes/users.ts — route only delegates
       router.post('/users', UserController.create);
+
+      // src/controllers/users.controller.ts — translates HTTP to plain data
+      export async function create(req: Request, res: Response) {
+        const user = await userService.createUser(req.body);
+        res.status(201).json(user);
+      }
+
+      // src/services/users.service.ts — business rules, no HTTP awareness
+      export async function createUser(input: CreateUserDTO) {
+        const hash = await bcrypt.hash(input.password, 10);
+        return userModel.create({ ...input, password: hash });
+      }
   - id: raw_sql_in_routes
     severity: warning
     description: "SQL queries appear directly in route handlers."
@@ -126,4 +139,17 @@ anti_patterns:
     bad_example: |
       const jwtSecret = 'super-secret-key';
     good_example: |
+      // src/config/index.ts — validated at startup, never scattered across the app
+      import { z } from 'zod';
+      const env = z.object({
+        JWT_SECRET: z.string().min(32),
+        DATABASE_URL: z.string().url(),
+      }).parse(process.env);
+      export const config = {
+        auth: { jwtSecret: env.JWT_SECRET },
+        db: { url: env.DATABASE_URL },
+      };
+
+      // In middleware — reads from config, not from process.env
+      import { config } from '@/config';
       const jwtSecret = config.auth.jwtSecret;

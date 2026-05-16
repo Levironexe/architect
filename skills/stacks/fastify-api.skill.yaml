@@ -1,7 +1,7 @@
 schema_version: "2.0.0"
 id: fastify-api
 name: "Fastify API"
-version: "1.0.0"
+version: "1.1.0"
 description: "High-performance Fastify API with plugin architecture, TypeBox schema validation, and decorator patterns."
 category: stack
 language: javascript
@@ -51,13 +51,18 @@ separation:
         - "@sinclair/typebox"
     - concern: plugins
       belongs_in: src/plugins
-      rule_text: "Encapsulate cross-cutting concerns as Fastify plugins. Register DB clients, auth decorators, and shared utilities as plugins — not inline in route handlers."
+      rule_text: "Encapsulate cross-cutting concerns as Fastify plugins. Register DB clients, auth decorators, and shared utilities as plugins — not inline in route handlers. Use fastify-plugin (fp) to avoid scope encapsulation so decorators are visible across the entire app."
       example: |
         // src/plugins/db.ts
         import fp from 'fastify-plugin';
         export default fp(async (fastify) => {
           fastify.decorate('db', drizzle(connection));
         });
+      indicators:
+        - "fastify-plugin"
+        - "fp("
+        - "fastify.decorate"
+        - "fastify.register"
     - concern: services
       belongs_in: src/services
       rule_text: "Services must not import Fastify types (FastifyRequest, FastifyReply). They receive plain objects and return plain data."
