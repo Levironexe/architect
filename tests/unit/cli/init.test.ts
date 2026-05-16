@@ -22,10 +22,10 @@ describe('init command', () => {
   });
 
   it('writes Claude guidance files for the messy-express fixture', async () => {
-    mkdirSync(path.join(tempDir, '.claude'));
+    mkdirSync(path.join(tempDir, '.claude'), { recursive: true });
 
     const output = await captureOutput(async () => {
-      const exitCode = await runCli(['init', tempDir, '--integration', 'claude']);
+      const exitCode = await runCli(['init', tempDir, '--integration', 'claude', '--update']);
       expect(exitCode).toBe(0);
     });
 
@@ -42,13 +42,13 @@ describe('init command', () => {
 
   it('supports explicit skill override and generic fallback output', async () => {
     const output = await captureOutput(async () => {
-      const exitCode = await runCli(['init', tempDir, '--skill', 'general-js']);
+      const exitCode = await runCli(['init', tempDir, '--skill', 'general-js', '--integration', 'generic', '--update']);
       expect(exitCode).toBe(0);
     });
 
     const genericPlanPath = path.join(tempDir, '.architect/skills/architect-plan/SKILL.md');
 
-    expect(output.stderr).toContain('No known agent integration detected; using generic output.');
+    expect(output.stderr).toBe('');
     expect(output.stdout).toContain('Initialized generic guidance with skill general-js');
     expect(existsSync(genericPlanPath)).toBe(true);
     expect(readFileSync(genericPlanPath, 'utf8')).toContain('General JavaScript/TypeScript');
@@ -71,7 +71,7 @@ describe('init command', () => {
   });
 
   it('warns before overwriting existing files and respects --update', async () => {
-    mkdirSync(path.join(tempDir, '.claude'));
+    mkdirSync(path.join(tempDir, '.claude'), { recursive: true });
     const existingPath = path.join(tempDir, '.claude/skills/architect-plan/SKILL.md');
     mkdirSync(path.dirname(existingPath), { recursive: true });
     writeFileSync(existingPath, 'existing plan', 'utf8');

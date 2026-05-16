@@ -1,0 +1,99 @@
+schema_version: "2.0.0"
+id: vercel-deploy
+name: "Vercel"
+version: "1.0.0"
+description: "Vercel deployment — environment variable management, serverless function limits, and edge runtime rules."
+category: pattern
+language: javascript
+frameworks: []
+detection:
+  files:
+    - vercel.json
+    - .vercel
+  source_indicators:
+    - "VERCEL_URL"
+    - "vercel.json"
+    - "@vercel/og"
+structure:
+  required_dirs: []
+  recommended_dirs:
+    - path: .vercel
+      purpose: "Vercel project configuration — auto-generated, do not edit manually."
+separation:
+  rules:
+    - concern: env_variables
+      belongs_in: vercel.json
+      rule_text: "Store all secrets in Vercel's environment variable dashboard — not in vercel.json or committed .env files. Reference them in code via process.env. Use NEXT_PUBLIC_ prefix only for values safe to expose to the browser."
+      example: |
+        // vercel.json — only non-secret build config, no secrets
+        {
+          "buildCommand": "npm run build",
+          "outputDirectory": ".next"
+        }
+        // Secrets set via: vercel env add DATABASE_URL production
+      anti_indicators:
+        - "\"env\":"
+        - "\"DATABASE_URL\":"
+    - concern: serverless_function_limits
+      belongs_in: app/api
+      rule_text: "Vercel serverless functions have a 50MB bundle limit and 10-second default timeout (30s on Pro). Avoid importing heavy dependencies (like Puppeteer, Sharp, FFmpeg) in API routes — use edge functions or external services instead."
+      example: |
+        // ✓ Lightweight API route — no heavy native deps
+        export async function GET() {
+          const data = await fetch('https://api.example.com/data').then(r => r.json());
+          return Response.json(data);
+        }
+    - concern: edge_runtime
+      belongs_in: middleware.ts
+      rule_text: "Use the Edge Runtime (export const runtime = 'edge') for middleware and low-latency routes. Edge functions cannot use Node.js APIs — use the Web API equivalents (fetch, crypto, Request, Response)."
+      example: |
+        // middleware.ts
+        export const config = { matcher: ['/((?!_next|favicon.ico).*)'] };
+        // Edge-compatible — no Node.js APIs
+patterns:
+  data_flow:
+    direction: "Git Push → Vercel Build → Serverless Function / Edge Function → Response"
+    rules:
+      - "Production secrets are set in Vercel dashboard — never in committed files."
+      - "Edge functions run globally at the CDN edge — use for auth middleware and redirects."
+      - "Serverless functions are regional — use for DB queries and heavy computation."
+  error_handling:
+    recommended: "Check VERCEL_ENV environment variable to distinguish production, preview, and development environments."
+anti_patterns:
+  - id: secrets_in_vercel_json
+    severity: critical
+    description: "Putting secret values directly in vercel.json — this file is committed to the repository, exposing secrets to anyone with repo access."
+    bad_example: |
+      // ❌ Secret in vercel.json — committed to git
+      {
+        "env": {
+          "DATABASE_URL": "postgresql://user:pass@host/db"
+        }
+      }
+    good_example: |
+      // ✓ Set secrets via CLI or dashboard
+      // vercel env add DATABASE_URL production
+  - id: heavy_deps_in_api_route
+    severity: warning
+    description: "Importing large native dependencies (Puppeteer, Sharp, Canvas, FFmpeg) in API routes — exceeds the 50MB bundle limit or causes cold start timeouts."
+    bad_example: |
+      // ❌ Puppeteer in a serverless function — too large, too slow
+      import puppeteer from 'puppeteer';
+      export async function GET() {
+        const browser = await puppeteer.launch();
+      }
+    good_example: |
+      // ✓ Use a dedicated service (e.g., Browserless, Cloudinary) via API call
+      const response = await fetch('https://api.cloudinary.com/screenshot', { ... });
+  - id: node_api_in_edge
+    severity: critical
+    description: "Using Node.js APIs (fs, path, Buffer, crypto from 'crypto') in edge functions or middleware — edge runtime only supports Web APIs."
+    bad_example: |
+      // ❌ Node.js crypto in edge middleware
+      import crypto from 'crypto';
+      export function middleware(req: Request) {
+        const hash = crypto.createHash('sha256').update(req.url).digest('hex');
+      }
+    good_example: |
+      // ✓ Web Crypto API — works in edge runtime
+      const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(req.url));

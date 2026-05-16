@@ -1,0 +1,129 @@
+schema_version: "2.0.0"
+id: selenium-e2e
+name: "Selenium E2E"
+version: "1.0.0"
+description: "End-to-end testing with Selenium WebDriver — Page Object Models, explicit waits, and reusable driver factories."
+category: pattern
+language: javascript
+frameworks:
+  - selenium-webdriver
+detection:
+  dependencies:
+    any:
+      - selenium-webdriver
+      - "@selenium-devtools/expect-webdriver"
+  source_indicators:
+    - "from 'selenium-webdriver'"
+    - "new Builder()"
+    - "driver.findElement("
+    - "By.css("
+structure:
+  required_dirs:
+    - path: tests/e2e
+      purpose: "E2E test specs organized by user flow or feature."
+  recommended_dirs:
+    - path: tests/e2e/pages
+      purpose: "Page Object Models — one class per page, encapsulating locators and actions."
+    - path: tests/e2e/fixtures
+      purpose: "Driver factory and shared setup — browser configuration, teardown helpers."
+separation:
+  rules:
+    - concern: page_object_models
+      belongs_in: tests/e2e/pages
+      rule_text: "Encapsulate all locators and page interactions in Page Object Model classes. Test files call POM methods — never use driver.findElement() or By selectors directly in test files."
+      example: |
+        // tests/e2e/pages/login.page.ts
+        import { By, WebDriver } from 'selenium-webdriver';
+        export class LoginPage {
+          constructor(private driver: WebDriver) {}
+          async login(email: string, password: string) {
+            await this.driver.findElement(By.css('[data-testid="email"]')).sendKeys(email);
+            await this.driver.findElement(By.css('[data-testid="password"]')).sendKeys(password);
+            await this.driver.findElement(By.css('[type="submit"]')).click();
+          }
+        }
+        // tests/e2e/auth.spec.ts
+        const loginPage = new LoginPage(driver);
+        await loginPage.login('user@test.com', 'password');
+    - concern: explicit_waits
+      belongs_in: tests/e2e/pages
+      rule_text: "Always use explicit waits (until.elementLocated, until.elementIsVisible) instead of implicit waits or Thread.sleep(). Implicit waits mask timing issues and make tests fragile."
+      example: |
+        import { until, By } from 'selenium-webdriver';
+        // ✓ Explicit wait — fails fast when element never appears
+        const el = await driver.wait(until.elementLocated(By.css('[data-testid="result"]')), 5000);
+        await driver.wait(until.elementIsVisible(el), 3000);
+    - concern: driver_factory
+      belongs_in: tests/e2e/fixtures
+      rule_text: "Create and configure the WebDriver instance in a single factory function in tests/e2e/fixtures/. Tests must not call `new Builder()` directly — they receive the driver from the factory and call driver.quit() in afterEach."
+      example: |
+        // tests/e2e/fixtures/driver.factory.ts
+        import { Builder, WebDriver } from 'selenium-webdriver';
+        export async function createDriver(): Promise<WebDriver> {
+          return new Builder().forBrowser('chrome').build();
+        }
+        // tests/e2e/auth.spec.ts
+        let driver: WebDriver;
+        beforeEach(async () => { driver = await createDriver(); });
+        afterEach(async () => { await driver.quit(); });
+patterns:
+  data_flow:
+    direction: "Test → POM Methods → WebDriver → Browser → Application"
+    rules:
+      - "Tests call POM methods — never raw driver.findElement() calls."
+      - "Driver is created once per test in beforeEach, quit in afterEach."
+      - "Explicit waits guard every element interaction — no fixed sleeps."
+  error_handling:
+    recommended: "Wrap driver.quit() in a finally block so the browser closes even when tests fail."
+  naming:
+    specs: "[feature].spec.ts"
+    page_objects: "[page].page.ts"
+    factory: "driver.factory.ts"
+anti_patterns:
+  - id: raw_selectors_in_tests
+    severity: warning
+    description: "Using driver.findElement() and By selectors directly in test files instead of Page Object Models — brittle, hard to maintain, duplicated across tests."
+    bad_example: |
+      // ❌ Raw locator in test — breaks when selector changes
+      test('login', async () => {
+        await driver.findElement(By.css('#email')).sendKeys('user@test.com');
+        await driver.findElement(By.css('#submit')).click();
+      });
+    good_example: |
+      // ✓ POM method — one place to update when UI changes
+      test('login', async () => {
+        await loginPage.login('user@test.com', 'password');
+      });
+  - id: implicit_or_fixed_waits
+    severity: critical
+    description: "Using driver.manage().setImplicitWaitTimeout() or setTimeout() instead of explicit waits — causes race conditions on slow CI and masks real timing bugs."
+    bad_example: |
+      // ❌ Fixed sleep — arbitrary, slow, and still flaky
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      const el = await driver.findElement(By.css('#result'));
+    good_example: |
+      // ✓ Explicit wait — resolves as soon as the element appears
+      const el = await driver.wait(until.elementLocated(By.css('#result')), 5000);
+  - id: driver_not_quit
+    severity: critical
+    description: "Not calling driver.quit() after each test leaves orphaned browser processes that accumulate in CI and cause resource exhaustion."
+    bad_example: |
+      // ❌ No cleanup — browser process leaked
+      afterEach(async () => {
+        // forgot driver.quit()
+      });
+    good_example: |
+      // ✓ Always quit in finally so cleanup runs even on failure
+      afterEach(async () => {
+        try { await driver.quit(); } catch { /* already closed */ }
+      });
+  - id: new_builder_in_tests
+    severity: warning
+    description: "Calling `new Builder()` in individual test files instead of using a shared driver factory — browser options scattered across the test suite."
+    bad_example: |
+      // ❌ Builder configuration duplicated in every test file
+      driver = await new Builder().forBrowser('chrome').build();
+    good_example: |
+      // ✓ Import from shared factory
+      import { createDriver } from '../fixtures/driver.factory';
+      driver = await createDriver();

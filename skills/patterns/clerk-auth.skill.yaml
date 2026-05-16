@@ -1,0 +1,103 @@
+schema_version: "2.0.0"
+id: clerk-auth
+name: "Clerk Auth"
+version: "1.0.0"
+description: "Managed authentication with Clerk — middleware protection, server/client user access, and webhook sync."
+category: pattern
+language: javascript
+frameworks:
+  - clerk
+detection:
+  dependencies:
+    any:
+      - "@clerk/nextjs"
+      - "@clerk/clerk-sdk-node"
+      - "@clerk/clerk-react"
+  source_indicators:
+    - "ClerkProvider"
+    - "clerkMiddleware"
+    - "auth()"
+    - "currentUser()"
+structure:
+  required_dirs:
+    - path: app/api/webhooks/clerk
+      purpose: "Clerk webhook handler — syncs user creation, update, and deletion events to your database."
+  recommended_dirs:
+    - path: src/lib
+      purpose: "Clerk helper utilities and server-side auth wrappers."
+separation:
+  rules:
+    - concern: route_protection
+      belongs_in: middleware.ts
+      rule_text: "Use clerkMiddleware() in middleware.ts to protect routes. Define public routes explicitly with isPublicRoute — all other routes are protected by default."
+      example: |
+        // middleware.ts
+        import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+        const isPublicRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)']);
+        export default clerkMiddleware(async (auth, req) => {
+          if (!isPublicRoute(req)) await auth.protect();
+        });
+    - concern: server_user_access
+      belongs_in: app
+      rule_text: "In Server Components and API routes, use auth() from @clerk/nextjs/server to get the user session. Never read Clerk cookies or tokens manually."
+      example: |
+        // app/dashboard/page.tsx (Server Component)
+        import { auth } from '@clerk/nextjs/server';
+        export default async function Page() {
+          const { userId } = await auth();
+          if (!userId) redirect('/sign-in');
+        }
+    - concern: webhook_sync
+      belongs_in: app/api/webhooks/clerk
+      rule_text: "Use Svix to verify webhook signatures before processing. Sync user data to your database on user.created, user.updated, and user.deleted events."
+      example: |
+        // app/api/webhooks/clerk/route.ts
+        import { Webhook } from 'svix';
+        export async function POST(req: Request) {
+          const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET!);
+          const payload = await wh.verify(await req.text(), headers);
+          // sync to DB based on payload.type
+        }
+patterns:
+  data_flow:
+    direction: "Middleware (protect) → Server Component (auth()) → Service → Database"
+    rules:
+      - "Middleware handles route protection — no per-route auth checks needed."
+      - "Server Components use auth() or currentUser() — Client Components use useUser() or useAuth()."
+      - "Webhooks sync Clerk user data to your own database for relational queries."
+  error_handling:
+    recommended: "Redirect to /sign-in when auth().userId is null in protected server components."
+anti_patterns:
+  - id: manual_token_handling
+    severity: critical
+    description: "Manually reading, parsing, or verifying Clerk JWTs instead of using Clerk's auth() and currentUser() helpers."
+    bad_example: |
+      // ❌ Manual JWT parsing — bypasses Clerk's security checks
+      const token = req.headers.authorization?.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.CLERK_PEM_KEY);
+    good_example: |
+      // ✓ Use Clerk's auth() — handles verification automatically
+      const { userId } = await auth();
+  - id: unverified_webhook
+    severity: critical
+    description: "Processing Clerk webhook payloads without verifying the Svix signature — allows attackers to forge user events."
+    bad_example: |
+      // ❌ No signature verification
+      export async function POST(req: Request) {
+        const payload = await req.json();
+        await syncUser(payload); // anyone can call this
+      }
+    good_example: |
+      // ✓ Verify signature with Svix before processing
+      const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET!);
+      const event = wh.verify(body, svixHeaders);
+  - id: client_component_auth_check
+    severity: warning
+    description: "Using useUser() or useAuth() hooks to gate protected content in Client Components — client-side auth can be bypassed. Use middleware or server-side auth() instead."
+    bad_example: |
+      // ❌ Client-side auth check — bypassable
+      const { isSignedIn } = useAuth();
+      if (!isSignedIn) return null; // user sees the component flash
+    good_example: |
+      // ✓ Protect at middleware or Server Component level
+      // middleware.ts handles this before the page renders

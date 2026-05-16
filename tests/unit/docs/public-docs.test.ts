@@ -11,20 +11,19 @@ describe('public documentation readiness', () => {
   it('documents README essentials for first-time users', () => {
     const readme = readProjectFile('README.md');
 
-    expect(readme).toContain('## Installation');
-    expect(readme).toContain('npm install -g architect-cli');
-    expect(readme).toContain('## Quick Start');
-    expect(readme).toContain('## Command Reference');
-    expect(readme).toContain('--threshold');
-    expect(readme).toContain('--provider');
+    expect(readme).toContain('npm install -g @levironexe/architect');
+    expect(readme).toContain('architect init .');
+    expect(readme).toContain('/architect-plan');
+    expect(readme).toContain('/architect-refactor');
+    expect(readme).toContain('Quick Start');
+    expect(readme).toContain('Command Reference');
     expect(readme).toContain('--json');
     expect(readme).toContain('--verbose');
     expect(readme).toContain('--no-color');
-    expect(readme).toContain('## Scoring Model');
-    expect(readme).toContain('## LLM Provider Setup');
-    expect(readme).toContain('## Example Output');
-    expect(readme).toContain('## Contributing');
-    expect(readme).toContain('## License');
+    expect(readme).toContain('License');
+    // v2: no LLM provider content
+    expect(readme).not.toContain('LLM Provider');
+    expect(readme).not.toContain('API_KEY');
   });
 
   it('provides contribution and changelog guidance', () => {

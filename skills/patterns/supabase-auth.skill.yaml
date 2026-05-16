@@ -1,0 +1,103 @@
+schema_version: "2.0.0"
+id: supabase-auth
+name: "Supabase Auth"
+version: "1.0.0"
+description: "Supabase built-in authentication with RLS integration, SSR session management, and social providers."
+category: pattern
+language: javascript
+frameworks:
+  - supabase
+detection:
+  dependencies:
+    any:
+      - "@supabase/ssr"
+      - "@supabase/supabase-js"
+  source_indicators:
+    - "supabase.auth.signIn"
+    - "supabase.auth.signUp"
+    - "auth.uid()"
+    - "exchangeCodeForSession"
+structure:
+  required_dirs:
+    - path: app/auth
+      purpose: "Auth callback routes and sign-in/sign-up pages."
+  recommended_dirs:
+    - path: src/lib
+      purpose: "Supabase client helpers for server and browser contexts."
+separation:
+  rules:
+    - concern: ssr_sessions
+      belongs_in: src/lib
+      rule_text: "Use @supabase/ssr (not @supabase/supabase-js directly) for SSR apps. Create server and browser clients separately — the server client reads sessions from cookies."
+      example: |
+        // src/lib/supabase-server.ts
+        import { createServerClient } from '@supabase/ssr';
+        import { cookies } from 'next/headers';
+        export function createClient() {
+          return createServerClient(URL, ANON_KEY, {
+            cookies: { getAll: () => cookies().getAll() }
+          });
+        }
+    - concern: rls_integration
+      belongs_in: src/lib
+      rule_text: "With Supabase Auth, RLS policies reference auth.uid(). Write policies that restrict data to the authenticated user's rows — this is Supabase Auth's primary data security mechanism."
+      example: |
+        -- RLS policy using auth.uid()
+        CREATE POLICY "own data only" ON posts
+          FOR ALL USING (auth.uid() = user_id);
+    - concern: social_providers
+      belongs_in: app/auth
+      rule_text: "Configure OAuth providers in the Supabase dashboard — not in code. Create a callback route at app/auth/callback/route.ts to exchange the auth code for a session cookie."
+      example: |
+        // app/auth/callback/route.ts
+        export async function GET(request: Request) {
+          const { searchParams } = new URL(request.url);
+          const code = searchParams.get('code');
+          if (code) {
+            const supabase = createClient();
+            await supabase.auth.exchangeCodeForSession(code);
+          }
+          return NextResponse.redirect('/dashboard');
+        }
+patterns:
+  data_flow:
+    direction: "Middleware → Protected Route → Server Client (session) → RLS-enforced Query"
+    rules:
+      - "Middleware refreshes the session cookie on every request."
+      - "Server clients read the session from cookies — browser clients read from localStorage."
+      - "RLS policies enforce per-user data access at the database level."
+  error_handling:
+    recommended: "Check supabase.auth.getUser() in middleware — redirect to /login when no session."
+anti_patterns:
+  - id: no_rls_with_auth
+    severity: critical
+    description: "Using Supabase Auth to authenticate users but not writing RLS policies — all authenticated users can read each other's data."
+    bad_example: |
+      -- ❌ Auth enabled but no RLS — any user reads all rows
+      CREATE TABLE posts (id uuid, user_id uuid, content text);
+      ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+      -- No policies = deny by default for anon, but often misconfigured
+    good_example: |
+      -- ✓ Policy ties rows to the authenticated user
+      CREATE POLICY "own posts" ON posts
+        FOR ALL USING (auth.uid() = user_id);
+  - id: direct_supabase_js_on_server
+    severity: warning
+    description: "Using @supabase/supabase-js createClient in Server Components instead of @supabase/ssr — sessions are not available without SSR cookie handling."
+    bad_example: |
+      // ❌ Browser client on server — no session
+      import { createClient } from '@supabase/supabase-js';
+      const supabase = createClient(URL, ANON_KEY);
+    good_example: |
+      // ✓ Server client reads session from cookies
+      import { createClient } from '@/lib/supabase-server';
+      const supabase = createClient();
+  - id: missing_callback_route
+    severity: warning
+    description: "Using OAuth social login without a callback route — the auth code exchange fails and users cannot complete sign-in."
+    bad_example: |
+      // ❌ No callback route — OAuth redirect has nowhere to land
+      await supabase.auth.signInWithOAuth({ provider: 'github' });
+    good_example: |
+      // ✓ Callback route at app/auth/callback/route.ts exchanges the code
+      await supabase.auth.exchangeCodeForSession(code);

@@ -1,0 +1,118 @@
+schema_version: "2.0.0"
+id: playwright-e2e
+name: "Playwright E2E"
+version: "1.0.0"
+description: "End-to-end testing with Playwright — Page Object Models, shared fixtures, and CI-optimized configuration."
+category: pattern
+language: javascript
+frameworks:
+  - playwright
+detection:
+  dependencies:
+    any:
+      - "@playwright/test"
+  source_indicators:
+    - "from '@playwright/test'"
+    - "test.describe("
+    - "page.goto("
+    - "expect(page)"
+structure:
+  required_dirs:
+    - path: tests/e2e
+      purpose: "E2E test specs organized by user flow or feature."
+  recommended_dirs:
+    - path: tests/e2e/pages
+      purpose: "Page Object Models — one class per page, encapsulating selectors and actions."
+    - path: tests/e2e/fixtures
+      purpose: "Custom Playwright fixtures for shared setup — authenticated sessions, test data."
+separation:
+  rules:
+    - concern: page_object_models
+      belongs_in: tests/e2e/pages
+      rule_text: "Encapsulate page selectors and actions in Page Object Model classes. Tests should call POM methods — never use raw selectors (getByRole, locator) directly in test files."
+      example: |
+        // tests/e2e/pages/login.page.ts
+        export class LoginPage {
+          constructor(private page: Page) {}
+          async login(email: string, password: string) {
+            await this.page.getByLabel('Email').fill(email);
+            await this.page.getByLabel('Password').fill(password);
+            await this.page.getByRole('button', { name: 'Sign in' }).click();
+          }
+        }
+        // tests/e2e/auth.spec.ts
+        const loginPage = new LoginPage(page);
+        await loginPage.login('user@test.com', 'password');
+    - concern: shared_fixtures
+      belongs_in: tests/e2e/fixtures
+      rule_text: "Create custom fixtures for shared setup like authenticated sessions. Tests that need auth should use the fixture — not authenticate in every test."
+      example: |
+        // tests/e2e/fixtures/auth.fixture.ts
+        export const test = base.extend<{ authedPage: Page }>({
+          authedPage: async ({ browser }, use) => {
+            const context = await browser.newContext({ storageState: 'auth.json' });
+            await use(await context.newPage());
+            await context.close();
+          }
+        });
+    - concern: selectors
+      belongs_in: tests/e2e/pages
+      rule_text: "Use role-based and label-based selectors (getByRole, getByLabel, getByText) over CSS or XPath selectors — they are more resilient to UI changes and closer to how users perceive the page."
+      example: |
+        // ✓ Role-based selectors — resilient to style changes
+        await page.getByRole('button', { name: 'Submit' }).click();
+        await page.getByLabel('Email').fill('user@test.com');
+        // ❌ CSS selector — breaks on class rename
+        await page.locator('.btn-submit').click();
+patterns:
+  data_flow:
+    direction: "Test → POM Methods → Browser → Application"
+    rules:
+      - "Tests call POM methods — never raw selectors."
+      - "Fixtures provide shared state — auth sessions set up once, not per test."
+      - "CI runs with retries and GitHub reporter — local runs use headed mode for debugging."
+  error_handling:
+    recommended: "Use test.retry in playwright.config.ts for CI — flaky network tests get 2 retries."
+  naming:
+    specs: "[feature].spec.ts"
+    page_objects: "[page].page.ts"
+    fixtures: "[concern].fixture.ts"
+anti_patterns:
+  - id: raw_selectors_in_tests
+    severity: warning
+    description: "Using CSS selectors or XPath directly in test files instead of Page Object Models — brittle, hard to maintain, and tied to implementation details."
+    bad_example: |
+      // ❌ Raw CSS selector in test — breaks on any class rename
+      await page.locator('.login-form input[type="email"]').fill('user@test.com');
+      await page.locator('#submit-btn').click();
+    good_example: |
+      // ✓ POM method — resilient and readable
+      await loginPage.login('user@test.com', 'password');
+  - id: auth_in_every_test
+    severity: warning
+    description: "Authenticating (full login flow) at the start of every test that needs auth — drastically slows down the test suite."
+    bad_example: |
+      // ❌ Full login flow repeated in every test
+      test('view dashboard', async ({ page }) => {
+        await page.goto('/login');
+        await page.fill('#email', 'user@test.com');
+        await page.fill('#password', 'password');
+        await page.click('#submit');
+        await page.goto('/dashboard');
+      });
+    good_example: |
+      // ✓ Use auth fixture with stored state
+      test('view dashboard', async ({ authedPage }) => {
+        await authedPage.goto('/dashboard');
+      });
+  - id: no_retries_in_ci
+    severity: info
+    description: "Running Playwright in CI without retries — a single flaky network condition fails the entire test run."
+    bad_example: |
+      // playwright.config.ts — no retries
+      export default defineConfig({ use: { baseURL: 'http://localhost:3000' } });
+    good_example: |
+      export default defineConfig({
+        retries: process.env.CI ? 2 : 0,
+        reporter: process.env.CI ? 'github' : 'list',
+      });

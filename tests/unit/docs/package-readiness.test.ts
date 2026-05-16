@@ -45,10 +45,10 @@ describe('package readiness', () => {
   it('declares release-ready package metadata', () => {
     const packageJson = readPackageJson();
 
-    expect(packageJson.name).toBe('architect-cli');
+    expect(packageJson.name).toBe('@levironexe/architect');
     expect(packageJson.bin).toEqual({ architect: 'dist/cli/index.js' });
     expect(packageJson.engines.node).toBe('>=20.0.0');
-    expect(packageJson.files).toEqual(expect.arrayContaining(['dist', 'skills', 'README.md', 'CHANGELOG.md', 'CONTRIBUTING.md']));
+    expect(packageJson.files).toEqual(expect.arrayContaining(['dist', 'skills', 'templates', 'README.md', 'CHANGELOG.md', 'CONTRIBUTING.md']));
     expect(packageJson.license).toBe('MIT');
     expect(packageJson.description).toContain('Structural health scanner');
     expect(packageJson.keywords).toEqual(expect.arrayContaining(['architecture', 'code-quality', 'refactoring', 'cli', 'vibe-coding', 'vibe-coded']));

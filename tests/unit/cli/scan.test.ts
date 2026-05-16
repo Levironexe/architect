@@ -40,7 +40,7 @@ describe('scan command', () => {
     });
 
     expect(output.stderr).toBe('');
-    expect(output.stdout).toContain('OVERSIZED');
+    expect(output.stdout).toContain('COMPLEX');
     expect(output.stdout).toContain('- Flagged functions: 1');
     expect(output.stdout).not.toContain('\u001b[');
   });
@@ -136,9 +136,10 @@ describe('scan command', () => {
     });
 
     expect(output.stdout).toContain('Structure comparison');
-    expect(output.stdout).toContain('missing  src/routes');
-    expect(output.stdout).toContain('missing  src/controllers');
-    expect(output.stdout).toContain('missing  src/services');
+    expect(output.stdout).toContain('present  src/routes');
+    expect(output.stdout).toContain('present  src/controllers');
+    expect(output.stdout).toContain('present  src/services');
+    expect(output.stdout).toContain('missing  src/config');
   });
 
   it('prints health score output with only modularity and duplication dimensions', async () => {

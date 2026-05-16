@@ -1,0 +1,117 @@
+schema_version: "2.0.0"
+id: mongoose
+name: "Mongoose"
+version: "1.0.0"
+description: "MongoDB ODM with Mongoose — single connection, schema-first models, and lean queries for performance."
+category: pattern
+language: javascript
+frameworks:
+  - mongoose
+detection:
+  dependencies:
+    any:
+      - mongoose
+  source_indicators:
+    - "mongoose.connect"
+    - "new Schema("
+    - "mongoose.model("
+    - "from 'mongoose'"
+structure:
+  required_dirs:
+    - path: src/models
+      purpose: "Mongoose schema definitions and model exports — one file per collection."
+    - path: src/lib
+      purpose: "MongoDB connection setup and Mongoose singleton configuration."
+  recommended_dirs:
+    - path: src/repositories
+      purpose: "Data access layer — query logic wrapping Mongoose models, imported only by services."
+separation:
+  rules:
+    - concern: schema_definition
+      belongs_in: src/models
+      rule_text: "Define Mongoose schemas and export models in src/models/ — one file per collection. Never define schemas inline in service or route files."
+      example: |
+        // src/models/user.model.ts
+        import { Schema, model } from 'mongoose';
+        const userSchema = new Schema({
+          email: { type: String, required: true, unique: true },
+          password: { type: String, required: true },
+        }, { timestamps: true });
+        export const User = model('User', userSchema);
+      indicators:
+        - "new Schema("
+        - "model("
+    - concern: single_connection
+      belongs_in: src/lib
+      rule_text: "Call mongoose.connect() exactly once in src/lib/db.ts at application startup. Never reconnect inside request handlers or service methods."
+      example: |
+        // src/lib/db.ts
+        import mongoose from 'mongoose';
+        export async function connectDB() {
+          if (mongoose.readyState !== 0) return;
+          await mongoose.connect(process.env.MONGODB_URI!);
+        }
+      anti_indicators:
+        - "mongoose.connect("
+    - concern: query_performance
+      belongs_in: src/repositories
+      rule_text: "Use `.lean()` on read queries that don't need Mongoose document methods — it returns plain JS objects and is significantly faster. Avoid `.lean()` when you need to call `.save()` or use virtuals."
+      example: |
+        // ✓ Lean for read-only queries
+        const users = await User.find({ active: true }).lean();
+        // ✓ Without lean when saving
+        const user = await User.findById(id);
+        user.name = 'Updated';
+        await user.save();
+patterns:
+  data_flow:
+    direction: "Service → Repository → Mongoose Model → MongoDB"
+    rules:
+      - "Services call repositories — never import Mongoose models directly."
+      - "Repositories own all query logic and lean() decisions."
+      - "Connection is established once at app startup, never in request handlers."
+  error_handling:
+    recommended: "Check err.code === 11000 for duplicate key errors (unique constraint violations)."
+  naming:
+    models: "src/models/[resource].model.ts"
+    repositories: "src/repositories/[resource].repository.ts"
+anti_patterns:
+  - id: multiple_connections
+    severity: critical
+    description: "Calling mongoose.connect() in multiple places or inside request handlers creates redundant connections and unpredictable connection state."
+    bad_example: |
+      // ❌ Reconnecting on every request
+      router.get('/users', async (req, res) => {
+        await mongoose.connect(process.env.MONGODB_URI);
+        const users = await User.find();
+        res.json(users);
+      });
+    good_example: |
+      // ✓ Connect once at startup in src/lib/db.ts
+      await connectDB();
+      app.listen(3000);
+  - id: schema_in_route
+    severity: warning
+    description: "Defining Mongoose schemas or creating models inline in route handlers or service files instead of in src/models/."
+    bad_example: |
+      // ❌ Schema defined in the route file
+      const User = mongoose.model('User', new Schema({ email: String }));
+      router.get('/users', async (req, res) => {
+        res.json(await User.find());
+      });
+    good_example: |
+      // ✓ Import from src/models/
+      import { User } from '../models/user.model';
+  - id: excessive_lean
+    severity: warning
+    description: "Using .lean() on documents that are then mutated and saved — lean() strips Mongoose document methods, making .save() unavailable."
+    bad_example: |
+      // ❌ lean() then save() — runtime error
+      const user = await User.findById(id).lean();
+      user.name = 'Updated';
+      await user.save(); // TypeError: user.save is not a function
+    good_example: |
+      // ✓ No lean() when you need document methods
+      const user = await User.findById(id);
+      user.name = 'Updated';
+      await user.save();

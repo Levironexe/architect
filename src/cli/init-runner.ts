@@ -1,8 +1,8 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, type Dirent } from 'node:fs';
 import { join } from 'node:path';
 
 import type { AgentType } from '../utils/agent-detector.js';
-import { confirm } from '@inquirer/prompts';
+import { confirm, select } from '@inquirer/prompts';
 import ora, { type Ora } from 'ora';
 
 import { runProjectScan, type ProjectScanOptions } from './scan-runner.js';
@@ -32,6 +32,7 @@ export interface InitCommandOptions extends ProjectScanOptions {
 interface InitRunnerDependencies {
   confirmOverwrite?: (message: string) => Promise<boolean>;
   detectAgent?: (dir: string) => AgentType;
+  promptAgent?: () => Promise<AgentType>;
   interactiveCheck?: () => boolean;
   loadSkills?: typeof loadSkills;
   runProjectScan?: typeof runProjectScan;
@@ -62,6 +63,7 @@ export async function runInitCommand(
   const isInteractive = dependencies.interactiveCheck ?? (() => isInteractiveTerminal());
   const writers = dependencies.writers ?? WRITERS;
   const createSpinner = dependencies.createSpinner ?? ((text: string) => ora(text));
+  const promptAgent = dependencies.promptAgent ?? defaultPromptAgent;
   const warnings: string[] = [];
 
   if (!existsSync(join(targetDirectory, 'package.json'))) {
@@ -93,9 +95,13 @@ export async function runInitCommand(
     throw new Error('Could not detect stack. Override with --skill <id>.');
   }
 
-  const integration = options.integration ?? detectAgentForDirectory(targetDirectory);
+  let integration = options.integration ?? detectAgentForDirectory(targetDirectory);
   if (!options.integration && integration === 'generic') {
-    warnings.push('No known agent integration detected; using generic output.');
+    if (isInteractive()) {
+      integration = await promptAgent();
+    } else {
+      warnings.push('No known agent integration detected; using generic output.');
+    }
   }
 
   const context = buildTemplateContext(selectedSkill, result);
@@ -154,13 +160,26 @@ async function defaultConfirmOverwrite(message: string): Promise<boolean> {
   });
 }
 
+async function defaultPromptAgent(): Promise<AgentType> {
+  return select<AgentType>({
+    message: 'Which coding agent are you using?',
+    choices: [
+      { name: 'Claude Code  → .claude/skills/', value: 'claude' },
+      { name: 'Cursor       → .cursor/rules/', value: 'cursor' },
+      { name: 'Windsurf     → .windsurf/rules/', value: 'windsurf' },
+      { name: 'GitHub Copilot → .github/copilot-instructions.md', value: 'copilot' },
+      { name: 'Other / plain Markdown → .architect/skills/', value: 'generic' }
+    ]
+  });
+}
+
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.next', 'coverage', '.turbo']);
 
 function estimateFileCount(dir: string, depthLimit = 4, countLimit = 600): number {
   let count = 0;
   function walk(current: string, depth: number): void {
     if (count >= countLimit) return;
-    let entries: ReturnType<typeof readdirSync>;
+    let entries: Dirent<string>[];
     try {
       entries = readdirSync(current, { withFileTypes: true });
     } catch {

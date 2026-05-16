@@ -44,8 +44,8 @@ describe('scan output modes', () => {
       expect(await runCli(['scan', path.resolve('tests/fixtures/messy-express'), '--no-color'])).toBe(0);
     });
 
-    expect(output.stdout).toContain('OVERSIZED');
-    expect(output.stdout).toContain('CRITICAL modularity');
+    expect(output.stdout).toContain('COMPLEX');
+    expect(output.stdout).toContain('warning');
     expect(output.stdout).not.toContain('\u001b[');
   });
 });

@@ -60,9 +60,14 @@ Open and read:
 Based on what you read, confirm or correct the detected stack (`{{skill.name}}`). If the stack
 looks wrong, call:
 ```
-npx @levironexe/architect context --techstack <correct-id>
+architect context --techstack <correct-id>
 ```
 Otherwise call:
+```
+architect context --techstack {{skill.name}}
+```
+
+If `architect` is not found globally, fall back to:
 ```
 npx @levironexe/architect context --techstack {{skill.name}}
 ```

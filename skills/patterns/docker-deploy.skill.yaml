@@ -1,0 +1,107 @@
+schema_version: "2.0.0"
+id: docker-deploy
+name: "Docker"
+version: "1.0.0"
+description: "Docker containerization with multi-stage builds, non-root user, and environment-injected secrets."
+category: pattern
+language: javascript
+frameworks: []
+detection:
+  files:
+    - Dockerfile
+    - docker-compose.yml
+    - docker-compose.yaml
+  source_indicators:
+    - "FROM node:"
+    - "COPY --from=builder"
+    - "docker-compose"
+structure:
+  required_dirs: []
+  recommended_dirs:
+    - path: .docker
+      purpose: "Docker configuration scripts, entrypoints, and environment templates."
+separation:
+  rules:
+    - concern: multi_stage_build
+      belongs_in: Dockerfile
+      rule_text: "Use multi-stage builds — a builder stage installs all dependencies and compiles, and a production stage copies only the built output. This keeps the production image small."
+      example: |
+        # Dockerfile
+        FROM node:20-alpine AS builder
+        WORKDIR /app
+        COPY package*.json ./
+        RUN npm ci
+        COPY . .
+        RUN npm run build
+
+        FROM node:20-alpine AS production
+        WORKDIR /app
+        COPY --from=builder /app/dist ./dist
+        COPY --from=builder /app/node_modules ./node_modules
+        USER node
+        CMD ["node", "dist/cli/index.js"]
+    - concern: non_root_user
+      belongs_in: Dockerfile
+      rule_text: "Switch to the built-in `node` user before the CMD/ENTRYPOINT instruction. Running as root in a container is a security risk — if the container is compromised, the attacker has root on the host."
+      example: |
+        USER node
+        CMD ["node", "dist/index.js"]
+      anti_indicators:
+        - "USER root"
+    - concern: env_injection
+      belongs_in: docker-compose.yml
+      rule_text: "Inject secrets via environment variables at runtime — never bake secrets into the image with ENV or ARG. Use .env files with docker-compose and never commit them."
+      example: |
+        # docker-compose.yml
+        services:
+          app:
+            env_file: .env
+            environment:
+              NODE_ENV: production
+patterns:
+  data_flow:
+    direction: "Source → Builder Stage → Production Stage → Container Runtime"
+    rules:
+      - "Builder stage: install deps + compile."
+      - "Production stage: copy built output only — no devDependencies."
+      - "Secrets injected at runtime via env_file — never baked into image."
+  error_handling:
+    recommended: "Add a HEALTHCHECK instruction so orchestrators can detect unhealthy containers."
+anti_patterns:
+  - id: secrets_in_image
+    severity: critical
+    description: "Baking secrets into Docker images with ENV or ARG — they persist in image layers and are visible in docker history."
+    bad_example: |
+      # ❌ Secret baked into image layer — visible in docker history
+      ENV DATABASE_URL=postgresql://user:password@host/db
+      ENV JWT_SECRET=mysecretkey
+    good_example: |
+      # ✓ Inject at runtime via env_file
+      # docker-compose.yml: env_file: .env
+      # Or: docker run --env-file .env myapp
+  - id: single_stage_build
+    severity: warning
+    description: "Using a single-stage Dockerfile includes devDependencies and build tools in the production image — bloats the image and increases attack surface."
+    bad_example: |
+      # ❌ Single stage — devDependencies and build tools in production
+      FROM node:20
+      COPY . .
+      RUN npm install
+      RUN npm run build
+      CMD ["node", "dist/index.js"]
+    good_example: |
+      # ✓ Multi-stage — only compiled output in production
+      FROM node:20-alpine AS builder
+      RUN npm ci && npm run build
+      FROM node:20-alpine AS production
+      COPY --from=builder /app/dist ./dist
+  - id: running_as_root
+    severity: warning
+    description: "Not switching to a non-root user before CMD — containers running as root give attackers host-level access if the container is compromised."
+    bad_example: |
+      # ❌ No USER instruction — runs as root by default
+      CMD ["node", "dist/index.js"]
+    good_example: |
+      # ✓ Switch to non-root user
+      USER node
+      CMD ["node", "dist/index.js"]

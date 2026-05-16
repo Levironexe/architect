@@ -1,0 +1,106 @@
+schema_version: "2.0.0"
+id: prisma
+name: "Prisma ORM"
+version: "1.0.0"
+description: "Schema-first Prisma ORM with singleton client, repository pattern, and migration-only schema changes."
+category: pattern
+language: javascript
+frameworks:
+  - prisma
+detection:
+  dependencies:
+    any:
+      - prisma
+      - "@prisma/client"
+  source_indicators:
+    - "PrismaClient"
+    - "prisma.$"
+    - "from '@prisma/client'"
+structure:
+  required_dirs:
+    - path: prisma
+      purpose: "Prisma schema, migrations, and seed script — the only place schema is defined."
+    - path: prisma/migrations
+      purpose: "Auto-generated migration files — never edit manually."
+    - path: src/lib
+      purpose: "Prisma client singleton instance — imported by repositories and services only."
+  recommended_dirs:
+    - path: src/models
+      purpose: "Domain model classes and data-access methods — thin wrappers around Prisma queries."
+separation:
+  rules:
+    - concern: singleton_client
+      belongs_in: src/lib
+      rule_text: "Create exactly one PrismaClient instance in src/lib/db.ts using the singleton pattern. Never call `new PrismaClient()` outside this file."
+      example: |
+        // src/lib/db.ts
+        import { PrismaClient } from '@prisma/client';
+        const globalForPrisma = global as unknown as { prisma: PrismaClient };
+        export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+        if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+      anti_indicators:
+        - "new PrismaClient()"
+    - concern: migrations
+      belongs_in: prisma/migrations
+      rule_text: "Schema changes MUST go through `npx prisma migrate dev` (development) or `npx prisma migrate deploy` (production). Never write or run manual SQL migrations."
+      example: |
+        # ✓ Run migrations via Prisma CLI
+        npx prisma migrate dev --name add-user-table
+        npx prisma migrate deploy
+    - concern: data_access
+      belongs_in: src/models
+      rule_text: "Prisma queries live in src/models/ or src/repositories/. Services call model methods — never call `prisma.*` directly in services, controllers, or API routes."
+      example: |
+        // src/models/user.model.ts
+        import { prisma } from '@/lib/db';
+        export async function createUser(data: CreateUserDTO) {
+          return prisma.user.create({ data });
+        }
+patterns:
+  data_flow:
+    direction: "Service → Model/Repository → Prisma Client → Database"
+    rules:
+      - "Services call model/repository methods — never Prisma directly."
+      - "Models/repositories are the only files that import `prisma` from src/lib/db.ts."
+      - "Schema changes always go through prisma migrate — never manual SQL."
+  error_handling:
+    recommended: "Catch PrismaClientKnownRequestError for constraint violations (P2002 = unique conflict)."
+  naming:
+    schema: "prisma/schema.prisma"
+    client: "src/lib/db.ts"
+    models: "src/models/[resource].model.ts"
+anti_patterns:
+  - id: multiple_prisma_clients
+    severity: critical
+    description: "Calling `new PrismaClient()` in multiple files creates connection pool exhaustion, especially in serverless environments."
+    bad_example: |
+      // ❌ New client in every file — connection leak
+      import { PrismaClient } from '@prisma/client';
+      const prisma = new PrismaClient();
+    good_example: |
+      // ✓ Import the singleton
+      import { prisma } from '@/lib/db';
+  - id: prisma_in_route_handler
+    severity: critical
+    description: "Using Prisma directly in API route handlers or React components bypasses the service/repository layer and makes code untestable."
+    bad_example: |
+      // ❌ Prisma in an API route — no service layer
+      import { prisma } from '@/lib/db';
+      export async function GET() {
+        return Response.json(await prisma.user.findMany());
+      }
+    good_example: |
+      // ✓ Route delegates to service layer
+      import { userService } from '@/services/user.service';
+      export async function GET() {
+        return Response.json(await userService.listUsers());
+      }
+  - id: manual_sql_migration
+    severity: warning
+    description: "Modifying the database schema directly with SQL instead of through Prisma's migration system — breaks migration history and type generation."
+    bad_example: |
+      -- ❌ Manual SQL bypasses Prisma migration tracking
+      ALTER TABLE users ADD COLUMN phone VARCHAR(20);
+    good_example: |
+      // ✓ Update schema.prisma, then run:
+      // npx prisma migrate dev --name add-phone-to-users

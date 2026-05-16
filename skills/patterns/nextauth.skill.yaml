@@ -1,0 +1,97 @@
+schema_version: "2.0.0"
+id: nextauth
+name: "NextAuth.js / Auth.js"
+version: "1.0.0"
+description: "Self-hosted authentication with NextAuth.js — providers, JWT/database sessions, and middleware protection."
+category: pattern
+language: javascript
+frameworks:
+  - next-auth
+detection:
+  dependencies:
+    any:
+      - next-auth
+      - "@auth/nextjs"
+  source_indicators:
+    - "NextAuth("
+    - "authOptions"
+    - "getServerSession"
+    - "useSession"
+structure:
+  required_dirs:
+    - path: app/api/auth
+      purpose: "NextAuth.js catch-all route handler — the [...nextauth] directory handles all auth flows."
+  recommended_dirs:
+    - path: src/lib
+      purpose: "NextAuth configuration — providers, callbacks, adapter setup stored in auth.ts."
+separation:
+  rules:
+    - concern: route_handler
+      belongs_in: app/api/auth
+      rule_text: "Create the NextAuth route handler at app/api/auth/[...nextauth]/route.ts. This single file handles all auth flows — sign-in, sign-out, callbacks, and CSRF."
+      example: |
+        // app/api/auth/[...nextauth]/route.ts
+        import NextAuth from 'next-auth';
+        import { authOptions } from '@/lib/auth';
+        const handler = NextAuth(authOptions);
+        export { handler as GET, handler as POST };
+    - concern: session_access
+      belongs_in: app
+      rule_text: "Use getServerSession(authOptions) in Server Components and API routes. Use useSession() in Client Components wrapped with SessionProvider. Never read session cookies manually."
+      example: |
+        // Server Component
+        import { getServerSession } from 'next-auth';
+        import { authOptions } from '@/lib/auth';
+        const session = await getServerSession(authOptions);
+        if (!session) redirect('/api/auth/signin');
+    - concern: middleware
+      belongs_in: middleware.ts
+      rule_text: "Use the withAuth middleware or authorized callback to protect routes. Define matcher to exclude static files from auth middleware."
+      example: |
+        // middleware.ts
+        export { default } from 'next-auth/middleware';
+        export const config = {
+          matcher: ['/dashboard/:path*', '/api/protected/:path*'],
+        };
+patterns:
+  data_flow:
+    direction: "Middleware → Protected Route → getServerSession() → Session Data"
+    rules:
+      - "Middleware protects routes before rendering."
+      - "Server Components use getServerSession() — Client Components use useSession()."
+      - "authOptions is defined once in src/lib/auth.ts and imported everywhere."
+  error_handling:
+    recommended: "Check session in each Server Component that needs auth — redirect to /api/auth/signin when null."
+anti_patterns:
+  - id: missing_secret
+    severity: critical
+    description: "Running NextAuth without NEXTAUTH_SECRET — tokens are unsigned in development and error in production."
+    bad_example: |
+      // .env — NEXTAUTH_SECRET not set
+      // NextAuth silently uses an insecure default in dev
+    good_example: |
+      # .env.local
+      NEXTAUTH_SECRET=your-32-char-random-secret
+      # Generate with: openssl rand -base64 32
+  - id: session_not_checked_in_api
+    severity: warning
+    description: "API routes that should be protected not calling getServerSession() to verify authentication before returning data."
+    bad_example: |
+      // ❌ No session check — any request gets the data
+      export async function GET() {
+        return Response.json(await db.query('SELECT * FROM secrets'));
+      }
+    good_example: |
+      // ✓ Check session first
+      const session = await getServerSession(authOptions);
+      if (!session) return new Response('Unauthorized', { status: 401 });
+  - id: duplicated_auth_options
+    severity: warning
+    description: "Defining authOptions in multiple files instead of importing from a single src/lib/auth.ts — causes provider config to drift."
+    bad_example: |
+      // ❌ authOptions redefined in multiple API routes
+      const handler = NextAuth({ providers: [GitHubProvider(...)] });
+    good_example: |
+      // ✓ Single source of truth
+      import { authOptions } from '@/lib/auth';
+      const handler = NextAuth(authOptions);

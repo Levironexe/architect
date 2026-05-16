@@ -1,5 +1,5 @@
 {
-  "name": "architect-cli",
+  "name": "@levironexe/architect",
   "version": "0.1.0",
   "description": "Structural health scanner for vibe-coded JavaScript and TypeScript projects.",
   "type": "module",
@@ -9,6 +9,7 @@
   "files": [
     "dist",
     "skills",
+    "templates",
     "README.md",
     "CHANGELOG.md",
     "CONTRIBUTING.md"

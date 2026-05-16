@@ -1,0 +1,102 @@
+schema_version: "2.0.0"
+id: supabase
+name: "Supabase"
+version: "1.0.0"
+description: "Supabase database and storage — separate server/browser clients, RLS policies, and realtime subscriptions."
+category: pattern
+language: javascript
+frameworks:
+  - supabase
+detection:
+  dependencies:
+    any:
+      - "@supabase/supabase-js"
+      - "@supabase/ssr"
+  source_indicators:
+    - "createClient("
+    - "supabase.from("
+    - "from '@supabase/supabase-js'"
+    - "from '@supabase/ssr'"
+structure:
+  required_dirs:
+    - path: src/lib
+      purpose: "Supabase client singletons — separate files for server and browser contexts."
+  recommended_dirs:
+    - path: src/repositories
+      purpose: "Data access layer — Supabase query logic, imported only by services."
+separation:
+  rules:
+    - concern: server_client
+      belongs_in: src/lib
+      rule_text: "Create a server-side Supabase client in src/lib/supabase-server.ts using @supabase/ssr. This client reads the session from cookies and must be used in Server Components, API routes, and middleware."
+      example: |
+        // src/lib/supabase-server.ts
+        import { createServerClient } from '@supabase/ssr';
+        import { cookies } from 'next/headers';
+        export function createClient() {
+          return createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            { cookies: { getAll: () => cookies().getAll() } }
+          );
+        }
+    - concern: browser_client
+      belongs_in: src/lib
+      rule_text: "Create a browser-side Supabase client in src/lib/supabase-browser.ts. Never import the browser client in Server Components or API routes — it has no access to server-side sessions."
+      example: |
+        // src/lib/supabase-browser.ts
+        import { createBrowserClient } from '@supabase/ssr';
+        export const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+      anti_indicators:
+        - "createBrowserClient"
+    - concern: rls_policies
+      belongs_in: src/lib
+      rule_text: "Enable Row Level Security on every table. Use the anon key in clients — never the service role key in browser code. Write RLS policies that restrict data to the authenticated user."
+      example: |
+        -- ✓ Enable RLS and create per-user policy
+        ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY "own rows" ON posts FOR ALL USING (auth.uid() = user_id);
+patterns:
+  data_flow:
+    direction: "Client → Supabase Client → RLS-enforced Query → Database"
+    rules:
+      - "Server Components use the server client — Client Components use the browser client."
+      - "Service role key is only used server-side for admin operations — never exposed to browser."
+      - "RLS policies enforce data isolation at the database level."
+  error_handling:
+    recommended: "Check data and error from Supabase responses — never assume success."
+anti_patterns:
+  - id: service_role_in_browser
+    severity: critical
+    description: "Using the SUPABASE_SERVICE_ROLE_KEY in browser code or exposing it client-side — it bypasses all RLS policies."
+    bad_example: |
+      // ❌ Service role key in browser — bypasses RLS
+      const supabase = createClient(URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    good_example: |
+      // ✓ Use anon key in browser — respects RLS
+      const supabase = createBrowserClient(URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  - id: tables_without_rls
+    severity: critical
+    description: "Creating tables without enabling Row Level Security — any authenticated user can read or modify all rows."
+    bad_example: |
+      -- ❌ No RLS — all authenticated users see all rows
+      CREATE TABLE posts (id uuid, user_id uuid, content text);
+    good_example: |
+      -- ✓ RLS enabled with per-user policy
+      ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY "own posts" ON posts FOR ALL USING (auth.uid() = user_id);
+  - id: browser_client_on_server
+    severity: warning
+    description: "Importing the browser Supabase client in Server Components or API routes — browser client has no access to server-side cookies and cannot read the user session."
+    bad_example: |
+      // ❌ Browser client in a Server Component
+      import { supabase } from '@/lib/supabase-browser';
+      const { data } = await supabase.from('posts').select();
+    good_example: |
+      // ✓ Server client in Server Component
+      import { createClient } from '@/lib/supabase-server';
+      const supabase = createClient();
+      const { data } = await supabase.from('posts').select();

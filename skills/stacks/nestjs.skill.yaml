@@ -1,0 +1,130 @@
+schema_version: "2.0.0"
+id: nestjs
+name: "NestJS"
+version: "1.0.0"
+description: "Enterprise-grade NestJS with module-per-feature structure, dependency injection, guards, and pipes."
+category: stack
+language: javascript
+frameworks:
+  - nestjs
+detection:
+  dependencies:
+    any:
+      - "@nestjs/core"
+    none:
+      - express
+      - fastify
+      - hono
+  source_indicators:
+    - "@Module("
+    - "@Controller("
+    - "@Injectable("
+    - "@nestjs/common"
+structure:
+  required_dirs:
+    - path: src/modules
+      purpose: "Feature modules — one directory per domain (users/, orders/, etc.) containing controller, service, and module file."
+    - path: src/common
+      purpose: "Shared guards, pipes, interceptors, decorators, and exception filters used across modules."
+    - path: src/config
+      purpose: "Configuration module and environment validation."
+  recommended_dirs:
+    - path: src/database
+      purpose: "Database module, entity definitions, and repository setup."
+    - path: src/shared
+      purpose: "Shared DTOs, interfaces, and utility functions."
+separation:
+  rules:
+    - concern: module_structure
+      belongs_in: src/modules
+      rule_text: "Each feature module contains its own controller, service, and module file co-located in one directory. Do NOT put all controllers in one folder and all services in another — group by feature, not by type."
+      example: |
+        // src/modules/users/users.module.ts
+        @Module({ controllers: [UsersController], providers: [UsersService] })
+        export class UsersModule {}
+
+        // src/modules/users/users.controller.ts
+        @Controller('users')
+        export class UsersController {
+          constructor(private readonly usersService: UsersService) {}
+        }
+      indicators:
+        - "@Module("
+        - "src/modules"
+    - concern: dependency_injection
+      belongs_in: src/modules
+      rule_text: "Inject all dependencies via constructor — never instantiate services or repositories with `new`. This enables testing and module substitution."
+      example: |
+        // ✓ Injected via constructor
+        @Controller('users')
+        export class UsersController {
+          constructor(private readonly usersService: UsersService) {}
+          @Get() findAll() { return this.usersService.findAll(); }
+        }
+      anti_indicators:
+        - "new UsersService"
+        - "new Repository"
+    - concern: guards_and_pipes
+      belongs_in: src/common
+      rule_text: "Auth guards, validation pipes, and response interceptors live in src/common. Apply them globally via APP_GUARD/APP_PIPE in AppModule, or per-controller/route with decorators."
+      example: |
+        // src/common/guards/jwt-auth.guard.ts
+        @Injectable()
+        export class JwtAuthGuard extends AuthGuard('jwt') {}
+
+        // Apply globally in app.module.ts
+        providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }]
+patterns:
+  data_flow:
+    direction: "Controller → Service → Repository/ORM"
+    rules:
+      - "Controllers receive HTTP input and delegate to services."
+      - "Services contain business logic and call repositories."
+      - "Repositories handle all database interactions."
+  error_handling:
+    recommended: "Use NestJS exception filters and built-in HttpException classes."
+  naming:
+    modules: "[resource].module.ts"
+    controllers: "[resource].controller.ts"
+    services: "[resource].service.ts"
+anti_patterns:
+  - id: direct_instantiation
+    severity: critical
+    description: "Creating service or repository instances manually with `new` instead of using NestJS dependency injection — untestable and bypasses the DI container."
+    bad_example: |
+      // ❌ Bypasses DI — untestable and breaks module scoping
+      @Controller('users')
+      export class UsersController {
+        private service = new UsersService();
+      }
+    good_example: |
+      // ✓ Injected via constructor — testable and scoped correctly
+      constructor(private readonly usersService: UsersService) {}
+  - id: flat_file_structure
+    severity: warning
+    description: "Organizing all controllers in one folder and all services in another instead of grouping by feature module."
+    bad_example: |
+      // ❌ Flat structure — breaks NestJS module boundaries
+      src/controllers/users.controller.ts
+      src/services/users.service.ts
+    good_example: |
+      // ✓ Feature module structure
+      src/modules/users/users.controller.ts
+      src/modules/users/users.service.ts
+      src/modules/users/users.module.ts
+  - id: business_logic_in_controller
+    severity: critical
+    description: "Placing business rules, validation logic, or DB queries directly in controllers instead of services."
+    bad_example: |
+      @Post()
+      async create(@Body() dto: CreateUserDto) {
+        const existing = await this.db.findOne({ email: dto.email });
+        if (existing) throw new ConflictException();
+        dto.password = await bcrypt.hash(dto.password, 10);
+        return this.db.save(dto);
+      }
+    good_example: |
+      @Post()
+      create(@Body() dto: CreateUserDto) {
+        return this.usersService.create(dto);
+      }

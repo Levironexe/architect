@@ -1,0 +1,105 @@
+schema_version: "2.0.0"
+id: vitest-testing
+name: "Vitest"
+version: "1.0.0"
+description: "Unit and integration testing with Vitest — fast native ESM, vi.mock() patterns, and coverage thresholds."
+category: pattern
+language: javascript
+frameworks:
+  - vitest
+detection:
+  dependencies:
+    any:
+      - vitest
+  source_indicators:
+    - "from 'vitest'"
+    - "vi.fn("
+    - "vi.mock("
+    - "describe("
+structure:
+  required_dirs:
+    - path: src/__tests__
+      purpose: "Unit tests co-located near source — mirrors the src/ directory structure."
+  recommended_dirs:
+    - path: tests/integration
+      purpose: "Integration tests that cross multiple modules or hit a real database."
+    - path: tests/fixtures
+      purpose: "Shared test fixtures, mock data, and test helpers."
+separation:
+  rules:
+    - concern: unit_test_location
+      belongs_in: src/__tests__
+      rule_text: "Unit tests live in src/__tests__/ and mirror the source structure. Test files use the pattern [filename].test.ts. Co-location makes it clear which source file a test covers."
+      example: |
+        // src/__tests__/users.service.test.ts
+        import { describe, it, expect, vi, beforeEach } from 'vitest';
+        import { UserService } from '../services/users.service';
+      indicators:
+        - ".test.ts"
+        - ".spec.ts"
+    - concern: mocking
+      belongs_in: src/__tests__
+      rule_text: "Use vi.mock() to mock modules at the top of the test file. Use vi.fn() for function mocks. Reset mocks between tests with beforeEach(() => vi.clearAllMocks()) to prevent test pollution."
+      example: |
+        vi.mock('../lib/db', () => ({ db: { user: { findMany: vi.fn() } } }));
+        beforeEach(() => vi.clearAllMocks());
+    - concern: coverage
+      belongs_in: vitest.config.ts
+      rule_text: "Set coverage thresholds in vitest.config.ts. Use @vitest/coverage-v8 as the coverage provider. Core business logic modules must maintain >80% coverage."
+      example: |
+        // vitest.config.ts
+        export default defineConfig({
+          test: {
+            coverage: {
+              provider: 'v8',
+              thresholds: { lines: 80, functions: 80, branches: 70 }
+            }
+          }
+        });
+patterns:
+  data_flow:
+    direction: "Test → Mocked Dependencies → Unit Under Test"
+    rules:
+      - "Mock external dependencies (DB, APIs) in unit tests — test business logic in isolation."
+      - "Integration tests use real dependencies — do not mock the DB in integration tests."
+      - "beforeEach clears all mocks — tests are fully independent."
+  naming:
+    unit_tests: "[filename].test.ts"
+    integration_tests: "[feature].integration.test.ts"
+anti_patterns:
+  - id: jest_api_in_vitest
+    severity: warning
+    description: "Using Jest APIs (jest.fn(), jest.mock()) in a Vitest project — they are not the same API and will cause runtime errors."
+    bad_example: |
+      // ❌ Jest API in a Vitest project
+      import { jest } from '@jest/globals';
+      const fn = jest.fn();
+      jest.mock('../db');
+    good_example: |
+      // ✓ Vitest API
+      import { vi } from 'vitest';
+      const fn = vi.fn();
+      vi.mock('../db');
+  - id: no_coverage_threshold
+    severity: info
+    description: "Running coverage without thresholds allows coverage to silently drop below acceptable levels with no CI failure."
+    bad_example: |
+      // vitest.config.ts — no thresholds
+      coverage: { provider: 'v8' }
+    good_example: |
+      coverage: {
+        provider: 'v8',
+        thresholds: { lines: 80, functions: 80 }
+      }
+  - id: shared_mock_state
+    severity: warning
+    description: "Not calling vi.clearAllMocks() between tests — mock call counts and return values leak between tests, causing false positives or flaky tests."
+    bad_example: |
+      // ❌ Mock state persists between tests
+      it('first test', () => { mockFn(); });
+      it('second test', () => {
+        expect(mockFn).toHaveBeenCalledTimes(1); // could be 2 if mock wasn't reset
+      });
+    good_example: |
+      // ✓ Consistent mock state in each test
+      beforeEach(() => vi.clearAllMocks());
