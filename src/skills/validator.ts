@@ -9,6 +9,7 @@ const ALLOWED_TOP_LEVEL_FIELDS = new Set([
   'category',
   'language',
   'frameworks',
+  'dependencies',
   'detection',
   'structure',
   'separation',

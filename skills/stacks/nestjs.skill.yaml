@@ -1,7 +1,7 @@
 schema_version: "2.0.0"
 id: nestjs
 name: "NestJS"
-version: "1.0.0"
+version: "1.1.0"
 description: "Enterprise-grade NestJS with module-per-feature structure, dependency injection, guards, and pipes."
 category: stack
 language: javascript
@@ -25,14 +25,14 @@ structure:
     - path: src/modules
       purpose: "Feature modules — one directory per domain (users/, orders/, etc.) containing controller, service, and module file."
     - path: src/common
-      purpose: "Shared guards, pipes, interceptors, decorators, and exception filters used across modules."
+      purpose: "Cross-cutting NestJS primitives shared across all feature modules: guards (auth, roles), pipes (validation, transformation), interceptors (logging, caching), decorators, and exception filters. Nothing business-domain specific lives here."
     - path: src/config
       purpose: "Configuration module and environment validation."
   recommended_dirs:
     - path: src/database
-      purpose: "Database module, entity definitions, and repository setup."
+      purpose: "Database module, entity definitions, and repository setup. TypeORM entities, Prisma schema, or Drizzle table definitions live here — not in feature modules. Feature modules import the database module via DI."
     - path: src/shared
-      purpose: "Shared DTOs, interfaces, and utility functions."
+      purpose: "Shared DTOs, TypeScript interfaces, and pure utility functions used across feature modules. Unlike src/common (NestJS primitives), src/shared contains plain TypeScript — no NestJS decorators."
 separation:
   rules:
     - concern: module_structure
@@ -74,6 +74,11 @@ separation:
 
         // Apply globally in app.module.ts
         providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }]
+      indicators:
+        - "@UseGuards"
+        - "@UsePipes"
+        - "APP_GUARD"
+        - "APP_PIPE"
 patterns:
   data_flow:
     direction: "Controller → Service → Repository/ORM"
