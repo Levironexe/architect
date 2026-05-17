@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { render } from './templateRenderer.js';
 import type { ScanResult } from '../types/analysis.js';
 import type { RenderedSkillFile, TemplateContext } from '../types/generation.js';
-import type { ArchitectureSkill, StructureEntry } from '../types/skill.js';
+import type { ArchitectureSkill, SkillMatch, StructureEntry } from '../types/skill.js';
 
 const TEMPLATE_NAMES = ['architect-plan', 'architect-refactor'] as const;
 
@@ -29,7 +29,7 @@ export async function loadBundledTemplate(name: TemplateName): Promise<string> {
   return fs.readFile(resolveTemplatePath(name), 'utf8');
 }
 
-export function buildTemplateContext(skill: ArchitectureSkill, result: ScanResult): TemplateContext {
+export function buildTemplateContext(skill: ArchitectureSkill, result: ScanResult, allMatched?: SkillMatch[]): TemplateContext {
   const largestFiles = [...result.files]
     .sort((left, right) => right.loc - left.loc || left.relativePath.localeCompare(right.relativePath))
     .slice(0, 5)
@@ -54,6 +54,11 @@ export function buildTemplateContext(skill: ArchitectureSkill, result: ScanResul
         rules: formatSeparationRules(skill)
       },
       anti_patterns: formatAntiPatterns(skill)
+    },
+    skills: {
+      detected: allMatched && allMatched.length > 0
+        ? allMatched.map((m) => m.skill.id).join(' ')
+        : skill.id
     },
     analysis: {
       largestFiles: largestFiles.join('\n'),

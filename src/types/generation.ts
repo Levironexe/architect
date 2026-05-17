@@ -11,6 +11,9 @@ export interface TemplateContext {
     };
     anti_patterns: string;
   };
+  skills: {
+    detected: string;
+  };
   analysis: {
     largestFiles: string;
     hubFiles: string;
