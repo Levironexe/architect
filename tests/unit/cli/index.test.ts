@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { createRequire } from 'node:module';
 
 import { captureOutput } from '../test-helpers';
 import { runCli } from '../../../src/cli/index';
+
+const { version } = createRequire(import.meta.url)('../../../package.json') as { version: string };
 
 describe('runCli', () => {
   it('prints help with scan and skill commands (plan removed)', async () => {
@@ -21,7 +24,7 @@ describe('runCli', () => {
       await runCli(['--version']);
     });
 
-    expect(output.stdout.trim()).toBe('0.1.0');
+    expect(output.stdout.trim()).toBe(version);
     expect(output.stderr).toBe('');
   });
 

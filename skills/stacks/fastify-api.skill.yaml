@@ -11,10 +11,6 @@ detection:
   dependencies:
     any:
       - fastify
-    none:
-      - express
-      - next
-      - hono
   source_indicators:
     - "fastify()"
     - "Fastify()"

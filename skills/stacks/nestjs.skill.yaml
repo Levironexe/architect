@@ -11,10 +11,6 @@ detection:
   dependencies:
     any:
       - "@nestjs/core"
-    none:
-      - express
-      - fastify
-      - hono
   source_indicators:
     - "@Module("
     - "@Controller("
