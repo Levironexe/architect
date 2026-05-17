@@ -3,6 +3,7 @@ import { Command, CommanderError } from 'commander';
 import { existsSync } from 'node:fs';
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 import type { ScanThresholds } from '../types/scan-output.js';
 import { renderScanJson } from '../reporters/scan-json.js';
@@ -17,7 +18,7 @@ import { parseThresholdOption, ThresholdParseError } from '../utils/thresholds.j
 export { runProjectScan } from './scan-runner.js';
 
 const CLI_NAME = 'architect';
-const CLI_VERSION = '0.1.0';
+const CLI_VERSION = (createRequire(import.meta.url)('../../package.json') as { version: string }).version;
 
 type ScanCommandOptions = {
   color?: boolean;

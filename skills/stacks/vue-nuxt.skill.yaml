@@ -12,8 +12,6 @@ detection:
   dependencies:
     any:
       - nuxt
-    none:
-      - next
   source_indicators:
     - "defineNuxtConfig"
     - "nuxt.config"

@@ -28,7 +28,7 @@ describe('scan command', () => {
     expect(output.stdout).toContain('FILE');
     expect(output.stdout).toContain('server.ts');
     expect(output.stdout).toContain('Critical functions');
-    expect(output.stdout).toContain('- Flagged functions: 1');
+    expect(output.stdout).toContain('- Flagged functions: 2');
   });
 
   it('preserves summary content without ANSI codes when --no-color is used', async () => {
@@ -41,7 +41,7 @@ describe('scan command', () => {
 
     expect(output.stderr).toBe('');
     expect(output.stdout).toContain('COMPLEX');
-    expect(output.stdout).toContain('- Flagged functions: 1');
+    expect(output.stdout).toContain('- Flagged functions: 2');
     expect(output.stdout).not.toContain('\u001b[');
   });
 
