@@ -11,8 +11,6 @@ detection:
   dependencies:
     any:
       - express
-    none:
-      - next
   source_indicators:
     - "express()"
     - "app.listen"
