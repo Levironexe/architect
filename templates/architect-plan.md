@@ -91,6 +91,13 @@ Based on what you've read, identify the concrete structural problems:
 - What code lives in the wrong place relative to the blueprint?
 - Where is duplication concentrated?
 - Which hub files are risky to touch?
+- Where does a file re-derive data already available from a `lib/` function? (inline filters,
+  re-calculations, re-sorts that should be called once from a shared module)
+
+**Enumerate exhaustively.** When you identify a problem pattern in a file, search for every
+instance of that pattern in that file before writing the plan step. Do not write "remove the X
+re-derivation" if X, Y, and Z are all the same pattern — list all three by name and line number
+in the step's "What" field. Finding one instance is not license to move on.
 
 ### 5. Write `.architect/plan.md`
 
@@ -107,9 +114,14 @@ Stack: <detected stack id>
 
 ### Steps
 - [ ] Step 1.1: <verb> `<source>` → `<target>`
-  - What: <exactly what code is being moved or created>
+  - What: <exactly what code is being moved or created — for deletions, list every item by name
+    and line number; for extractions, list every symbol being moved>
   - Why: <which separation rule or blueprint requirement this satisfies>
-  - Imports to update: <list files that import from source, or "none">
+  - Imports to update:
+    - `<file>`: change `from '<old-module>'` → `from '<new-module>'` for `<symbols>`
+    - "none" if no consumers exist
+  - Verify: `grep -r "from '<old-module>'" <scope>/` should return zero results
+    [include only on steps that move or extract a module; omit on pure creation steps]
 
 - [ ] Step 1.2: ...
 
@@ -124,6 +136,10 @@ Stack: <detected stack id>
 - Do not put hub files in Phase 1 unless unavoidable — moving a hub breaks many things at once
 - Each phase should be independently executable: completing it leaves the project in a valid,
   runnable state
+- Collect all destructive steps (deleting dead code, removing duplicates, removing deprecated
+  patterns) into a dedicated final phase labeled "Cleanup: Remove Dead Code." Do not embed
+  deletions inside constructive phases — deletions produce absence, which is easy for an agent to
+  skip when surrounded by creation steps
 
 **Minimum**: at least 1 phase with at least 1 step. If the project already follows the
 blueprint well, write a single phase with steps for minor cleanup and note "Structure largely
