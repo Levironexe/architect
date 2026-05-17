@@ -104,7 +104,7 @@ export async function runInitCommand(
     }
   }
 
-  const context = buildTemplateContext(selectedSkill, result);
+  const context = buildTemplateContext(selectedSkill, result, result.matchedSkills ?? []);
   const renderedFiles = await renderTemplates(context);
   const writer = writers[integration];
   const targets = writer(renderedFiles);
