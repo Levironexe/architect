@@ -69,9 +69,13 @@ For each unchecked step in the current phase:
 Then:
 1. Create the target directory if it doesn't exist
 2. Move or create the file as specified
-3. Update all imports listed in the step's "Imports to update" field
-4. Verify the project still makes sense (no obviously broken imports left behind)
-5. Mark the step as done in `.architect/plan.md` by changing `- [ ]` to `- [x]`
+3. Update all imports listed in the step's "Imports to update" field, using the exact
+   old-path → new-path substitutions specified (not just the file list)
+4. If the step has a "Verify:" line, run the grep command it specifies. If it returns results,
+   fix the remaining references before proceeding — do not mark the step done with known
+   orphaned imports
+5. Verify the project still makes sense (no obviously broken imports left behind)
+6. Mark the step as done in `.architect/plan.md` by changing `- [ ]` to `- [x]`
 
 If a step would create a circular dependency, skip it, explain why in the chat, and continue
 with the next step.
