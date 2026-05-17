@@ -64,13 +64,16 @@ architect context --techstack <correct-id>
 ```
 Otherwise call:
 ```
-architect context --techstack {{skill.name}}
+architect context --techstack {{skills.detected}}
 ```
 
 If `architect` is not found globally, fall back to:
 ```
-npx @levironexe/architect context --techstack {{skill.name}}
+npx @levironexe/architect context --techstack {{skills.detected}}
 ```
+
+This may return blueprints for several detected stacks. Apply the rules from each — the primary
+stack ({{skill.name}}) takes precedence on conflicts.
 
 Read the output — it gives you the full architectural blueprint: required directories, separation
 rules, anti-patterns to avoid.
