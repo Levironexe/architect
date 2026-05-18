@@ -8,7 +8,7 @@ Three failures all trace to incomplete plan instructions, not wrong ones.
 
 ## 1. Current Template Analysis
 
-### 1.1 What Works — Don't Break These
+### 1.1 What Works  -  Don't Break These
 
 | Strength | Template Location |
 |---|---|
@@ -22,9 +22,9 @@ The structural moves, phase sequencing, and line-number specificity were all cor
 output. The 7/10 score means the template's core framework is solid. Enhancements should be
 targeted additions, not structural rewrites.
 
-### 1.2 Structural Gaps — With Evidence
+### 1.2 Structural Gaps  -  With Evidence
 
-**Gap A — "Imports to update" is a file list, not a substitution spec**
+**Gap A  -  "Imports to update" is a file list, not a substitution spec**
 
 Current template format:
 ```markdown
@@ -45,17 +45,17 @@ type imports because the instruction said "update the file" not "change import X
 
 A file list is ambiguous when a file has multiple imports affected differently by the same extraction.
 
-**Gap B — Problem identification is example-based, not exhaustive**
+**Gap B  -  Problem identification is example-based, not exhaustive**
 
 Current template instruction:
 > "Based on what you've read, identify the concrete structural problems"
 
 No instruction to search exhaustively. The agent found `overdueTasks`, `urgentPending`, and
-`completionRate` re-derivations in `page.tsx` but missed `recentlyDone` — same file, same pattern,
+`completionRate` re-derivations in `page.tsx` but missed `recentlyDone`  -  same file, same pattern,
 four lines below. Plan Step 5.1 mentioned three of the four instances; `recentlyDone` was never
 in the plan and survived the refactor unchanged.
 
-**Gap C — Destructive steps have no visibility separation from constructive steps**
+**Gap C  -  Destructive steps have no visibility separation from constructive steps**
 
 Current template format allows arbitrary step ordering within a phase. Phase 4 had 8 steps:
 - Steps 4.1–4.6: Extract new component files (constructive, high-visibility)
@@ -66,7 +66,7 @@ The deletion was step 7 of 8 in a phase focused on extraction. Constructive step
 artifacts (new files); destructive steps produce absence. Agents are less reliable at tracking
 deletions buried among creations.
 
-**Gap D — No post-extraction verification instruction**
+**Gap D  -  No post-extraction verification instruction**
 
 The template has no instruction to verify that the old import path has zero remaining references
 after an extraction. After Step 2.1 extracted types from `lib/db.ts` to `lib/types.ts`, there was
@@ -77,7 +77,7 @@ no verification was required.
 
 ## 2. Proposed Constraints
 
-### Constraint 1 — Import Substitution Spec (fixes Gap A)
+### Constraint 1  -  Import Substitution Spec (fixes Gap A)
 
 **Name:** Import Substitution Rule
 
@@ -92,7 +92,7 @@ no verification was required.
 
 **Where it goes:** Replace the existing `Imports to update: <list files>` in the plan format spec (§5).
 
-**What failure it prevents:** Failure 1 — agent can't selectively update wrong imports in a file
+**What failure it prevents:** Failure 1  -  agent can't selectively update wrong imports in a file
 that has multiple unrelated imports. Specifying old-path → new-path removes ambiguity.
 
 **Before (current output):**
@@ -110,21 +110,21 @@ that has multiple unrelated imports. Specifying old-path → new-path removes am
 
 ---
 
-### Constraint 2 — Exhaustive Enumeration Before Writing Steps (fixes Gap B)
+### Constraint 2  -  Exhaustive Enumeration Before Writing Steps (fixes Gap B)
 
 **Name:** Exhaustive Instance Rule
 
 **What it says** (add to §4 "Identify the problems"):
 
 > When you identify a problem pattern in a file, search for **all instances** of that pattern in
-> that file before writing the plan step. Do not write "remove the X re-derivation" — write "remove
+> that file before writing the plan step. Do not write "remove the X re-derivation"  -  write "remove
 > all inline re-derivations in `<file>` that duplicate `lib/` output: `X` (line N), `Y` (line M),
 > `Z` (line P)." If you find a pattern in one place, grep the file for similar constructs before
 > moving on.
 
 **Where it goes:** §4 "Identify the problems", as a new rule after the four bullet points.
 
-**What failure it prevents:** Failure 2 — `recentlyDone` was the same pattern as `urgentPending`
+**What failure it prevents:** Failure 2  -  `recentlyDone` was the same pattern as `urgentPending`
 (inline filter on `tasks` array, result available from `lib/`), four lines away, never mentioned.
 
 **Before (current plan Step 5.1):**
@@ -145,7 +145,7 @@ that has multiple unrelated imports. Specifying old-path → new-path removes am
 
 ---
 
-### Constraint 3 — Dedicated Cleanup Phase for Destructive Actions (fixes Gap C)
+### Constraint 3  -  Dedicated Cleanup Phase for Destructive Actions (fixes Gap C)
 
 **Name:** Cleanup Phase Rule
 
@@ -159,7 +159,7 @@ that has multiple unrelated imports. Specifying old-path → new-path removes am
 
 **Where it goes:** "Ordering rules" block in §5, as a new rule after the four existing bullets.
 
-**What failure it prevents:** Failure 3 — Step 4.7 (delete `duplicateKpis`) was item 7 of 8
+**What failure it prevents:** Failure 3  -  Step 4.7 (delete `duplicateKpis`) was item 7 of 8
 inside a phase focused on component extraction. Deletions produce absence; agents are more likely
 to skip them when surrounded by louder constructive work.
 
@@ -186,19 +186,19 @@ to skip them when surrounded by louder constructive work.
 - Step 4.5: Extract SprintPlanner.tsx
 - Step 4.6: Extract ProjectSidebar.tsx
 
-## Phase N (final): Cleanup — Remove Dead Code
+## Phase N (final): Cleanup  -  Remove Dead Code
 - Step N.1: Delete `localCompletionRate` and `duplicateKpis` from `TaskBoard.tsx` (lines 117–135)
   - What: Remove `const localCompletionRate = ...` and `const duplicateKpis = useMemo(...)`;
     update JSX references to use `stats.completionRate`, `stats.done`, `stats.highPriority`,
     `stats.overdue` from the prop passed by `page.tsx`
-  - Why: Dead code — `page.tsx` already computes and passes `stats`
+  - Why: Dead code  -  `page.tsx` already computes and passes `stats`
 - Step N.2: Remove `urgentPending` and `recentlyDone` from `page.tsx` (lines 12–16)
   ...
 ```
 
 ---
 
-### Constraint 4 — Post-Extraction Verification (fixes Gap D)
+### Constraint 4  -  Post-Extraction Verification (fixes Gap D)
 
 **Name:** Consumer Verification Rule
 
@@ -206,7 +206,7 @@ to skip them when surrounded by louder constructive work.
 
 > After every step that extracts code to a new module, add a verification note:
 > ```
-> - Verify: grep codebase for `from '<old-module>'` — should return zero files importing
+> - Verify: grep codebase for `from '<old-module>'`  -  should return zero files importing
 >   the extracted symbols from the old location.
 > ```
 > This becomes an instruction to `/architect-refactor`: after executing the step, grep before
@@ -214,7 +214,7 @@ to skip them when surrounded by louder constructive work.
 
 **Where it goes:** §5 plan format spec, as an optional field on extraction/move steps.
 
-**What failure it prevents:** Gap D — `components/TaskBoard.tsx` still imported types from
+**What failure it prevents:** Gap D  -  `components/TaskBoard.tsx` still imported types from
 `@/lib/db` after Phase 2 because no verification required catching it.
 
 **Before (current step format):**
@@ -277,14 +277,14 @@ Append as fifth ordering rule:
 ```markdown
 - Collect all destructive actions (deleting dead code, removing duplicates, removing deprecated
   patterns) into a dedicated final phase labeled "Cleanup: Remove Dead Code." Do not embed
-  deletions inside constructive phases — the absence of code is invisible and agents are prone
+  deletions inside constructive phases  -  the absence of code is invisible and agents are prone
   to skipping embedded deletions when surrounded by creation steps.
 ```
 
 ### 3.4 Strengthen §4 with "look for both structural and semantic problems"
 
 The template currently focuses on structural problems (wrong directories, mixed concerns). Inline
-logic duplication (`urgentPending`, `recentlyDone`) is a semantic problem — code in the right
+logic duplication (`urgentPending`, `recentlyDone`) is a semantic problem  -  code in the right
 file but duplicating what `lib/` already provides. Add a fifth problem class to §4:
 
 ```markdown
@@ -296,7 +296,7 @@ file but duplicating what `lib/` already provides. Add a fifth problem class to 
 
 ## 4. Proposed Changes to architect-refactor.md
 
-Minimal — one addition.
+Minimal  -  one addition.
 
 ### 4.1 Add step verification before marking [x]
 
@@ -304,7 +304,7 @@ After step 4 ("Verify the project still makes sense") in "Execute the current ph
 
 ```markdown
 4b. If the step has a "Verify:" line, run the grep command it specifies. If it returns results,
-    do not mark the step `[x]` — fix the remaining references first.
+    do not mark the step `[x]`  -  fix the remaining references first.
 ```
 
 This closes the loop: the plan specifies what to verify, the refactor skill is instructed to

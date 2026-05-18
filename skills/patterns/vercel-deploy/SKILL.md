@@ -1,0 +1,222 @@
+---
+schema_version: "2.0.0"
+id: vercel-deploy
+name: "Vercel"
+version: "2.0.0"
+description: "Vercel deployment  -  dashboard-managed secrets, serverless function bundle limits, edge runtime with Web APIs, cache headers, and environment-based URL construction."
+category: pattern
+language: javascript
+frameworks: []
+dependencies:
+  none: []
+detection:
+  files:
+    - vercel.json
+    - .vercel
+  source_indicators:
+    - "VERCEL_URL"
+    - "vercel.json"
+    - "@vercel/og"
+    - "NEXT_PUBLIC_VERCEL"
+structure:
+  required_dirs: []
+  recommended_dirs:
+    - path: .vercel
+      purpose: "Auto-generated Vercel project configuration  -  project.json links the local project to Vercel's project ID. Never edit manually; re-link with `vercel link` if corrupted."
+separation:
+  rules:
+    - concern: env_variables
+      belongs_in: vercel.json
+      rule_text: "Store all secrets (API keys, database URLs, auth secrets) in Vercel's environment variable dashboard  -  not in vercel.json or committed .env files. Use `vercel env add NAME production` to set them. Reference values as process.env.NAME in code. Use NEXT_PUBLIC_ prefix only for values that are intentionally safe to expose in the browser bundle."
+      example: |
+        // vercel.json  -  build config only, never secrets
+        {
+          "buildCommand": "npm run build",
+          "outputDirectory": ".next",
+          "framework": "nextjs"
+        }
+        // Set secrets via CLI:
+        // vercel env add DATABASE_URL production
+        // vercel env add NEXTAUTH_SECRET production
+        // vercel env add STRIPE_SECRET_KEY production
+        // Pull to local .env for development:
+        // vercel env pull .env.local
+      anti_indicators:
+        - "\"env\":"
+        - "\"DATABASE_URL\":"
+    - concern: serverless_function_limits
+      belongs_in: app/api
+      rule_text: "Vercel serverless functions have a 50 MB bundle limit, 1024 MB RAM, and 10s default / 30s Pro timeout. For long-running operations, use maxDuration to extend the timeout explicitly. For heavy dependencies (Puppeteer, FFmpeg, Sharp), use an external service or Vercel's native image transformation instead."
+      example: |
+        // app/api/report/route.ts  -  extend timeout for heavy computation
+        import { NextRequest } from 'next/server';
+        export const maxDuration = 30; // seconds  -  Pro plan allows up to 300s
+
+        export async function POST(req: NextRequest) {
+          const body = await req.json();
+          const report = await generateReport(body); // slow DB-heavy operation
+          return Response.json(report);
+        }
+
+        // app/api/quick/route.ts  -  lightweight, no override needed (uses 10s default)
+        export async function GET() {
+          const data = await fetchLightData();
+          return Response.json(data, {
+            headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=300' },
+          });
+        }
+      indicators:
+        - "maxDuration"
+        - "export const config"
+        - "runtime"
+    - concern: edge_runtime
+      belongs_in: middleware.ts
+      rule_text: "Use the Edge Runtime (export const runtime = 'edge') for middleware and low-latency routes that don't need Node.js APIs. Edge functions run globally at every CDN PoP  -  ideal for auth middleware, redirects, A/B testing, and geo-routing. Edge functions cannot use Node.js built-ins (fs, crypto from 'crypto', Buffer)  -  use the equivalent Web APIs."
+      example: |
+        // middleware.ts  -  edge runtime, runs before every request
+        import { NextResponse } from 'next/server';
+        import type { NextRequest } from 'next/server';
+
+        export function middleware(request: NextRequest) {
+          const token = request.cookies.get('session')?.value;
+          if (!token && request.nextUrl.pathname.startsWith('/dashboard')) {
+            return NextResponse.redirect(new URL('/login', request.url));
+          }
+          return NextResponse.next();
+        }
+
+        export const config = {
+          matcher: ['/dashboard/:path*', '/api/protected/:path*'],
+        };
+      indicators:
+        - "export const runtime = 'edge'"
+        - "config.matcher"
+        - "NextResponse.redirect"
+    - concern: cache_headers
+      belongs_in: app/api
+      rule_text: "Set Cache-Control headers on API routes that return stable or slowly-changing data. Without cache headers, every request hits your serverless function  -  Vercel's CDN cannot cache the response. Use s-maxage for CDN TTL and stale-while-revalidate for background refresh."
+      example: |
+        // app/api/products/route.ts  -  CDN-cached for 60s, stale-revalidate for 5min
+        export async function GET() {
+          const products = await getProducts();
+          return Response.json(products, {
+            headers: {
+              'Cache-Control': 's-maxage=60, stale-while-revalidate=300',
+              // s-maxage: CDN caches for 60 seconds
+              // stale-while-revalidate: serve stale while revalidating in background
+            },
+          });
+        }
+
+        // For personalized responses  -  disable CDN caching
+        export async function GET(req: Request) {
+          const user = await getUser(req);
+          return Response.json(user, {
+            headers: { 'Cache-Control': 'private, no-store' },
+          });
+        }
+      indicators:
+        - "Cache-Control"
+        - "s-maxage"
+        - "stale-while-revalidate"
+patterns:
+  data_flow:
+    direction: "Git Push → Vercel Build → Serverless (regional) or Edge (global) → CDN Cache → Response"
+    rules:
+      - "Production secrets are set in Vercel dashboard  -  never in committed files."
+      - "Edge functions run globally at CDN PoP  -  use for auth middleware, redirects, geo."
+      - "Serverless functions are regional  -  use for DB queries and heavy computation."
+      - "Set Cache-Control headers on stable API responses  -  Vercel CDN caches them globally."
+      - "Use VERCEL_URL for dynamic URL construction  -  never hardcode domain names."
+  error_handling:
+    recommended: "Check VERCEL_ENV ('production' | 'preview' | 'development') to distinguish environments. Use NEXT_PUBLIC_VERCEL_URL for browser-side URL construction."
+  naming:
+    config: "vercel.json at project root  -  build config only, never secrets"
+    api_routes: "app/api/[resource]/route.ts for serverless; export const runtime = 'edge' for edge functions"
+    env_management: "Secrets via 'vercel env add [NAME] [scope]'; local copy via 'vercel env pull .env.local'"
+anti_patterns:
+  - id: secrets_in_vercel_json
+    severity: critical
+    description: "Putting secret values in vercel.json's env block. vercel.json is committed to the repository  -  secrets in it are visible to everyone with repo access and in git history permanently."
+    bad_example: |
+      // ❌ Secret in vercel.json  -  committed to git, leaked forever
+      {
+        "env": {
+          "DATABASE_URL": "postgresql://user:pass@db.example.com/prod",
+          "NEXTAUTH_SECRET": "my-production-secret"
+        }
+      }
+    good_example: |
+      // ✓ Set secrets via Vercel CLI  -  they go to the encrypted dashboard
+      // vercel env add DATABASE_URL production
+      // vercel env add NEXTAUTH_SECRET production
+      // vercel.json contains only non-secret build configuration
+  - id: heavy_deps_in_api_route
+    severity: warning
+    description: "Importing large native dependencies (Puppeteer, Sharp, FFmpeg) in serverless API routes  -  Puppeteer alone is ~350 MB (exceeds the 50 MB bundle limit). Results in build failures or extremely slow cold starts."
+    bad_example: |
+      // ❌ Puppeteer in a serverless function  -  350 MB bundle → build fails
+      import puppeteer from 'puppeteer';
+      export async function GET() {
+        const browser = await puppeteer.launch();
+        const page = await browser.newPage();
+        // ... render screenshot
+      }
+    good_example: |
+      // ✓ Use Vercel's native OG image generation or an external screenshot service
+      import { ImageResponse } from 'next/og';
+      export const runtime = 'edge'; // OG works in edge runtime, tiny bundle
+      export async function GET() {
+        return new ImageResponse(<div>Hello</div>, { width: 1200, height: 630 });
+      }
+  - id: node_api_in_edge
+    severity: critical
+    description: "Using Node.js-only APIs (fs, path, Buffer, `import crypto from 'crypto'`) in edge functions or middleware. Edge runtime is based on V8 + Web APIs only  -  Node.js module imports throw at runtime."
+    bad_example: |
+      // ❌ Node.js crypto module in edge middleware  -  throws at runtime
+      import crypto from 'crypto'; // Node.js only
+      export function middleware(req: Request) {
+        const hash = crypto.createHash('sha256').update(req.url).digest('hex');
+      }
+    good_example: |
+      // ✓ Web Crypto API  -  available in edge runtime and browsers
+      export async function middleware(req: Request) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(req.url);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+  - id: hardcoded_base_url
+    severity: warning
+    description: "Hardcoding domain names in API routes or server-side code instead of using VERCEL_URL. Vercel creates unique deployment URLs for every preview  -  hardcoded URLs break OAuth callbacks, email confirmation links, and API redirects in preview deployments."
+    bad_example: |
+      // ❌ Hardcoded URL  -  breaks in Vercel preview deployments
+      const callbackUrl = 'https://myapp.com/api/auth/callback';
+      const emailLink = `https://myapp.com/verify?token=${token}`;
+    good_example: |
+      // ✓ Dynamic base URL from environment
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000';
+      const callbackUrl = `${baseUrl}/api/auth/callback`;
+      const emailLink = `${baseUrl}/verify?token=${token}`;
+  - id: missing_cache_headers
+    severity: warning
+    description: "API routes that return stable or reference data without Cache-Control headers. Without headers, every request hits the serverless function  -  you pay per invocation and users experience higher latency. Even a 60-second CDN cache can reduce function invocations by 90% for popular endpoints."
+    bad_example: |
+      // ❌ No cache headers  -  every request invokes the function
+      export async function GET() {
+        const categories = await db.category.findMany(); // same data for hours
+        return Response.json(categories); // bypasses Vercel CDN entirely
+      }
+    good_example: |
+      // ✓ CDN caches for 60s, serves stale for 5 min while revalidating
+      export async function GET() {
+        const categories = await db.category.findMany();
+        return Response.json(categories, {
+          headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=300' },
+        });
+      }
+
+---
