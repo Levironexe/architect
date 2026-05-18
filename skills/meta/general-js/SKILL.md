@@ -1,0 +1,134 @@
+---
+schema_version: "2.0.0"
+id: general-js
+name: "General JavaScript/TypeScript"
+version: "1.1.0"
+description: "Language-level JavaScript and TypeScript hygiene for naming, imports, errors, and environment handling."
+category: meta
+language: javascript
+frameworks: []
+detection:
+  source_indicators:
+    - "import "
+    - "export "
+structure:
+  required_dirs: []
+  recommended_dirs:
+    - path: src
+      purpose: "All application source code. Every module the app ships is rooted here. Consumers import from src/ paths, not from the project root."
+    - path: tests
+      purpose: "All automated test files. Mirrors src/ directory structure with *.test.ts or *.spec.ts suffixes."
+separation:
+  rules:
+    - concern: configuration
+      belongs_in: src/config
+      rule_text: "Environment and runtime configuration must be centralized in src/config so the rest of the codebase consumes validated config values instead of raw process.env reads scattered across modules. Fail fast at startup when required variables are missing."
+      example: |
+        // src/config/index.ts
+        import { z } from 'zod';
+        const envSchema = z.object({
+          API_BASE_URL: z.string().url(),
+          PORT: z.coerce.number().default(3000),
+          DATABASE_URL: z.string().min(1),
+        });
+        export const config = envSchema.parse(process.env);
+      indicators:
+        - "process.env"
+    - concern: utility
+      belongs_in: src/utils
+      rule_text: "Generic helper functions with no domain or framework coupling belong in src/utils so they can be reused across all feature modules without creating circular dependencies. A utility must not import from domain or service modules."
+      example: |
+        // src/utils/array.ts
+        export function chunk<T>(items: T[], size: number): T[][] {
+          return items.reduce<T[][]>((groups, item, index) => {
+            const groupIndex = Math.floor(index / size);
+            groups[groupIndex] ??= [];
+            groups[groupIndex].push(item);
+            return groups;
+          }, []);
+        }
+      anti_indicators:
+        - "import.*services"
+        - "import.*controllers"
+        - "import.*repositories"
+    - concern: error_handler
+      belongs_in: src/errors
+      rule_text: "Custom error classes that extend the built-in Error must live in src/errors so all modules throw typed, structured errors instead of raw strings or plain objects. Typed errors enable central error middleware to map errors to correct HTTP status codes."
+      example: |
+        // src/errors/app-error.ts
+        export class AppError extends Error {
+          constructor(
+            message: string,
+            public readonly code: string,
+            public readonly statusCode = 500,
+            public readonly isOperational = true,
+          ) {
+            super(message);
+            this.name = 'AppError';
+          }
+        }
+      indicators:
+        - "extends Error"
+        - "new Error("
+patterns:
+  naming:
+    files: "Use kebab-case for all filenames (user-service.ts, auth-middleware.ts). Use *.test.ts or *.spec.ts suffixes for test files. Never use spaces or underscores in filenames."
+    variables: "Use lowerCamelCase for local variables and functions (userId, fetchUser). Use UpperCamelCase for classes and type aliases (UserService, ApiResponse). Use UPPER_SNAKE_CASE for true module-level constants (MAX_RETRIES, DEFAULT_TIMEOUT)."
+    functions: "Name all functions, including callbacks and inline arrow functions. Anonymous functions appear as '<anonymous>' in stack traces and profiling tools, making debugging significantly harder."
+  error_handling:
+    recommended: "Always 'return await' when returning promises to preserve full stack traces. Register process.on('unhandledRejection', handler) as a global safety net. Subscribe to EventEmitter 'error' events when working with streams or event-driven code."
+  data_flow:
+    direction: "node: built-ins -> external packages -> src/config -> src/errors -> src/utils -> domain modules -> route handlers"
+    rules:
+      - "Group imports: node: built-ins first, then external packages, then internal src/ path aliases, then relative paths. Use a consistent blank line between groups."
+      - "Keep all process.env access inside src/config. No module outside src/config reads process.env directly."
+      - "Avoid barrel re-export index.ts files that re-export across feature boundaries  -  they create circular import graphs that cause runtime errors and slow bundlers."
+anti_patterns:
+  - id: empty_catch
+    severity: warning
+    description: "Errors are swallowed without handling or logging, making failures invisible to monitoring, on-call engineers, and automated alerting. Silent failures in production are the hardest class of bug to diagnose."
+    bad_example: |
+      try {
+        await saveUser(user);
+      } catch (error) {}
+    good_example: |
+      try {
+        await saveUser(user);
+      } catch (error) {
+        logger.error('Failed to save user', { userId: user.id, error });
+        throw error;
+      }
+  - id: hardcoded_env_values
+    severity: critical
+    description: "Environment-specific values (hostnames, secrets, feature flags, API keys) are hardcoded in source files. This prevents running the app in multiple environments, leaks production config into version control, and requires code changes for every environment switch."
+    bad_example: |
+      // Hardcoded deep inside a feature file
+      const db = new Client({
+        host: 'prod-db.us-east-1.internal',
+        password: 'super_secret_prod_password',
+      });
+    good_example: |
+      // Read once at startup in src/config/index.ts; consumed everywhere else
+      import { config } from '@/config';
+      const db = new Client({
+        host: config.DB_HOST,
+        password: config.DB_PASSWORD,
+      });
+  - id: unsafe_any
+    severity: warning
+    description: "Using the 'any' type disables TypeScript's type checker for that value and everything downstream that touches it. Values typed as 'any' propagate unsafely through the call chain, turning TypeScript into JavaScript with extra syntax overhead."
+    bad_example: |
+      async function getUser(id: string): Promise<any> {
+        const data: any = await fetchJson(`/users/${id}`);
+        return data.profile.email; // crashes at runtime if shape is wrong; no IDE help
+      }
+    good_example: |
+      interface UserResponse {
+        profile: { email: string; name: string };
+      }
+      async function getUser(id: string): Promise<UserResponse> {
+        const data = await fetchJson<UserResponse>(`/users/${id}`);
+        return data; // fully type-checked; IDE autocomplete and refactoring work
+      }
+
+---

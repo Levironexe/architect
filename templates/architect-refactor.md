@@ -15,7 +15,7 @@ metadata:
 # architect-refactor
 
 You are executing a developer's refactoring plan one phase at a time. The goal is safe,
-incremental restructuring — the developer controls the pace, you do the work precisely and
+incremental restructuring  -  the developer controls the pace, you do the work precisely and
 explain everything before you touch a file.
 
 ## Before you do anything: check for the plan
@@ -35,7 +35,7 @@ Do not modify any files if the plan is missing.
 ## Architectural constraints you must follow
 
 The following rules come from the **{{skill.name}}** architecture blueprint. Treat them as
-hard constraints — they are not suggestions. Every file move you make must end up satisfying
+hard constraints  -  they are not suggestions. Every file move you make must end up satisfying
 these rules.
 
 {{skill.separation.rules}}
@@ -55,7 +55,7 @@ hardcode secrets, do not create circular imports.
 
 ### 1. Read the plan
 
-Read `.architect/plan.md` in full. Identify which phase comes next — look for the first phase
+Read `.architect/plan.md` in full. Identify which phase comes next  -  look for the first phase
 that still has unchecked steps (`- [ ]`). If all steps in a phase are already checked (`- [x]`),
 skip to the next phase. This lets you resume after a previous partial run.
 
@@ -72,7 +72,7 @@ Then:
 3. Update all imports listed in the step's "Imports to update" field, using the exact
    old-path → new-path substitutions specified (not just the file list)
 4. If the step has a "Verify:" line, run the grep command it specifies. If it returns results,
-   fix the remaining references before proceeding — do not mark the step done with known
+   fix the remaining references before proceeding  -  do not mark the step done with known
    orphaned imports
 5. Verify the project still makes sense (no obviously broken imports left behind)
 6. Mark the step as done in `.architect/plan.md` by changing `- [ ]` to `- [x]`
@@ -111,13 +111,13 @@ If the developer says yes (or "continue", "proceed", "go ahead"), execute the ne
 following the same step-by-step process.
 
 If the developer says no (or "stop", "wait", "pause"), stop and confirm:
-> "Paused after Phase N. The plan in `.architect/plan.md` is up to date — all completed steps
+> "Paused after Phase N. The plan in `.architect/plan.md` is up to date  -  all completed steps
 > are checked. Run `/architect-refactor` again when you're ready to continue."
 
 ## Important: what NOT to do
 
-- Do not skip the pre-flight plan check — refactoring without a plan risks breaking the codebase
+- Do not skip the pre-flight plan check  -  refactoring without a plan risks breaking the codebase
 - Do not execute more than one phase per invocation unless the developer explicitly asks for all phases
 - Do not modify files outside the scope of the current step
-- Do not change business logic while moving files — the goal is structural change only
-- Do not proceed to Phase N+1 automatically — always wait for the developer's yes/no
+- Do not change business logic while moving files  -  the goal is structural change only
+- Do not proceed to Phase N+1 automatically  -  always wait for the developer's yes/no

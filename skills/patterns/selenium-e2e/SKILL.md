@@ -1,0 +1,279 @@
+---
+schema_version: "2.0.0"
+id: selenium-e2e
+name: "Selenium E2E"
+version: "2.0.0"
+description: "End-to-end testing with Selenium WebDriver  -  Page Object Models with BasePage, explicit waits (no sleeps), driver factory, screenshot capture on failure, data-testid selectors, and driver.quit() in afterEach."
+category: pattern
+language: javascript
+frameworks:
+  - selenium-webdriver
+dependencies:
+  none: []
+detection:
+  dependencies:
+    any:
+      - selenium-webdriver
+      - "@selenium-devtools/expect-webdriver"
+  source_indicators:
+    - "from 'selenium-webdriver'"
+    - "new Builder()"
+    - "driver.findElement("
+    - "By.css("
+    - "until.elementLocated"
+structure:
+  required_dirs:
+    - path: tests/e2e
+      purpose: "E2E test specs organized by user flow or feature. Each spec file tests one major user journey. Specs import Page Objects from tests/e2e/pages/ and the driver factory from tests/e2e/fixtures/  -  they never contain raw driver.findElement() calls or By selectors."
+  recommended_dirs:
+    - path: tests/e2e/pages
+      purpose: "Page Object Model classes  -  one class per page, extending BasePage. BasePage provides shared explicit wait helpers so individual POMs don't copy-paste wait logic. Example: LoginPage extends BasePage, uses this.waitAndFind('login-form') from BasePage."
+    - path: tests/e2e/fixtures
+      purpose: "Driver factory (createDriver.ts) and shared setup helpers. createDriver() is the only place new Builder() is called  -  tests import and call createDriver() rather than building the WebDriver themselves."
+separation:
+  rules:
+    - concern: page_object_models
+      belongs_in: tests/e2e/pages
+      rule_text: "All locators and user-action sequences go in Page Object Model classes. POM classes extend BasePage which provides shared explicit wait helpers. Tests call high-level POM methods (login(), submitContactForm())  -  they never call driver.findElement() or By directly."
+      example: |
+        // tests/e2e/pages/base.page.ts
+        import { WebDriver, By, until, WebElement } from 'selenium-webdriver';
+
+        export class BasePage {
+          constructor(protected driver: WebDriver) {}
+
+          protected async waitAndFind(testId: string, timeout = 5000): Promise<WebElement> {
+            const locator = By.css(`[data-testid="${testId}"]`);
+            await this.driver.wait(until.elementLocated(locator), timeout);
+            return this.driver.findElement(locator);
+          }
+
+          protected async waitForUrl(urlFragment: string, timeout = 5000) {
+            await this.driver.wait(
+              async () => (await this.driver.getCurrentUrl()).includes(urlFragment),
+              timeout,
+              `URL did not contain "${urlFragment}" within ${timeout}ms`
+            );
+          }
+        }
+
+        // tests/e2e/pages/login.page.ts
+        import { By } from 'selenium-webdriver';
+        import { BasePage } from './base.page';
+
+        export class LoginPage extends BasePage {
+          async goto() {
+            await this.driver.get(`${process.env.BASE_URL ?? 'http://localhost:3000'}/login`);
+          }
+
+          async login(email: string, password: string) {
+            const emailInput = await this.waitAndFind('email-input');
+            const passwordInput = await this.waitAndFind('password-input');
+            await emailInput.sendKeys(email);
+            await passwordInput.sendKeys(password);
+            const submitBtn = await this.waitAndFind('login-submit');
+            await submitBtn.click();
+            await this.waitForUrl('/dashboard');
+          }
+
+          async getErrorMessage() {
+            const alert = await this.waitAndFind('error-alert');
+            return alert.getText();
+          }
+        }
+      indicators:
+        - "class LoginPage"
+        - "extends BasePage"
+        - "new LoginPage(driver)"
+    - concern: explicit_waits
+      belongs_in: tests/e2e/pages
+      rule_text: "Always use explicit waits (driver.wait with until.*) for every element interaction. Never use driver.sleep() or setTimeout()  -  they add fixed delay even when the element is ready, making tests slow and still flaky. Set a consistent timeout (5-10s for most elements, longer for page transitions)."
+      example: |
+        import { until, By, WebDriver } from 'selenium-webdriver';
+
+        // ✓ Explicit wait  -  resolves immediately when element appears, fails after timeout
+        const locator = By.css('[data-testid="result-list"]');
+        await driver.wait(until.elementLocated(locator), 8000, 'Result list not found within 8s');
+        const el = await driver.findElement(locator);
+        await driver.wait(until.elementIsVisible(el), 3000);
+
+        // ✓ Wait for element to become clickable
+        await driver.wait(until.elementIsEnabled(el), 3000);
+        await el.click();
+
+        // ❌ Fixed sleep  -  arbitrary, slow, still flaky:
+        // await driver.sleep(3000);
+        // await driver.findElement(locator); // may still fail if 3s wasn't enough
+      indicators:
+        - "driver.wait("
+        - "until.elementLocated"
+        - "until.elementIsVisible"
+    - concern: driver_factory
+      belongs_in: tests/e2e/fixtures
+      rule_text: "Create and configure the WebDriver instance in a single factory function exported from tests/e2e/fixtures/create-driver.ts. Test files import createDriver()  -  they never call `new Builder()`. This centralizes browser configuration (headless mode in CI, device emulation, etc.) in one place."
+      example: |
+        // tests/e2e/fixtures/create-driver.ts
+        import { Builder, WebDriver, Capabilities } from 'selenium-webdriver';
+        import chrome from 'selenium-webdriver/chrome';
+
+        export async function createDriver(): Promise<WebDriver> {
+          const options = new chrome.Options();
+          if (process.env.CI) {
+            options.addArguments('--headless', '--no-sandbox', '--disable-dev-shm-usage');
+          }
+          return new Builder()
+            .forBrowser('chrome')
+            .setChromeOptions(options)
+            .build();
+        }
+
+        // tests/e2e/auth.spec.ts
+        import { createDriver } from '../fixtures/create-driver';
+        let driver: WebDriver;
+        beforeEach(async () => { driver = await createDriver(); });
+        afterEach(async () => {
+          try { await driver.quit(); } catch { /* already closed */ }
+        });
+      indicators:
+        - "createDriver"
+        - "new Builder()"
+        - "forBrowser("
+    - concern: screenshot_on_failure
+      belongs_in: tests/e2e
+      rule_text: "Capture a screenshot and save it to disk in the afterEach (or afterAll) error handler. In CI, screenshots are the primary debugging tool  -  without them, a failing test in a headless browser is nearly impossible to diagnose."
+      example: |
+        // tests/e2e/helpers/screenshot.ts
+        import { WebDriver } from 'selenium-webdriver';
+        import fs from 'fs';
+        import path from 'path';
+
+        export async function screenshotOnFailure(driver: WebDriver, testName: string) {
+          const screenshot = await driver.takeScreenshot();
+          const dir = path.resolve('test-screenshots');
+          fs.mkdirSync(dir, { recursive: true });
+          const filename = `${testName.replace(/\s+/g, '-')}-${Date.now()}.png`;
+          fs.writeFileSync(path.join(dir, filename), screenshot, 'base64');
+          console.log(`Screenshot saved: ${path.join(dir, filename)}`);
+        }
+
+        // In test file:
+        afterEach(async function() {
+          // Mocha: this.currentTest.state === 'failed'
+          if (this.currentTest?.state === 'failed') {
+            await screenshotOnFailure(driver, this.currentTest.fullTitle());
+          }
+          await driver.quit();
+        });
+      indicators:
+        - "takeScreenshot"
+        - "writeFileSync"
+        - "test-screenshots"
+patterns:
+  data_flow:
+    direction: "Test → POM Methods (explicit waits) → WebDriver → Browser → Application"
+    rules:
+      - "createDriver() in tests/e2e/fixtures/ is the only place new Builder() is called."
+      - "BasePage provides shared waitAndFind() and waitForUrl()  -  no copy-pasted wait logic in POMs."
+      - "Tests call POM methods  -  never raw driver.findElement() or By selectors."
+      - "driver.quit() runs in afterEach/finally  -  no orphaned browser processes."
+      - "Screenshots are saved on test failure for CI debugging."
+  error_handling:
+    recommended: "Wrap driver.quit() in try/catch in afterEach  -  if quit fails (already closed), the test runner still continues. Never let a failed driver.quit() block reporting of the actual test failure."
+  naming:
+    specs: "tests/e2e/[feature].spec.ts"
+    base_page: "tests/e2e/pages/base.page.ts  -  BasePage class with shared wait helpers"
+    page_objects: "tests/e2e/pages/[page].page.ts  -  extends BasePage"
+    factory: "tests/e2e/fixtures/create-driver.ts  -  createDriver() function"
+    screenshots: "test-screenshots/[test-name]-[timestamp].png"
+anti_patterns:
+  - id: raw_selectors_in_tests
+    severity: warning
+    description: "Using driver.findElement() and By selectors directly in test spec files instead of Page Object Model methods. When a selector changes, every test that uses it breaks  -  with POMs, only one file needs updating."
+    bad_example: |
+      // ❌ Raw locators in test file  -  breaks when selector changes
+      it('can log in', async () => {
+        await driver.findElement(By.css('#email-field')).sendKeys('user@test.com');
+        await driver.findElement(By.css('#password-field')).sendKeys('password');
+        await driver.findElement(By.css('[type="submit"]')).click();
+      });
+    good_example: |
+      // ✓ POM method  -  one place to update when UI changes
+      it('can log in', async () => {
+        await loginPage.login('user@test.com', 'password');
+      });
+  - id: implicit_or_fixed_waits
+    severity: critical
+    description: "Using driver.manage().setImplicitWaitTimeout() or driver.sleep() instead of explicit waits. Implicit waits apply globally and interact badly with explicit waits. Fixed sleeps are arbitrary  -  too short causes flakiness, too long slows CI."
+    bad_example: |
+      // ❌ Global implicit wait  -  interacts badly with explicit waits
+      await driver.manage().setImplicitWaitTimeout(5000);
+
+      // ❌ Fixed sleep  -  arbitrary, slow on fast machines, still flaky on slow ones
+      await driver.sleep(3000);
+      const el = await driver.findElement(By.css('#result'));
+    good_example: |
+      // ✓ Explicit wait  -  resolves as soon as element appears, up to 5s
+      const el = await driver.wait(
+        until.elementLocated(By.css('[data-testid="result"]')),
+        5000,
+        'Result element not found within 5s'
+      );
+  - id: driver_not_quit
+    severity: critical
+    description: "Not calling driver.quit() after each test leaves orphaned Chrome/Firefox processes. Each test creates a new browser process  -  20 tests without cleanup = 20 browser processes competing for memory. In CI, this causes OOM kills."
+    bad_example: |
+      // ❌ No cleanup  -  browser process leaked after every test
+      afterEach(async () => {
+        // Missing: await driver.quit();
+      });
+    good_example: |
+      // ✓ quit() in try/catch so cleanup always runs
+      afterEach(async () => {
+        try {
+          await driver.quit();
+        } catch {
+          // driver may already be closed if test crashed it
+        }
+      });
+  - id: new_builder_in_tests
+    severity: warning
+    description: "Calling `new Builder()` in individual test files instead of importing from the shared driver factory. Browser configuration (headless mode, window size, proxy) is duplicated and must be updated in every test file when it changes."
+    bad_example: |
+      // ❌ Builder configuration duplicated in every test file
+      beforeEach(async () => {
+        driver = await new Builder().forBrowser('chrome').build(); // headless? window size? proxy?
+      });
+    good_example: |
+      // ✓ Import from shared factory  -  one place to configure all browser options
+      import { createDriver } from '../fixtures/create-driver';
+      beforeEach(async () => { driver = await createDriver(); });
+  - id: xpath_selectors
+    severity: warning
+    description: "Using XPath selectors (By.xpath()) for element selection. XPath selectors are tightly coupled to the DOM tree structure  -  adding a wrapper <div>, moving elements, or renaming tags breaks the selector. They are also slow compared to CSS selectors."
+    bad_example: |
+      // ❌ XPath  -  breaks on any DOM structure change
+      await driver.findElement(By.xpath('//div[@class="login-form"]/form/div[2]/input')).sendKeys(email);
+      await driver.findElement(By.xpath('//button[contains(text(),"Submit")]')).click();
+    good_example: |
+      // ✓ data-testid selector  -  stable regardless of DOM structure
+      await driver.findElement(By.css('[data-testid="email-input"]')).sendKeys(email);
+      await driver.findElement(By.css('[data-testid="login-submit"]')).click();
+  - id: no_screenshot_on_failure
+    severity: warning
+    description: "Not capturing screenshots on test failure. A headless browser test that fails in CI with no screenshot leaves only an error message  -  developers cannot see what the page looked like when the test failed, making debugging extremely difficult."
+    bad_example: |
+      // ❌ No screenshot  -  only error message on failure
+      afterEach(async () => {
+        await driver.quit(); // no screenshot before quitting
+      });
+    good_example: |
+      // ✓ Screenshot saved before quit when test fails
+      afterEach(async function() {
+        if (this.currentTest?.state === 'failed') {
+          const screenshot = await driver.takeScreenshot();
+          fs.writeFileSync(`test-screenshots/${Date.now()}.png`, screenshot, 'base64');
+        }
+        await driver.quit();
+      });
+
+---

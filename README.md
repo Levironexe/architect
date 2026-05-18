@@ -35,17 +35,17 @@
 
 Vibe coding is fast. Cleanup is hard.
 
-When you ship quickly with an AI agent — or inherit a fast-moving codebase — you often end up with:
+When you ship quickly with an AI agent  -  or inherit a fast-moving codebase  -  you often end up with:
 
-- **God files** — one 800-line `index.ts` doing routing, DB queries, and business logic at once
-- **Wrong structure** — everything in the root, no `services/`, no `controllers/`, no separation
-- **Risky refactors** — you know something needs to move, but you don't know what it will break
+- **God files**  -  one 800-line `index.ts` doing routing, DB queries, and business logic at once
+- **Wrong structure**  -  everything in the root, no `services/`, no `controllers/`, no separation
+- **Risky refactors**  -  you know something needs to move, but you don't know what it will break
 
 **Architect** solves this in three steps:
 
-1. **Scan** — static analysis tells you exactly what's wrong (file sizes, complexity, duplication, dependency risks)
-2. **Plan** — your coding agent reads the analysis, loads the architecture blueprint for your stack, and writes a safe, phased refactoring plan
-3. **Execute** — the agent executes the plan one phase at a time, explaining every move and pausing for your approval before proceeding
+1. **Scan**  -  static analysis tells you exactly what's wrong (file sizes, complexity, duplication, dependency risks)
+2. **Plan**  -  your coding agent reads the analysis, loads the architecture blueprint for your stack, and writes a safe, phased refactoring plan
+3. **Execute**  -  the agent executes the plan one phase at a time, explaining every move and pausing for your approval before proceeding
 
 No LLM API keys. No cloud. Architect is a local CLI that hands off to the agent already open in your editor.
 
@@ -125,7 +125,7 @@ architect init .
 4. Detects your stack from `package.json` dependencies and source patterns
 5. Embeds the analysis results into two SKILL.md files and writes them into your agent's config directory (e.g., `.claude/skills/architect-plan/SKILL.md`)
 
-When your agent runs `/architect-plan`, it reads those pre-computed numbers — so it knows where the problems are before it opens a single file.
+When your agent runs `/architect-plan`, it reads those pre-computed numbers  -  so it knows where the problems are before it opens a single file.
 
 ---
 
@@ -145,7 +145,7 @@ Architect auto-detects which agent is installed in your project. Override with `
 
 ## 🗂️ Built-in Architecture Skills
 
-Each skill defines what an ideal project structure looks like for a given stack — required directories, separation rules, and anti-patterns. Architect uses the skill to generate your plan and constrain your refactor.
+Each skill defines what an ideal project structure looks like for a given stack  -  required directories, separation rules, and anti-patterns. Architect uses the skill to generate your plan and constrain your refactor.
 
 | Skill ID | Stack | Detects via |
 |----------|-------|-------------|
@@ -185,7 +185,7 @@ architect init . --update                 # overwrite existing skill files
 
 ### `architect scan [directory]`
 
-Analyzes your project and reports structural health metrics — without writing any files.
+Analyzes your project and reports structural health metrics  -  without writing any files.
 
 ```bash
 architect scan .
@@ -199,7 +199,7 @@ architect scan . --threshold "loc=400,complexity=20"   # custom thresholds
 - Total files, lines of code, average complexity
 - Files over the LOC threshold (default: 300 lines)
 - Functions over the complexity threshold (default: 15)
-- Hub files (imported by many — risky to touch)
+- Hub files (imported by many  -  risky to touch)
 - Code duplication percentage
 
 ---
@@ -247,7 +247,7 @@ The agent will:
 1. Read `package.json` and the 3 largest source files to understand current structure
 2. Call `npx @levironexe/architect context --techstack <detected>` to load the full blueprint
 3. Compare current vs target directory structure
-4. Write `.architect/plan.md` — a phased roadmap where each step specifies:
+4. Write `.architect/plan.md`  -  a phased roadmap where each step specifies:
    - **What**: which file moves where
    - **Why**: which separation rule this satisfies
    - **Imports to update**: every file that needs to be patched after the move
@@ -256,7 +256,7 @@ The agent will:
 - ≥ 2 phases for a messy project, ≤ 1 phase for a clean one
 - Phase 1 targets the biggest structural problem first (lowest risk, highest impact)
 - Every step has `What`, `Why`, and `Imports to update` fields
-- Agent asks zero clarifying questions — it just makes the plan
+- Agent asks zero clarifying questions  -  it just makes the plan
 
 ---
 
@@ -264,7 +264,7 @@ The agent will:
 
 The agent will:
 
-1. Check for `.architect/plan.md` — if missing, prints `❌ No refactoring plan found. Run /architect-plan first.` and stops
+1. Check for `.architect/plan.md`  -  if missing, prints `❌ No refactoring plan found. Run /architect-plan first.` and stops
 2. Find the first phase with unchecked steps (supports resuming mid-plan)
 3. For each step, announce intent before touching any file: `"Step 1.2: Moving src/server.ts → src/app.ts. Reason: …"`
 4. Execute the move, update all listed imports, mark the step `[x]` in the plan
@@ -277,7 +277,7 @@ Proceed to Phase 2 (Add controllers)? yes / no
 ```
 
 **Hard constraints the agent follows:**
-- Never touches business logic — structural moves only
+- Never touches business logic  -  structural moves only
 - Never proceeds to the next phase automatically
 - Never modifies files outside the current step's scope
 
@@ -320,8 +320,8 @@ anti_patterns:
     good_example: "// separate files per concern"
 ```
 
-2. Add a detection fixture under `tests/fixtures/<your-skill-id>/` — a minimal project that should match your skill
-3. Run `npm test` — your skill must be detected and not conflict with existing ones
+2. Add a detection fixture under `tests/fixtures/<your-skill-id>/`  -  a minimal project that should match your skill
+3. Run `npm test`  -  your skill must be detected and not conflict with existing ones
 4. Open a pull request with the skill file and fixture
 
 See existing skills in `skills/stacks/` for complete examples.
@@ -338,4 +338,4 @@ See existing skills in `skills/stacks/` for complete examples.
 
 ## 📄 License
 
-MIT — see [LICENSE](./LICENSE) for full terms.
+MIT  -  see [LICENSE](./LICENSE) for full terms.
