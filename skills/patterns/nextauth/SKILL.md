@@ -1,0 +1,311 @@
+---
+schema_version: "2.0.0"
+id: nextauth
+name: "NextAuth.js / Auth.js"
+version: "2.0.0"
+description: "Self-hosted authentication with NextAuth.js v4 / Auth.js v5  -  provider configuration, JWT/database session strategies, role-based access, and middleware route protection."
+category: pattern
+language: javascript
+frameworks:
+  - next-auth
+dependencies:
+  none:
+    - "@clerk/nextjs"
+    - "@supabase/ssr"
+    - lucia
+detection:
+  dependencies:
+    any:
+      - next-auth
+      - "@auth/nextjs"
+      - "@auth/core"
+  source_indicators:
+    - "NextAuth("
+    - "authOptions"
+    - "getServerSession"
+    - "useSession"
+    - "SessionProvider"
+    - "auth()"
+structure:
+  required_dirs:
+    - path: app/api/auth
+      purpose: "NextAuth.js catch-all route directory  -  must contain [...nextauth]/route.ts which exports both GET and POST handlers. All sign-in, sign-out, OAuth callbacks, CSRF protection, and provider redirects run through this single route. Never add business logic here."
+  recommended_dirs:
+    - path: src/lib
+      purpose: "Single authOptions export in auth.ts  -  provider configuration, session strategy, adapter wiring, jwt and session callbacks. Imported by the route handler, getServerSession calls, and middleware. Keeping authOptions in one file ensures all tokens are signed with the same secret."
+    - path: components
+      purpose: "Client Component wrappers that depend on next-auth/react hooks  -  primarily a Providers.tsx that wraps SessionProvider so the root layout stays a Server Component."
+separation:
+  rules:
+    - concern: route_handler
+      belongs_in: app/api/auth
+      rule_text: "Create the NextAuth route handler at app/api/auth/[...nextauth]/route.ts. Import authOptions from src/lib/auth.ts  -  never inline provider config in the route file. The handler must export both GET and POST or sign-in and CSRF flows will break."
+      example: |
+        // app/api/auth/[...nextauth]/route.ts
+        import NextAuth from 'next-auth';
+        import { authOptions } from '@/lib/auth';
+
+        const handler = NextAuth(authOptions);
+        export { handler as GET, handler as POST };
+      indicators:
+        - "NextAuth("
+        - "[...nextauth]"
+        - "handler as GET"
+        - "handler as POST"
+    - concern: auth_config
+      belongs_in: src/lib
+      rule_text: "Define all providers, callbacks, adapter, and session strategy in src/lib/auth.ts as a single exported NextAuthOptions object. Every file that needs session data imports authOptions from this one location. The jwt and session callbacks must both be present to persist custom fields like user.id or user.role."
+      example: |
+        // src/lib/auth.ts  -  single authoritative NextAuth configuration
+        import { type NextAuthOptions } from 'next-auth';
+        import GithubProvider from 'next-auth/providers/github';
+        import { PrismaAdapter } from '@auth/prisma-adapter';
+        import { prisma } from '@/lib/db';
+
+        export const authOptions: NextAuthOptions = {
+          adapter: PrismaAdapter(prisma),
+          providers: [
+            GithubProvider({
+              clientId: process.env.GITHUB_ID!,
+              clientSecret: process.env.GITHUB_SECRET!,
+            }),
+          ],
+          session: { strategy: 'database' },
+          secret: process.env.NEXTAUTH_SECRET,
+          callbacks: {
+            // Thread custom fields from DB user into session
+            session({ session, user }) {
+              if (session.user) {
+                session.user.id = user.id;
+                (session.user as any).role = (user as any).role;
+              }
+              return session;
+            },
+          },
+        };
+      indicators:
+        - "authOptions"
+        - "NextAuthOptions"
+        - "providers:"
+        - "callbacks:"
+        - "NEXTAUTH_SECRET"
+    - concern: session_access
+      belongs_in: app
+      rule_text: "In Server Components and API routes, use getServerSession(authOptions) to read the session. In Client Components, use useSession() from next-auth/react. Never read session cookies or JWT tokens manually  -  getServerSession reads the cookie but handles decryption and expiry."
+      example: |
+        // Server Component  -  no loading state, data available on first render
+        import { getServerSession } from 'next-auth';
+        import { authOptions } from '@/lib/auth';
+        import { redirect } from 'next/navigation';
+
+        export default async function ProtectedPage() {
+          const session = await getServerSession(authOptions);
+          if (!session) redirect('/api/auth/signin');
+          return <Dashboard user={session.user} />;
+        }
+
+        // Client Component  -  shows loading state during hydration
+        'use client';
+        import { useSession } from 'next-auth/react';
+        export function UserMenu() {
+          const { data: session, status } = useSession();
+          if (status === 'loading') return <Spinner />;
+          if (!session) return <SignInButton />;
+          return <UserAvatar user={session.user} />;
+        }
+      indicators:
+        - "getServerSession"
+        - "useSession()"
+        - "from 'next-auth/react'"
+        - "authOptions"
+    - concern: middleware_protection
+      belongs_in: middleware.ts
+      rule_text: "Export next-auth/middleware as the default export to protect matching routes. Configure the matcher pattern to exclude /api/auth (the NextAuth handler itself), static assets, and public pages. Use the authorized callback in authOptions for role-based access control."
+      example: |
+        // middleware.ts  -  blanket protection for dashboard and protected API routes
+        export { default } from 'next-auth/middleware';
+
+        export const config = {
+          matcher: [
+            '/dashboard/:path*',
+            '/admin/:path*',
+            '/api/protected/:path*',
+            // Does NOT match: /api/auth (NextAuth handler), /sign-in, static files
+          ],
+        };
+
+        // For role-based access, add authorized callback in authOptions:
+        // callbacks: {
+        //   authorized({ token, req }) {
+        //     if (req.nextUrl.pathname.startsWith('/admin')) return token?.role === 'admin';
+        //     return !!token;
+        //   },
+        // }
+      indicators:
+        - "next-auth/middleware"
+        - "matcher:"
+        - "authorized("
+    - concern: session_provider
+      belongs_in: components
+      rule_text: "Wrap SessionProvider in a dedicated 'use client' component so the root layout stays a Server Component. Pass the server-fetched session as a prop to SessionProvider to eliminate the loading flicker that occurs when SessionProvider fetches the session client-side."
+      example: |
+        // components/providers.tsx  -  isolates the 'use client' boundary
+        'use client';
+        import { SessionProvider } from 'next-auth/react';
+        import type { Session } from 'next-auth';
+
+        export function Providers({
+          children,
+          session,
+        }: {
+          children: React.ReactNode;
+          session: Session | null;
+        }) {
+          return <SessionProvider session={session}>{children}</SessionProvider>;
+        }
+
+        // app/layout.tsx  -  Server Component, fetches session for SSR hydration
+        import { getServerSession } from 'next-auth';
+        import { authOptions } from '@/lib/auth';
+        import { Providers } from '@/components/providers';
+
+        export default async function RootLayout({ children }: { children: React.ReactNode }) {
+          const session = await getServerSession(authOptions);
+          return (
+            <html lang="en">
+              <body>
+                <Providers session={session}>{children}</Providers>
+              </body>
+            </html>
+          );
+        }
+      indicators:
+        - "SessionProvider"
+        - "session={session}"
+        - "from 'next-auth/react'"
+patterns:
+  data_flow:
+    direction: "Request → Middleware (withAuth) → Server Component (getServerSession) → Service → DB"
+    rules:
+      - "Middleware protects routes before any rendering  -  pages don't need to re-check for middleware-covered paths."
+      - "Server Components call getServerSession(authOptions)  -  reads the encrypted cookie without an extra network call."
+      - "Client Components call useSession()  -  reads from SessionProvider context already in the page, zero extra requests."
+      - "authOptions is defined once in src/lib/auth.ts  -  imported by route handler, middleware, and all session accessors so they all use the same secret and config."
+      - "Custom session fields (user.id, user.role) must flow through both jwt callback (token enrichment) and session callback (token → session mapping)."
+      - "Database sessions (strategy: 'database') store the session in your DB via the adapter  -  JWT sessions store everything in the encrypted cookie."
+  error_handling:
+    recommended: "Check if session is null before accessing session.user properties  -  getServerSession() returns null for unauthenticated requests, not an error. Redirect to /api/auth/signin to let NextAuth handle the sign-in flow rather than a custom page."
+  naming:
+    config: "src/lib/auth.ts  -  single authOptions export, imported by all session consumers"
+    route_handler: "app/api/auth/[...nextauth]/route.ts  -  exports GET and POST"
+    session_provider: "components/providers.tsx  -  'use client' wrapper for SessionProvider"
+    session_helper: "getServerSession(authOptions) in Server Components; useSession() in Client Components"
+anti_patterns:
+  - id: missing_secret
+    severity: critical
+    description: "Running NextAuth without NEXTAUTH_SECRET set to a strong random value. In development, NextAuth uses an insecure default and issues a warning. In production, it throws a hard startup error. Without a strong secret, session tokens can be forged by brute-force."
+    bad_example: |
+      # .env  -  weak or missing secret
+      NEXTAUTH_SECRET=secret         # too short, too predictable
+      # Or: NEXTAUTH_SECRET not set at all  -  uses insecure default in dev
+    good_example: |
+      # .env.local  -  strong random secret, 32+ characters
+      NEXTAUTH_SECRET=your-32-char-or-longer-random-secret-here
+      # Generate with: openssl rand -base64 32
+      # Or: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+  - id: session_not_checked_in_api
+    severity: warning
+    description: "API routes outside the middleware matcher that return sensitive data without calling getServerSession(). The middleware only protects matched paths  -  any API route not in the matcher must check the session itself."
+    bad_example: |
+      // ❌ No session check  -  any request (including unauthenticated) gets the data
+      export async function GET() {
+        const users = await db.user.findMany({ select: { email: true, salary: true } });
+        return Response.json(users);
+      }
+    good_example: |
+      // ✓ Explicit session check before accessing protected data
+      import { getServerSession } from 'next-auth';
+      import { authOptions } from '@/lib/auth';
+      export async function GET() {
+        const session = await getServerSession(authOptions);
+        if (!session) return new Response('Unauthorized', { status: 401 });
+        const users = await db.user.findMany({ select: { email: true } });
+        return Response.json(users);
+      }
+  - id: duplicated_auth_options
+    severity: warning
+    description: "Defining authOptions inline in multiple API routes instead of importing from src/lib/auth.ts. Each definition can have a different secret or provider config  -  tokens signed by one definition are rejected by another, causing intermittent auth failures that are hard to debug."
+    bad_example: |
+      // ❌ authOptions defined inline in the route file
+      // app/api/auth/[...nextauth]/route.ts
+      const handler = NextAuth({
+        providers: [GithubProvider({ clientId: '...', clientSecret: '...' })],
+        secret: process.env.NEXTAUTH_SECRET,
+        // Different callbacks or session strategy in another file → token mismatch
+      });
+    good_example: |
+      // ✓ Import from the single source of truth
+      import { authOptions } from '@/lib/auth';
+      const handler = NextAuth(authOptions);
+      export { handler as GET, handler as POST };
+  - id: custom_fields_not_in_callbacks
+    severity: warning
+    description: "Extending the Session type with custom fields (user.id, user.role) but not adding both a jwt callback and a session callback to populate them. The TypeScript types compile, but the fields are undefined at runtime because the values are never written into the token or session object."
+    bad_example: |
+      // next-auth.d.ts: Session.user.role declared as string
+      // authOptions  -  callbacks are missing entirely
+      export const authOptions: NextAuthOptions = {
+        providers: [...],
+        // session.user.role is always undefined at runtime
+      };
+    good_example: |
+      // ✓ Both callbacks required: jwt enriches the token, session maps token → session
+      callbacks: {
+        async jwt({ token, user }) {
+          if (user) token.role = (user as any).role; // runs on sign-in only
+          return token;
+        },
+        async session({ session, token }) {
+          if (session.user) session.user.role = token.role as string; // every request
+          return session;
+        },
+      },
+  - id: credentials_provider_plain_text
+    severity: critical
+    description: "Using CredentialsProvider and comparing passwords as plain text. If the database is breached, every user's password is immediately exposed. Passwords must always be stored as bcrypt or argon2 hashes."
+    bad_example: |
+      // ❌ Plain text comparison  -  catastrophic on any database breach
+      CredentialsProvider({
+        authorize: async (credentials) => {
+          const user = await db.user.findFirst({ where: { email: credentials?.email } });
+          if (user?.password === credentials?.password) return user; // raw string compare
+          return null;
+        },
+      })
+    good_example: |
+      // ✓ bcrypt  -  one-way hash, breach-safe
+      import bcrypt from 'bcryptjs';
+      CredentialsProvider({
+        authorize: async (credentials) => {
+          const user = await db.user.findFirst({ where: { email: credentials?.email } });
+          if (!user?.passwordHash) return null;
+          const valid = await bcrypt.compare(credentials?.password ?? '', user.passwordHash);
+          return valid ? { id: user.id, email: user.email } : null;
+        },
+      })
+  - id: adapter_with_jwt_strategy
+    severity: warning
+    description: "Configuring a database adapter (e.g., PrismaAdapter) with session: { strategy: 'jwt' }. With JWT strategy, NextAuth does not write sessions to the database  -  the adapter is wired but ignored for session storage, causing confusion and wasted DB connections."
+    bad_example: |
+      // ❌ Adapter installed but JWT strategy means sessions never hit the DB
+      export const authOptions: NextAuthOptions = {
+        adapter: PrismaAdapter(prisma),
+        session: { strategy: 'jwt' }, // adapter's Session table is never written
+      };
+    good_example: |
+      // ✓ Use database strategy when you have an adapter
+      adapter: PrismaAdapter(prisma),
+      session: { strategy: 'database' },
+      //  -  OR  -  remove the adapter entirely for JWT-only sessions (no DB table needed)
+
+---

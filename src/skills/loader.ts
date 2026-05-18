@@ -42,7 +42,8 @@ async function loadSkillDirectory(directory: string, warnings: SkillWarning[]): 
   for (const file of files) {
     try {
       const contents = await fs.readFile(file, 'utf8');
-      const result = validateSkill(load(contents), file);
+      const { data } = parseFrontmatter(contents, file);
+      const result = validateSkill(data, file);
 
       if (result.skill) {
         skills.push(result.skill);
@@ -64,20 +65,27 @@ async function loadSkillDirectory(directory: string, warnings: SkillWarning[]): 
 
 async function findSkillFiles(directory: string): Promise<string[]> {
   try {
-    const entries = await fs.readdir(directory, { withFileTypes: true });
+    const categoryEntries = await fs.readdir(directory, { withFileTypes: true });
     const files = await Promise.all(
-      entries.map(async (entry) => {
-        const entryPath = path.join(directory, entry.name);
+      categoryEntries.map(async (categoryEntry) => {
+        if (!categoryEntry.isDirectory()) return [];
 
-        if (entry.isDirectory()) {
-          return findSkillFiles(entryPath);
-        }
+        const categoryPath = path.join(directory, categoryEntry.name);
+        const skillEntries = await fs.readdir(categoryPath, { withFileTypes: true }).catch(() => []);
 
-        if (entry.isFile() && (entry.name.endsWith('.skill.yaml') || entry.name.endsWith('.skill.yml'))) {
-          return [entryPath];
-        }
+        return Promise.all(
+          skillEntries.map(async (skillEntry) => {
+            if (!skillEntry.isDirectory()) return [];
 
-        return [];
+            const skillMdPath = path.join(categoryPath, skillEntry.name, 'SKILL.md');
+            try {
+              await fs.access(skillMdPath);
+              return [skillMdPath];
+            } catch {
+              return [];
+            }
+          })
+        ).then((nested) => nested.flat());
       })
     );
 
@@ -89,6 +97,14 @@ async function findSkillFiles(directory: string): Promise<string[]> {
 
     throw error;
   }
+}
+
+function parseFrontmatter(source: string, file: string): { data: unknown; body: string } {
+  const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!match) {
+    throw new Error(`No YAML frontmatter found in ${file}`);
+  }
+  return { data: load(match[1]!), body: source.slice(match[0].length) };
 }
 
 function getDefaultBuiltInSkillDir(): string {

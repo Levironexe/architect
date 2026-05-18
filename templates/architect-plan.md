@@ -15,14 +15,14 @@ metadata:
 # architect-plan
 
 You are helping a developer understand and improve the architecture of their codebase. Your job
-is to produce a concrete, ordered refactoring roadmap — not advice, not observations, but a
+is to produce a concrete, ordered refactoring roadmap  -  not advice, not observations, but a
 specific plan saved to `.architect/plan.md` that the developer (or `/architect-refactor`) can
 execute step by step.
 
 ## Context already loaded for you
 
 The following static analysis and blueprint data has been pre-computed by `architect init`. Read
-it carefully before touching any source files — it tells you where the biggest problems are and
+it carefully before touching any source files  -  it tells you where the biggest problems are and
 what the target architecture looks like.
 
 **Stack**: {{skill.name}}
@@ -30,7 +30,7 @@ what the target architecture looks like.
 **Largest files by line count** (likely candidates for extraction):
 {{analysis.largestFiles}}
 
-**Hub files** (imported by many others — high-impact, higher risk to touch):
+**Hub files** (imported by many others  -  high-impact, higher risk to touch):
 {{analysis.hubFiles}}
 
 **Code duplication**: {{analysis.duplicationPercent}} of lines are duplicated
@@ -44,7 +44,7 @@ what the target architecture looks like.
 **How data should flow through this architecture**:
 {{skill.separation.data_flow}}
 
-If any of the above blocks are empty, proceed without them — the live codebase is your primary source.
+If any of the above blocks are empty, proceed without them  -  the live codebase is your primary source.
 
 ## Step-by-step instructions
 
@@ -53,7 +53,7 @@ If any of the above blocks are empty, proceed without them — the live codebase
 Open and read:
 - `package.json` (or equivalent manifest) to confirm the tech stack and dependencies
 - The 3 largest source files from the list above (or the largest files you can find if the list
-  is empty) — understand what they do and what concerns they mix
+  is empty)  -  understand what they do and what concerns they mix
 
 ### 2. Confirm the detected stack
 
@@ -72,10 +72,10 @@ If `architect` is not found globally, fall back to:
 npx @levironexe/architect context --techstack {{skills.detected}}
 ```
 
-This may return blueprints for several detected stacks. Apply the rules from each — the primary
+This may return blueprints for several detected stacks. Apply the rules from each  -  the primary
 stack ({{skill.name}}) takes precedence on conflicts.
 
-Read the output — it gives you the full architectural blueprint: required directories, separation
+Read the output  -  it gives you the full architectural blueprint: required directories, separation
 rules, anti-patterns to avoid.
 
 ### 3. Compare current vs target structure
@@ -99,7 +99,7 @@ Based on what you've read, identify the concrete structural problems:
 
 **Enumerate exhaustively.** When you identify a problem pattern in a file, search for every
 instance of that pattern in that file before writing the plan step. Do not write "remove the X
-re-derivation" if X, Y, and Z are all the same pattern — list all three by name and line number
+re-derivation" if X, Y, and Z are all the same pattern  -  list all three by name and line number
 in the step's "What" field. Finding one instance is not license to move on.
 
 ### 5. Write `.architect/plan.md`
@@ -111,13 +111,13 @@ Create or overwrite `.architect/plan.md` with a phased refactoring roadmap. Use 
 Generated: <today's date>
 Stack: <detected stack id>
 
-## Phase 1: <name — most impactful, lowest risk first>
+## Phase 1: <name  -  most impactful, lowest risk first>
 **Goal**: <what structural problem this phase solves>
 **Risk**: low | medium | high
 
 ### Steps
 - [ ] Step 1.1: <verb> `<source>` → `<target>`
-  - What: <exactly what code is being moved or created — for deletions, list every item by name
+  - What: <exactly what code is being moved or created  -  for deletions, list every item by name
     and line number; for extractions, list every symbol being moved>
   - Why: <which separation rule or blueprint requirement this satisfies>
   - Imports to update:
@@ -136,12 +136,12 @@ Stack: <detected stack id>
   other changes)
 - Within the same impact level, put lower-risk changes first (creating new files before moving
   existing ones; moving to new dirs before changing existing files)
-- Do not put hub files in Phase 1 unless unavoidable — moving a hub breaks many things at once
+- Do not put hub files in Phase 1 unless unavoidable  -  moving a hub breaks many things at once
 - Each phase should be independently executable: completing it leaves the project in a valid,
   runnable state
 - Collect all destructive steps (deleting dead code, removing duplicates, removing deprecated
   patterns) into a dedicated final phase labeled "Cleanup: Remove Dead Code." Do not embed
-  deletions inside constructive phases — deletions produce absence, which is easy for an agent to
+  deletions inside constructive phases  -  deletions produce absence, which is easy for an agent to
   skip when surrounded by creation steps
 
 **Minimum**: at least 1 phase with at least 1 step. If the project already follows the
@@ -155,4 +155,4 @@ After writing the plan, summarize in the chat:
 - The single biggest structural problem you found
 - Which phase to start with and why
 
-Do not ask for confirmation before writing the plan — just do it and report when done.
+Do not ask for confirmation before writing the plan  -  just do it and report when done.

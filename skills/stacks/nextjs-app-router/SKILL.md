@@ -1,0 +1,179 @@
+---
+schema_version: "2.0.0"
+id: nextjs-app-router
+name: "Next.js App Router"
+version: "1.1.0"
+description: "Next.js App Router structure with app routes, layouts, server components, server actions, shared UI, and data-access helpers properly separated."
+category: stack
+language: javascript
+frameworks:
+  - next
+  - react
+detection:
+  dependencies:
+    any:
+      - next
+  files:
+    - next.config.js
+    - next.config.mjs
+    - next.config.ts
+    - app
+  source_indicators:
+    - "next/"
+    - "\"use client\""
+    - "'use client'"
+structure:
+  required_dirs:
+    - path: app
+      purpose: "App Router entry point. Contains only Next.js file-convention files: layout.tsx, page.tsx, loading.tsx, error.tsx, route.ts. No business logic or reusable components live here."
+    - path: components
+      purpose: "Reusable React components shared across multiple routes. Components here must not import from app/  -  they receive data as props or use shared hooks."
+    - path: lib
+      purpose: "Server-side data access, third-party SDK wrappers, and shared utilities. All database queries and external API calls live here so they can be reused by server components, actions, and route handlers."
+  recommended_dirs:
+    - path: actions
+      purpose: "Server Actions for form mutations and data mutations. Each file begins with 'use server'. Actions call lib/ functions  -  they do not access the database directly."
+    - path: hooks
+      purpose: "Client-only React hooks that encapsulate stateful browser behaviour (useLocalStorage, useDebounce). Must not import server-only modules."
+separation:
+  rules:
+    - concern: routing
+      belongs_in: app
+      rule_text: "The app directory owns route structure using App Router file conventions (layout.tsx, page.tsx, loading.tsx, error.tsx, route.ts). Pages are thin: they call lib/ functions and pass data to components. No inline SQL, fetch wrappers, or reusable UI definitions inside page.tsx files."
+      example: |
+        // app/users/page.tsx  -  correct: thin page, delegates to lib and components
+        import { listUsers } from '@/lib/users';
+        import { UsersTable } from '@/components/users-table';
+
+        export default async function UsersPage() {
+          const users = await listUsers();
+          return <UsersTable users={users} />;
+        }
+      indicators:
+        - "app/"
+        - "layout.tsx"
+        - "page.tsx"
+        - "route.ts"
+    - concern: shared_ui
+      belongs_in: components
+      rule_text: "Reusable React components belong in components/ so route files stay focused on composition and data loading. A component should receive data as props and not perform its own data fetching unless it is an explicitly-marked client component using SWR/React Query."
+      example: |
+        // components/users-table.tsx  -  server-safe, pure presentational
+        import type { User } from '@/lib/users';
+
+        export function UsersTable({ users }: { users: User[] }) {
+          return (
+            <table>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.id}><td>{user.name}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        }
+      anti_indicators:
+        - "prisma"
+        - "sql`"
+        - "drizzle"
+    - concern: server_action
+      belongs_in: actions
+      rule_text: "Server Actions for mutations and form handling live in actions/ with an explicit 'use server' directive at the top of the file. Actions validate input, call lib/ functions, and revalidate cache  -  they do not contain SQL or SDK calls directly."
+      example: |
+        // actions/user-actions.ts
+        'use server';
+
+        import { revalidatePath } from 'next/cache';
+        import { createUser } from '@/lib/users';
+        import { z } from 'zod';
+
+        const schema = z.object({ name: z.string().min(1) });
+
+        export async function createUserAction(formData: FormData) {
+          const { name } = schema.parse({ name: formData.get('name') });
+          await createUser({ name });
+          revalidatePath('/users');
+        }
+      indicators:
+        - "\"use server\""
+        - "'use server'"
+patterns:
+  data_flow:
+    direction: "app/page.tsx -> lib/ -> database/external API; actions/ -> lib/ -> database"
+    rules:
+      - "Use React Server Components by default. Only add 'use client' when the component needs browser APIs, event handlers, or client-side state."
+      - "Push 'use client' as far down the component tree as possible to maximize server-rendered surface."
+      - "Use loading.tsx and error.tsx file conventions for every route segment that performs async data fetching."
+      - "Never access process.env directly in components or lib/  -  import from a centralized config module."
+  naming:
+    routes: "Use App Router file conventions: page.tsx, layout.tsx, loading.tsx, error.tsx, not-found.tsx, route.ts. Use (group) folders for layout sharing without URL impact. Use _folder prefix for private non-routable helpers colocated with routes."
+    components: "Use PascalCase for component files (UsersTable.tsx) and function names. Use kebab-case for utility and hook files (use-debounce.ts)."
+anti_patterns:
+  - id: use_client_everywhere
+    severity: warning
+    description: "The 'use client' directive is placed at the top of layout, page, or large wrapper components rather than pushed down to only the leaf components that actually need browser interactivity. This unnecessarily turns large component subtrees into client bundles, increasing JavaScript shipped to the browser."
+    bad_example: |
+      // app/dashboard/layout.tsx  -  wrong: entire layout becomes a client bundle
+      'use client';
+
+      export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+        return <div className="dashboard">{children}</div>;
+      }
+    good_example: |
+      // app/dashboard/layout.tsx  -  server component, no directive needed
+      export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+        return <div className="dashboard">{children}</div>;
+      }
+
+      // components/dashboard-nav.tsx  -  only the interactive nav is a client component
+      'use client';
+      import { useState } from 'react';
+      export function DashboardNav() { /* toggle state, event handlers */ }
+  - id: client_data_fetching_by_default
+    severity: warning
+    description: "Data fetching is moved to client components using useEffect/useState without a user interaction requirement. This delays the first meaningful paint, exposes API endpoints unnecessarily, and forfeits React Server Component streaming and caching benefits."
+    bad_example: |
+      'use client';
+
+      export default function UsersPage() {
+        const [users, setUsers] = useState([]);
+        useEffect(() => {
+          fetch('/api/users').then((r) => r.json()).then(setUsers);
+        }, []);
+        return <UsersTable users={users} />;
+      }
+    good_example: |
+      // Server component  -  data fetches on the server before any HTML is sent
+      import { listUsers } from '@/lib/users';
+      import { UsersTable } from '@/components/users-table';
+
+      export default async function UsersPage() {
+        const users = await listUsers();
+        return <UsersTable users={users} />;
+      }
+  - id: direct_db_in_page
+    severity: critical
+    description: "Database queries or external API calls are made directly inside page.tsx or layout.tsx files instead of being encapsulated in lib/. This scatters data-access logic across the route tree, makes it impossible to reuse queries in Server Actions or Route Handlers, and prevents centralized error handling and logging."
+    bad_example: |
+      // app/users/page.tsx  -  wrong: database logic inside the page
+      import { prisma } from '@/lib/prisma';
+
+      export default async function UsersPage() {
+        const users = await prisma.user.findMany({ where: { active: true } });
+        return <UserList users={users} />;
+      }
+    good_example: |
+      // lib/users.ts  -  all user queries live here
+      import { prisma } from './prisma';
+      export async function listActiveUsers() {
+        return prisma.user.findMany({ where: { active: true } });
+      }
+
+      // app/users/page.tsx  -  page calls lib, never touches prisma directly
+      import { listActiveUsers } from '@/lib/users';
+      export default async function UsersPage() {
+        const users = await listActiveUsers();
+        return <UserList users={users} />;
+      }
+
+---
