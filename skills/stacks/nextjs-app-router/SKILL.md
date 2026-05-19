@@ -76,6 +76,25 @@ separation:
         - "prisma"
         - "sql`"
         - "drizzle"
+    - concern: business_logic
+      belongs_in: lib
+      rule_text: "All business logic, data fetching, and database interaction lives in lib/ as plain async functions. Pages, components, and Server Actions import from lib/ — they never contain direct database calls, SDK usage, or business rules inline. Each domain gets its own file (lib/users.ts, lib/products.ts). This is the service layer for Next.js App Router projects."
+      example: |
+        // lib/users.ts  -  business logic + data access
+        import { prisma } from '@/lib/db';
+
+        export async function listUsers() {
+          return prisma.user.findMany({ orderBy: { createdAt: 'desc' } });
+        }
+
+        export async function createUser(data: { name: string; email: string }) {
+          return prisma.user.create({ data });
+        }
+      indicators:
+        - "prisma."
+        - "sql`"
+        - "drizzle"
+        - "mongoose"
     - concern: server_action
       belongs_in: actions
       rule_text: "Server Actions for mutations and form handling live in actions/ with an explicit 'use server' directive at the top of the file. Actions validate input, call lib/ functions, and revalidate cache  -  they do not contain SQL or SDK calls directly."

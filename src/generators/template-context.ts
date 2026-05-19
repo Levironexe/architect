@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { render } from './templateRenderer.js';
 import type { ScanResult } from '../types/analysis.js';
 import type { RenderedSkillFile, TemplateContext } from '../types/generation.js';
-import type { ArchitectureSkill, SkillMatch, StructureEntry } from '../types/skill.js';
+import type { ArchitectureSkill, CompositionPhase, SkillMatch, StructureEntry } from '../types/skill.js';
+import { collectComposedPhases } from '../skills/detector.js';
 
 const TEMPLATE_NAMES = ['architect-plan', 'architect-refactor', 'architect-catchup'] as const;
 
@@ -51,7 +52,8 @@ export function buildTemplateContext(skill: ArchitectureSkill, result: ScanResul
       },
       separation: {
         data_flow: formatDataFlow(skill),
-        rules: formatSeparationRules(skill)
+        rules: formatSeparationRules(skill),
+        service_layer: formatServiceLayerRules(skill)
       },
       anti_patterns: formatAntiPatterns(skill)
     },
@@ -64,7 +66,8 @@ export function buildTemplateContext(skill: ArchitectureSkill, result: ScanResul
       largestFiles: largestFiles.join('\n'),
       hubFiles: hubFiles.join('\n'),
       duplicationPercent: `${result.duplication.duplicationPercentage.toFixed(1)}%`,
-      missingDirs: missingDirs.join('\n')
+      missingDirs: missingDirs.join('\n'),
+      composedPhases: formatComposedPhases(allMatched ?? [])
     }
   };
 }
@@ -151,6 +154,36 @@ export function formatAntiPatterns(skill: ArchitectureSkill): string {
       return lines.join('\n');
     })
     .join('\n\n');
+}
+
+export function formatComposedPhases(matchedSkills: SkillMatch[]): string {
+  const phases = collectComposedPhases(matchedSkills);
+  if (phases.length === 0) return '';
+
+  return phases
+    .map((p) => `- ${p.name}: ${p.description}`)
+    .join('\n');
+}
+
+export function formatServiceLayerRules(skill: ArchitectureSkill): string {
+  const serviceRule = skill.separation.rules.find(
+    (r) => r.concern === 'business_logic' || r.concern === 'services' || r.concern === 'service_layer'
+  );
+
+  if (!serviceRule) return '';
+
+  const lines = [
+    `Location: ${serviceRule.belongsIn}`,
+    `Rule: ${serviceRule.ruleText}`,
+    'Example:',
+    indentBlock(serviceRule.example)
+  ];
+
+  if (skill.patterns.dataFlow) {
+    lines.unshift(`Data flow: ${skill.patterns.dataFlow.direction}`);
+  }
+
+  return lines.join('\n');
 }
 
 function resolveTemplatePath(name: TemplateName): string {

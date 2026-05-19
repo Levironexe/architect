@@ -18,6 +18,7 @@ export interface ArchitectureSkill {
   separation: SeparationRules;
   patterns: PatternRules;
   antiPatterns: AntiPattern[];
+  composition?: CompositionRule[];
 }
 
 export interface DetectionRules {
@@ -71,6 +72,17 @@ export interface AntiPattern {
   description: string;
   badExample: string;
   goodExample: string;
+}
+
+export interface CompositionPhase {
+  name: string;
+  description: string;
+  priority: number;
+}
+
+export interface CompositionRule {
+  whenCombinedWith: string;
+  additionalPhases: CompositionPhase[];
 }
 
 export interface SkillWarning {

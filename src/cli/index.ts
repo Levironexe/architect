@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { Command, CommanderError } from 'commander';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { realpathSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { Chalk } from 'chalk';
@@ -12,6 +13,10 @@ import { renderScanReport } from '../reporters/terminal.js';
 import { runContextCommand } from './context-runner.js';
 import { runInitCommand, type InitCommandOptions } from './init-runner.js';
 import { runProjectScan } from './scan-runner.js';
+import { executeDiff } from './diff-runner.js';
+import { executeStatus } from './status-runner.js';
+import { executeVerify } from './verify-runner.js';
+import { extractSnapshot } from '../reporters/snapshot.js';
 import { listSkillsWithActiveStatus, renderSkillList } from '../skills/lister.js';
 import { isInteractiveTerminal, promptForDirectory } from '../utils/interactive.js';
 import { parseThresholdOption, ThresholdParseError } from '../utils/thresholds.js';
@@ -27,6 +32,7 @@ type ScanCommandOptions = {
   json?: boolean;
   verbose?: boolean;
   threshold?: string;
+  snapshot?: string;
 };
 
 type ScanHandler = (directory: string | undefined, options: ScanCommandOptions) => Promise<number>;
@@ -58,6 +64,7 @@ export function createProgram(
     .option('--json', 'Emit machine-readable JSON output')
     .option('--verbose', 'Emit detailed scan diagnostics')
     .option('--threshold <values>', 'Customize thresholds, for example: loc=300,complexity=15')
+    .option('--snapshot <path>', 'Save scan result as JSON snapshot to the given file path')
     .exitOverride()
     .action(async (directory: string | undefined, options: ScanCommandOptions) => {
       await onScan(directory, options);
@@ -118,6 +125,41 @@ export async function runCli(argv: string[]): Promise<number> {
     }
   );
 
+  program
+    .command('diff')
+    .description('Compare scan snapshots to show before/after metrics')
+    .argument('<directory>', 'Project directory containing .architect/scans/')
+    .option('--phase <number>', 'Compare baseline against a specific phase snapshot')
+    .option('--json', 'Emit machine-readable JSON output')
+    .option('--no-color', 'Disable ANSI color output')
+    .exitOverride()
+    .action(async (directory: string, opts: { phase?: string; json?: boolean; color?: boolean }) => {
+      commandExitCode = await executeDiff(directory, opts);
+    });
+
+  program
+    .command('status')
+    .description('Show refactoring phase progress')
+    .argument('<directory>', 'Project directory containing .architect/state.json')
+    .option('--json', 'Emit machine-readable JSON output')
+    .option('--no-color', 'Disable ANSI color output')
+    .exitOverride()
+    .action(async (directory: string, opts: { json?: boolean; color?: boolean }) => {
+      commandExitCode = await executeStatus(directory, opts);
+    });
+
+  program
+    .command('verify')
+    .description('Run post-phase verification (TypeScript check, import resolution, scan delta)')
+    .argument('<directory>', 'Project directory to verify')
+    .option('--phase <number>', 'Phase number (saves snapshot as phase-N)')
+    .option('--json', 'Emit machine-readable JSON output')
+    .option('--no-color', 'Disable ANSI color output')
+    .exitOverride()
+    .action(async (directory: string, opts: { phase?: string; json?: boolean; color?: boolean }) => {
+      commandExitCode = await executeVerify(directory, opts);
+    });
+
   program.exitOverride();
 
   try {
@@ -154,6 +196,14 @@ export async function executeScan(directory: string | undefined, options: ScanCo
 
   try {
     const result = await runProjectScan(targetDirectory, { ...options, thresholds });
+    if (options.snapshot) {
+      const snapshot = extractSnapshot(result);
+      const snapshotDir = dirname(options.snapshot);
+      mkdirSync(snapshotDir, { recursive: true });
+      writeFileSync(options.snapshot, JSON.stringify(snapshot, null, 2) + '\n');
+      process.stderr.write(`Snapshot saved: ${options.snapshot}\n`);
+    }
+
     if (options.json) {
       process.stdout.write(renderScanJson({
         result,

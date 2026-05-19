@@ -44,6 +44,12 @@ what the target architecture looks like.
 **How data should flow through this architecture**:
 {{skill.separation.data_flow}}
 
+**Service layer pattern** (if applicable):
+{{skill.separation.service_layer}}
+
+**Integration-specific phases** (generated from skill composition rules):
+{{analysis.composedPhases}}
+
 If any of the above blocks are empty, proceed without them  -  the live codebase is your primary source.
 
 ## Step-by-step instructions
@@ -155,6 +161,11 @@ Stack: <detected stack id>
 - Do not put hub files in Phase 1 unless unavoidable  -  moving a hub breaks many things at once
 - Each phase should be independently executable: completing it leaves the project in a valid,
   runnable state
+- If the "Service layer pattern" section above is non-empty, include a dedicated phase for
+  service extraction. For each API route or controller that contains business logic or direct
+  database calls: create a corresponding service file, move the logic there, and reduce the
+  route/controller to a thin HTTP handler that delegates to the service. Follow the data flow
+  direction specified above
 - Collect all destructive steps (deleting dead code, removing duplicates, removing deprecated
   patterns) into a dedicated final phase labeled "Cleanup: Remove Dead Code." Do not embed
   deletions inside constructive phases  -  deletions produce absence, which is easy for an agent to
