@@ -181,16 +181,47 @@ Stack: <detected stack id>
 blueprint well, write a single phase with steps for minor cleanup and note "Structure largely
 follows the {{skill.name}} blueprint."
 
-### 6. Report to the developer
+### 6. Save baseline snapshot and initialize state tracking
+
+After writing the plan, run:
+```
+npx @levironexe/architect scan . --snapshot .architect/scans/baseline.json
+```
+
+Then create `.architect/state.json` with the following structure (replace placeholders with
+actual values from the plan you just wrote):
+
+```json
+{
+  "plan_version": "<today's ISO date>",
+  "total_phases": <number of phases in the plan>,
+  "current_phase": 1,
+  "phases": [
+    { "id": 1, "name": "<phase 1 name>", "status": "pending" },
+    { "id": 2, "name": "<phase 2 name>", "status": "pending" }
+  ],
+  "baseline_health": <health_score from the scan snapshot>,
+  "latest_health": null
+}
+```
+
+Include one entry per phase from the plan. Read the health score from the snapshot you just
+saved (open `.architect/scans/baseline.json` and use the `health_score` field).
+
+If the `npx` command fails (e.g. architect not installed), skip this step silently  -  the
+refactor skill falls back to checkbox-based tracking.
+
+### 7. Report to the developer
 
 After writing the plan, summarize in the chat:
 - How many phases and total steps
 - The single biggest structural problem you found
 - Which phase to start with and why
+- Baseline health score (from the snapshot)
 
 Do not ask for confirmation before writing the plan  -  just do it and report when done.
 
-### 7. Hand off to refactor
+### 8. Hand off to refactor
 
 After reporting the summary, output:
 
