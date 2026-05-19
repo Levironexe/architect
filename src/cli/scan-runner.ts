@@ -162,7 +162,7 @@ function buildScanResult(
   summary.totalLines = files.reduce((total, file) => total + file.totalLines, 0);
   summary.flaggedFiles = files.filter((file) => file.isOversized).length;
   summary.flaggedFunctions = files.reduce((total, file) => total + file.functions.filter((item) => item.isFlagged).length, 0);
-  summary.dependencyHotspots = dependencyGraph.hotspots.length;
+  summary.dependencyHotspots = dependencyGraph.hotspots.length + (dependencyGraph.exportHubs?.length ?? 0);
   summary.circularDependencies = dependencyGraph.circularDependencies.length;
   summary.duplicateFindings = duplication.findings.length;
   summary.duplicatedLines = duplication.duplicatedLines;

@@ -67,6 +67,12 @@ export function renderScanReport(result: ScanResult, options: { color?: boolean;
     }
   }
 
+  if (dependencyGraph.exportHubs && dependencyGraph.exportHubs.length > 0) {
+    for (const hub of dependencyGraph.exportHubs) {
+      process.stdout.write(`- Export hub: ${hub.relativePath} (${hub.exportCount} exports — consider splitting into domain modules)\n`);
+    }
+  }
+
   if (dependencyGraph.circularDependencies.length > 0) {
     for (const cycle of dependencyGraph.circularDependencies) {
       process.stdout.write(`- Circular dependency: ${cycle.files.join(' -> ')}\n`);

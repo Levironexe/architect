@@ -39,6 +39,7 @@ export function scanResultFixture(): ScanResult {
       nodes: [],
       circularDependencies: [],
       hotspots: [],
+      exportHubs: [],
       unreferencedFiles: [],
       isPartial: false
     },

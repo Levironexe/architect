@@ -55,6 +55,17 @@ Open and read:
 - The 3 largest source files from the list above (or the largest files you can find if the list
   is empty)  -  understand what they do and what concerns they mix
 
+While reading `package.json`, flag dependency bloat:
+- Multiple packages solving the same problem (e.g., 2+ ORMs, 2+ date libraries, 2+ state managers)
+- Packages imported in source files but never actually used
+
+While reading source files, flag security issues:
+- Hardcoded secrets: grep for `['"].*(?:secret|password|key|token).*['"]` patterns assigned to variables
+- Auth guards missing on route handlers that touch user data
+- `process.env` reads scattered outside a central config module
+
+Record both as problem areas to address in the plan.
+
 ### 2. Confirm the detected stack
 
 Based on what you read, confirm or correct the detected stack (`{{skill.name}}`). If the stack
@@ -102,6 +113,11 @@ instance of that pattern in that file before writing the plan step. Do not write
 re-derivation" if X, Y, and Z are all the same pattern  -  list all three by name and line number
 in the step's "What" field. Finding one instance is not license to move on.
 
+Also enumerate from the pre-flight checks in step 1:
+- Each duplicate-library pair → one cleanup step (remove the redundant one, update all callsites)
+- Each hardcoded secret → one security step (move to env var + config module)
+- Each missing auth guard → one security step
+
 ### 5. Write `.architect/plan.md`
 
 Create or overwrite `.architect/plan.md` with a phased refactoring roadmap. Use this exact format:
@@ -143,6 +159,12 @@ Stack: <detected stack id>
   patterns) into a dedicated final phase labeled "Cleanup: Remove Dead Code." Do not embed
   deletions inside constructive phases  -  deletions produce absence, which is easy for an agent to
   skip when surrounded by creation steps
+- **Every file listed in "Largest files" that is OVERSIZED must appear in at least one phase.**
+  Do not close the plan while any oversized file from that list is unaddressed. If a file is too
+  risky to touch early, schedule it in a later phase — but it must be scheduled.
+- When a phase consolidates types into a single file (e.g., `types/index.ts`), add a follow-up
+  step or phase to split it into domain-specific files if it exceeds 200 LOC after consolidation.
+  Barrel-export from `index.ts` so consumers need no import changes.
 
 **Minimum**: at least 1 phase with at least 1 step. If the project already follows the
 blueprint well, write a single phase with steps for minor cleanup and note "Structure largely

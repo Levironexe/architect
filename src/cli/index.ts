@@ -30,7 +30,7 @@ type ScanCommandOptions = {
 
 type ScanHandler = (directory: string | undefined, options: ScanCommandOptions) => Promise<number>;
 type ContextCommandOptions = {
-  techstack: string[];
+  techstack?: string[];
 };
 type ContextHandler = (options: ContextCommandOptions) => Promise<number>;
 type InitHandler = (directory: string, options: InitCommandOptions) => Promise<number>;
@@ -65,7 +65,7 @@ export function createProgram(
   program
     .command('context')
     .description('Print the full architecture blueprint for one or more skills')
-    .requiredOption('--techstack <stacks...>', 'One or more skill IDs or display names to render')
+    .option('--techstack [stacks...]', 'One or more skill IDs; auto-detects from current directory when omitted')
     .exitOverride()
     .action(async (options: ContextCommandOptions) => {
       await onContext(options);

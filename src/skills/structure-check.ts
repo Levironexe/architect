@@ -30,9 +30,14 @@ async function compareEntries(rootDir: string, entries: StructureEntry[], requir
       path: entry.path,
       purpose: entry.purpose,
       required,
-      status: (await pathExists(path.join(rootDir, entry.path))) ? 'present' : 'missing'
+      status: (await pathExistsWithSrcFallback(rootDir, entry.path)) ? 'present' : 'missing'
     }))
   );
+}
+
+async function pathExistsWithSrcFallback(rootDir: string, entryPath: string): Promise<boolean> {
+  if (await pathExists(path.join(rootDir, entryPath))) return true;
+  return pathExists(path.join(rootDir, 'src', entryPath));
 }
 
 async function pathExists(targetPath: string): Promise<boolean> {

@@ -73,10 +73,16 @@ export interface DependencyHotspot {
   dependentCount: number;
 }
 
+export interface ExportHub {
+  relativePath: string;
+  exportCount: number;
+}
+
 export interface DependencyGraphSummary {
   nodes: DependencyNode[];
   circularDependencies: CircularDependencyChain[];
   hotspots: DependencyHotspot[];
+  exportHubs: ExportHub[];
   unreferencedFiles: string[];
   isPartial: boolean;
 }
@@ -166,6 +172,7 @@ export function createEmptyDependencyGraphSummary(isPartial = false): Dependency
     nodes: [],
     circularDependencies: [],
     hotspots: [],
+    exportHubs: [],
     unreferencedFiles: [],
     isPartial
   };

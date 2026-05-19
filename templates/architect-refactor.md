@@ -80,9 +80,22 @@ Then:
 If a step would create a circular dependency, skip it, explain why in the chat, and continue
 with the next step.
 
-### 3. After completing all steps in the phase, pause
+### 3. After completing all steps in the phase, run a scan checkpoint
 
-Output exactly this (replacing the placeholders):
+Run:
+```
+architect scan .
+```
+or if not found globally:
+```
+npx @levironexe/architect scan .
+```
+
+Compare the flagged file count to the count shown in the SKILL.md context block at the top of
+this file. If flagged files **increased**, stop — do not proceed to the next phase. Explain what
+regressed and ask the developer how to proceed before continuing.
+
+Then output exactly this (replacing the placeholders):
 
 ```
 ✅ Phase N complete: <phase name>
@@ -91,6 +104,8 @@ Steps executed:
 - [x] Step N.1: <description>
 - [x] Step N.2: <description>
 ...
+
+Scan result: <N> flagged files (was <M> before this phase)
 
 Proceed to Phase N+1 (<next phase name>)? **yes / no**
 ```
