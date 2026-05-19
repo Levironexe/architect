@@ -348,5 +348,14 @@ anti_patterns:
           publicMetadata: { plan: 'enterprise' },
         });
       }
+composition:
+  - when_combined_with: nextjs-app-router
+    additional_phases:
+      - name: "Clerk Middleware Setup"
+        description: "Configure clerkMiddleware in middleware.ts with public/protected route matchers."
+        priority: 1
+      - name: "Auth Guard Audit"
+        description: "Ensure all Server Actions and API routes use auth() to verify the user before data mutations."
+        priority: 6
 
 ---

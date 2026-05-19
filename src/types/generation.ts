@@ -8,6 +8,7 @@ export interface TemplateContext {
     separation: {
       data_flow: string;
       rules: string;
+      service_layer: string;
     };
     anti_patterns: string;
   };
@@ -19,6 +20,7 @@ export interface TemplateContext {
     hubFiles: string;
     duplicationPercent: string;
     missingDirs: string;
+    composedPhases: string;
   };
 }
 
@@ -30,6 +32,7 @@ export interface RenderedSkillFile {
 export interface InitSummary {
   targetDir: string;
   skillId: string;
+  skillName: string;
   integration: string;
   filesWritten: string[];
   filesSkipped: string[];

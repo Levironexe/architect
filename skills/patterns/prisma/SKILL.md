@@ -254,5 +254,19 @@ anti_patterns:
         select: { id: true, email: true, name: true, createdAt: true },
         // passwordHash, internalFlags, etc. never leave the DB layer
       });
+composition:
+  - when_combined_with: nextjs-app-router
+    additional_phases:
+      - name: "Prisma Singleton Setup"
+        description: "Create shared PrismaClient instance in src/lib/db.ts using the global singleton pattern for Next.js HMR safety."
+        priority: 1
+      - name: "Server Action Data Layer"
+        description: "Move direct Prisma calls from API routes to lib/ functions. Server Actions call lib/, lib/ calls Prisma."
+        priority: 7
+  - when_combined_with: express-api
+    additional_phases:
+      - name: "Prisma Repository Layer"
+        description: "Create src/repositories/ with one file per model. Services call repositories, repositories call Prisma."
+        priority: 2
 
 ---

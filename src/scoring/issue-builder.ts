@@ -51,6 +51,32 @@ export function buildIssues(result: ScanResult): ReportIssue[] {
     });
   }
 
+  if (result.security) {
+    for (const finding of result.security.findings) {
+      issues.push({
+        severity: finding.severity,
+        category: 'security',
+        location: finding.line ? `${finding.file}:${finding.line}` : finding.file,
+        message: finding.message,
+        suggestion: finding.suggestion
+      });
+    }
+  }
+
+  if (result.deadCode) {
+    for (const finding of result.deadCode) {
+      issues.push({
+        severity: 'info',
+        category: 'dead_code',
+        location: finding.file,
+        message: finding.export
+          ? `Unreferenced export '${finding.export}' in ${finding.file}.`
+          : `${finding.file} is not imported by any other file.`,
+        suggestion: 'Remove if confirmed unused — dead code increases maintenance burden.'
+      });
+    }
+  }
+
   return issues.sort(compareIssues);
 }
 

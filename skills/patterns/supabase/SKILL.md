@@ -303,5 +303,14 @@ anti_patterns:
       const supabase = createClient<Database>(URL, KEY);
       const { data } = await supabase.from('posts').select('id, title, created_at');
       // data: { id: string; title: string; created_at: string }[]  -  fully typed
+composition:
+  - when_combined_with: nextjs-app-router
+    additional_phases:
+      - name: "Supabase Client Setup"
+        description: "Create server and browser Supabase clients in src/lib/supabase.ts. Server components use createServerClient, client components use createBrowserClient."
+        priority: 1
+      - name: "RLS Policy Audit"
+        description: "Review all Supabase tables for Row Level Security policies. Enable RLS and add policies before exposing data to client."
+        priority: 8
 
 ---

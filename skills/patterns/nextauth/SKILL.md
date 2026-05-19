@@ -307,5 +307,14 @@ anti_patterns:
       adapter: PrismaAdapter(prisma),
       session: { strategy: 'database' },
       //  -  OR  -  remove the adapter entirely for JWT-only sessions (no DB table needed)
+composition:
+  - when_combined_with: nextjs-app-router
+    additional_phases:
+      - name: "NextAuth Route Handler"
+        description: "Create app/api/auth/[...nextauth]/route.ts exporting GET and POST from the auth config."
+        priority: 1
+      - name: "Session Provider Isolation"
+        description: "Wrap SessionProvider in a dedicated 'use client' component so the root layout stays a Server Component."
+        priority: 2
 
 ---

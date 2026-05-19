@@ -8,7 +8,7 @@ description: >
   says "let's do it" after a planning session, or "go ahead with the plan".
 metadata:
   version: "1.0"
-  author-email: "nguyenphuoc4805@gmail.com"
+  author-email: "levironforwork@gmail.com"
   last-updated: "2026-05-11"
 ---
 
