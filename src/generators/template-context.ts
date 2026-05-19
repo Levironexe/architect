@@ -7,7 +7,7 @@ import type { ScanResult } from '../types/analysis.js';
 import type { RenderedSkillFile, TemplateContext } from '../types/generation.js';
 import type { ArchitectureSkill, SkillMatch, StructureEntry } from '../types/skill.js';
 
-const TEMPLATE_NAMES = ['architect-plan', 'architect-refactor'] as const;
+const TEMPLATE_NAMES = ['architect-plan', 'architect-refactor', 'architect-catchup'] as const;
 
 type TemplateName = (typeof TEMPLATE_NAMES)[number];
 

@@ -178,3 +178,9 @@ After writing the plan, summarize in the chat:
 - Which phase to start with and why
 
 Do not ask for confirmation before writing the plan  -  just do it and report when done.
+
+### 7. Hand off to refactor
+
+After reporting the summary, output:
+
+> Ready to start refactoring? Run `/architect-refactor` to execute Phase 1.
