@@ -41,10 +41,28 @@ npx @levironexe/architect init . --update
 
 Wait for the command to complete before proceeding.
 
-### 3. Hand off
+### 3. Save snapshot and show comparison
+
+If `.architect/scans/baseline.json` exists, save a fresh snapshot and show the delta:
+
+```
+npx @levironexe/architect scan . --snapshot .architect/scans/latest.json
+npx @levironexe/architect diff .
+```
+
+Show the diff table output to the developer so they can see what changed since the baseline
+(or since the last refactoring phase).
+
+If the baseline snapshot does not exist, or the commands fail, skip this step silently.
+
+### 4. Hand off
 
 After the update finishes, output:
 
 > ✅ Architecture skills updated with the latest scan of your project.
->
+
+If a diff table was shown, add:
+> Health: `<before>` → `<after>` (`<delta>`)
+
+Then:
 > Ready to create a fresh refactoring plan? Run `/architect-plan` to continue.
