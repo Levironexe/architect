@@ -53,11 +53,19 @@ hardcode secrets, do not create circular imports.
 
 ## How to execute the plan
 
-### 1. Read the plan
+### 1. Read the plan and check progress
 
-Read `.architect/plan.md` in full. Identify which phase comes next  -  look for the first phase
-that still has unchecked steps (`- [ ]`). If all steps in a phase are already checked (`- [x]`),
-skip to the next phase. This lets you resume after a previous partial run.
+Read `.architect/plan.md` in full.
+
+If `.architect/state.json` exists, use it to determine where to resume:
+- Parse the JSON and find the first phase with status `"pending"` or `"in_progress"`
+- If a phase is `"in_progress"`, resume from its first unchecked step (`- [ ]`) in plan.md
+- If all phases are `"completed"`, output "✅ All phases complete." and stop
+- Set the found phase as your current target
+
+If `.architect/state.json` does not exist, fall back to the checkbox method: look for the first
+phase that still has unchecked steps (`- [ ]`). If all steps in a phase are already checked
+(`- [x]`), skip to the next phase.
 
 ### 2. Execute the current phase, step by step
 
@@ -80,32 +88,44 @@ Then:
 If a step would create a circular dependency, skip it, explain why in the chat, and continue
 with the next step.
 
-### 3. After completing all steps in the phase, run a scan checkpoint
+### 3. After completing all steps in the phase, verify and update state
 
-Run:
+Run verification:
 ```
-architect scan .
+npx @levironexe/architect verify . --phase N
 ```
-or if not found globally:
+(Replace N with the current phase number.)
+
+If the command is not available, fall back to:
 ```
 npx @levironexe/architect scan .
 ```
 
-Compare the flagged file count to the count shown in the SKILL.md context block at the top of
-this file. If flagged files **increased**, stop — do not proceed to the next phase. Explain what
-regressed and ask the developer how to proceed before continuing.
+**If verification FAILS** (exit code 1, or tsc errors / broken imports reported):
+- Stop immediately
+- Show the verification output to the developer
+- Do not proceed to the next phase
+- Output: "Phase N verification failed. Fix the issues above and run `/architect-refactor` to retry."
+
+**If verification PASSES:**
+
+Update `.architect/state.json` (if it exists):
+- Set the current phase's `status` to `"completed"` and add `"completed_at": "<ISO timestamp>"`
+- If a next phase exists, set its `status` to `"in_progress"` and `"started_at": "<ISO timestamp>"`
+- Update `current_phase` to N+1
+- Read the health score from `.architect/scans/phase-N.json` and set `latest_health` to that value
 
 Then output exactly this (replacing the placeholders):
 
 ```
 ✅ Phase N complete: <phase name>
+Verification: PASSED (0 tsc errors, 0 broken imports)
+Health: <baseline_health> → <latest_health> (+<delta>)
 
 Steps executed:
 - [x] Step N.1: <description>
 - [x] Step N.2: <description>
 ...
-
-Scan result: <N> flagged files (was <M> before this phase)
 
 Proceed to Phase N+1 (<next phase name>)? **yes / no**
 ```
@@ -117,7 +137,7 @@ If there is no next phase, output:
 ```
 ✅ All phases complete.
 
-The refactoring is done. Run `architect scan .` to measure the improvement in your health score.
+The refactoring is done. Run `npx @levironexe/architect diff .` to see the full before/after comparison.
 ```
 
 ### 4. On developer confirmation
