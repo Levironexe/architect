@@ -5,10 +5,13 @@ import {
   createEmptyDependencyGraphSummary,
   type DependencyGraphSummary,
   type DependencyNode,
+  type ExportHub,
   type FileAnalysis,
   type ParseError,
   SUPPORTED_EXTENSIONS
 } from '../types/analysis.js';
+
+const EXPORT_HUB_THRESHOLD = 20;
 
 const require = createRequire(import.meta.url);
 const madge = require('madge') as (
@@ -61,16 +64,19 @@ export async function analyzeDependencyGraph(
     node.importedBy = (importedByMap.get(node.relativePath) ?? []).sort();
   }
 
-  const highestDependentCount = nodes.reduce((currentMax, node) => Math.max(currentMax, node.importedBy.length), 0);
-  const hotspots = highestDependentCount === 0
-    ? []
-    : nodes
-        .filter((node) => node.importedBy.length === highestDependentCount)
-        .map((node) => ({
-          relativePath: node.relativePath,
-          dependentCount: node.importedBy.length
-        }))
-        .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  const hotspotThreshold = Math.max(2, Math.ceil(nodes.length * 0.1));
+  const hotspots = nodes
+    .filter((node) => node.importedBy.length >= hotspotThreshold)
+    .map((node) => ({
+      relativePath: node.relativePath,
+      dependentCount: node.importedBy.length
+    }))
+    .sort((left, right) => right.dependentCount - left.dependentCount || left.relativePath.localeCompare(right.relativePath));
+
+  const exportHubs: ExportHub[] = files
+    .filter((file) => file.exports.length > EXPORT_HUB_THRESHOLD)
+    .map((file) => ({ relativePath: file.relativePath, exportCount: file.exports.length }))
+    .sort((left, right) => right.exportCount - left.exportCount);
 
   const circularDependencies = graph
     .circular()
@@ -87,6 +93,7 @@ export async function analyzeDependencyGraph(
     nodes,
     circularDependencies,
     hotspots,
+    exportHubs,
     unreferencedFiles,
     isPartial: parseErrors.length > 0 || graph.warnings().skipped.length > 0
   };
