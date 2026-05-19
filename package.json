@@ -1,6 +1,6 @@
 {
   "name": "@levironexe/architect",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Structural health scanner for vibe-coded JavaScript and TypeScript projects.",
   "type": "module",
   "bin": {
