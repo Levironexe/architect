@@ -99,6 +99,41 @@ export async function analyzeDependencyGraph(
   };
 }
 
+export function findBrokenImports(
+  rootDirectory: string,
+  files: FileAnalysis[]
+): string[] {
+  const knownPaths = new Set(files.map((f) => f.relativePath));
+  const broken: string[] = [];
+
+  for (const file of files) {
+    for (const imp of file.imports) {
+      if (!imp.isRelative) continue;
+      const resolved = resolveRelativeImport(file.relativePath, imp.source);
+      if (resolved && !knownPaths.has(resolved) && !matchesWithExtensions(resolved, knownPaths)) {
+        broken.push(`${file.relativePath} → ${imp.source}`);
+      }
+    }
+  }
+
+  return broken;
+}
+
+function resolveRelativeImport(fromFile: string, importSource: string): string | null {
+  const dir = path.dirname(fromFile);
+  const resolved = path.normalize(path.join(dir, importSource)).split(path.sep).join('/');
+  return resolved;
+}
+
+function matchesWithExtensions(resolved: string, knownPaths: Set<string>): boolean {
+  const extensions = ['.ts', '.tsx', '.js', '.jsx', '/index.ts', '/index.tsx', '/index.js', '/index.jsx'];
+  for (const ext of extensions) {
+    if (knownPaths.has(resolved + ext)) return true;
+  }
+  if (knownPaths.has(resolved)) return true;
+  return false;
+}
+
 function normalizeToRelativePath(value: string): string {
   return path.normalize(value).split(path.sep).join('/');
 }

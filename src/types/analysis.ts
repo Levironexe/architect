@@ -124,7 +124,15 @@ export interface ScanSummary {
 import type { ScoreBreakdown } from './scoring.js';
 import type { SkillMatch, SkillWarning, StructureComparison } from './skill.js';
 import type { ReportGuidance, ReportIssue } from './issue.js';
+import type { SecuritySummary } from './security.js';
 import type { ScanDiagnostic, ScanWarning, SkippedInput } from './scan-output.js';
+
+export interface DeadCodeFinding {
+  file: string;
+  export?: string;
+  type: 'unreferenced_file' | 'unreferenced_export';
+  confidence: 'high' | 'medium';
+}
 
 export interface ScanResult {
   summary: ScanSummary;
@@ -138,6 +146,8 @@ export interface ScanResult {
   scores?: ScoreBreakdown;
   issues?: ReportIssue[];
   guidance?: ReportGuidance;
+  security?: SecuritySummary;
+  deadCode?: DeadCodeFinding[];
   warnings?: ScanWarning[];
   diagnostics?: ScanDiagnostic[];
   skippedInputs?: SkippedInput[];

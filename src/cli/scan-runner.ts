@@ -1,9 +1,12 @@
+import { readFileSync } from 'node:fs';
 import { analyzeFile } from '../analyzers/ast-parser.js';
 import { analyzeDependencyGraph } from '../analyzers/dependency-graph.js';
 import { analyzeDuplication } from '../analyzers/duplication.js';
+import { analyzeSecurityPatterns } from '../analyzers/security-check.js';
+import { analyzeDeadCode } from '../analyzers/dead-code.js';
 import { discoverFiles, discoverSkippedInputs } from '../analyzers/file-walker.js';
 import { buildIssues, createReportGuidance } from '../scoring/issue-builder.js';
-import { calculateHealthScore } from '../scoring/health-score.js';
+import { calculateHealthScore, clampScore } from '../scoring/health-score.js';
 import { scoreDuplication } from '../scoring/duplication-score.js';
 import { scoreModularity } from '../scoring/modularity-score.js';
 import { collectProjectCharacteristics, detectSkills } from '../skills/detector.js';
@@ -40,7 +43,12 @@ export async function runProjectScan(directory: string, options: ProjectScanOpti
   result.skippedInputs = skippedInputs;
   result.diagnostics = createInitialDiagnostics(thresholds, discoveredFiles.length, options.verbose === true, skippedInputs);
   await attachSkillContext(result, targetDirectory, discoveredFiles, analysis.files);
-  attachScoresAndGuidance(result, analysis.files, duplication);
+
+  const sourceContents = readSourceContents(analysis.files);
+  result.security = analyzeSecurityPatterns(analysis.files, sourceContents);
+  result.deadCode = analyzeDeadCode(analysis.files, result.dependencyGraph);
+
+  attachScoresAndGuidance(result, analysis.files, duplication, result.security);
   result.warnings = buildScanWarnings(result);
   result.diagnostics = [...(result.diagnostics ?? []), ...buildScanDiagnostics(result)];
 
@@ -99,11 +107,27 @@ async function attachSkillContext(result: ScanResult, targetDirectory: string, d
   result.structureComparison = await compareStructure(targetDirectory, matchedSkills);
 }
 
-function attachScoresAndGuidance(result: ScanResult, files: FileAnalysis[], duplication: ScanResult['duplication']): void {
+function readSourceContents(files: FileAnalysis[]): Map<string, string> {
+  const contents = new Map<string, string>();
+  for (const file of files) {
+    try {
+      contents.set(file.path, readFileSync(file.path, 'utf-8'));
+    } catch {
+      // skip unreadable files
+    }
+  }
+  return contents;
+}
+
+function attachScoresAndGuidance(result: ScanResult, files: FileAnalysis[], duplication: ScanResult['duplication'], security?: import('../types/security.js').SecuritySummary): void {
   const modularityScore = scoreModularity(files);
   const duplicationScore = scoreDuplication(duplication);
 
-  result.scores = calculateHealthScore(modularityScore, duplicationScore);
+  const scores = calculateHealthScore(modularityScore, duplicationScore);
+  if (security && security.criticalCount > 0) {
+    scores.overall = clampScore(scores.overall - security.criticalCount * 5);
+  }
+  result.scores = scores;
   result.issues = buildIssues(result);
   result.guidance = createReportGuidance(result);
 }

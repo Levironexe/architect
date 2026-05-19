@@ -1,4 +1,4 @@
-import { SUPPORTED_SKILL_SCHEMA_VERSION, type ArchitectureSkill, type AntiPattern, type DetectionRules, type PatternRules, type SeparationRule, type SkillCategory, type SkillWarning, type StructureEntry } from '../types/skill.js';
+import { SUPPORTED_SKILL_SCHEMA_VERSION, type ArchitectureSkill, type AntiPattern, type CompositionRule, type DetectionRules, type PatternRules, type SeparationRule, type SkillCategory, type SkillWarning, type StructureEntry } from '../types/skill.js';
 
 const ALLOWED_TOP_LEVEL_FIELDS = new Set([
   'schema_version',
@@ -14,7 +14,8 @@ const ALLOWED_TOP_LEVEL_FIELDS = new Set([
   'structure',
   'separation',
   'patterns',
-  'anti_patterns'
+  'anti_patterns',
+  'composition'
 ]);
 
 const SKILL_CATEGORIES = new Set<SkillCategory>(['stack', 'pattern', 'meta']);
@@ -67,6 +68,7 @@ export function validateSkill(value: unknown, file: string): SkillValidationResu
   const separation = parseSeparation(value.separation);
   const patterns = parsePatterns(value.patterns);
   const antiPatterns = parseAntiPatterns(value.anti_patterns);
+  const composition = value.composition !== undefined ? parseComposition(value.composition) : undefined;
 
   if (!frameworks || !detection || !structure || !separation || !patterns || !antiPatterns) {
     return invalid(file, 'Skill fields are malformed');
@@ -86,7 +88,8 @@ export function validateSkill(value: unknown, file: string): SkillValidationResu
       structure,
       separation,
       patterns,
-      antiPatterns
+      antiPatterns,
+      composition: composition ?? undefined
     }
   };
 }
@@ -263,6 +266,36 @@ function parseAntiPatterns(value: unknown): AntiPattern[] | null {
   }
 
   return antiPatterns;
+}
+
+function parseComposition(value: unknown): CompositionRule[] | null {
+  if (!Array.isArray(value)) return null;
+
+  const rules: CompositionRule[] = [];
+
+  for (const item of value) {
+    if (!isRecord(item)) return null;
+
+    const whenCombinedWith = readString(item, 'when_combined_with');
+    if (!whenCombinedWith) return null;
+
+    const phases = item.additional_phases;
+    if (!Array.isArray(phases)) return null;
+
+    const parsedPhases = [];
+    for (const phase of phases) {
+      if (!isRecord(phase)) return null;
+      const name = readString(phase, 'name');
+      const description = readString(phase, 'description');
+      const priority = typeof phase.priority === 'number' ? phase.priority : 5;
+      if (!name || !description) return null;
+      parsedPhases.push({ name, description, priority });
+    }
+
+    rules.push({ whenCombinedWith, additionalPhases: parsedPhases });
+  }
+
+  return rules;
 }
 
 function readStringRecord(value: Record<string, unknown>): Record<string, string> {

@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import type { FileAnalysis } from '../types/analysis.js';
-import type { ArchitectureSkill, ProjectCharacteristics, SkillMatch } from '../types/skill.js';
+import type { ArchitectureSkill, CompositionPhase, ProjectCharacteristics, SkillMatch } from '../types/skill.js';
 
 export async function collectProjectCharacteristics(rootDir: string, filePaths: string[], analyses: FileAnalysis[]): Promise<ProjectCharacteristics> {
   const dependencies = new Set(await readPackageDependencies(rootDir));
@@ -123,6 +123,24 @@ async function readSourceText(filePaths: string[]): Promise<string> {
 
 function hasLanguageSignal(characteristics: ProjectCharacteristics): boolean {
   return characteristics.files.some((filePath) => /\.(js|jsx|ts|tsx)$/.test(filePath));
+}
+
+export function collectComposedPhases(matchedSkills: SkillMatch[]): CompositionPhase[] {
+  const matchedIds = new Set(matchedSkills.map((m) => m.skill.id));
+  const phases: CompositionPhase[] = [];
+
+  for (const match of matchedSkills) {
+    const rules = match.skill.composition;
+    if (!rules) continue;
+
+    for (const rule of rules) {
+      if (matchedIds.has(rule.whenCombinedWith)) {
+        phases.push(...rule.additionalPhases);
+      }
+    }
+  }
+
+  return phases.sort((a, b) => a.priority - b.priority);
 }
 
 function getPackageName(source: string): string {
