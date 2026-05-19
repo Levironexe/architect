@@ -8,7 +8,7 @@ description: >
   "how should I organize this project", or "make a plan to clean this up".
 metadata:
   version: "1.0"
-  author-email: "nguyenphuoc4805@gmail.com"
+  author-email: "levironforwork@gmail.com"
   last-updated: "2026-05-11"
 ---
 

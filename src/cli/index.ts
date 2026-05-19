@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { Chalk } from 'chalk';
 
 import type { ScanThresholds } from '../types/scan-output.js';
 import { renderScanJson } from '../reporters/scan-json.js';
@@ -200,13 +201,37 @@ export async function executeInit(directory: string, options: InitCommandOptions
   try {
     const summary = await runInitCommand(directory, options);
 
-    process.stdout.write(`Initialized ${summary.integration} guidance with skill ${summary.skillId}\n`);
+    const chalk = new Chalk({ level: 1 });
+    const INTEGRATION_DISPLAY: Record<string, string> = {
+      claude: 'Claude Code',
+      cursor: 'Cursor',
+      windsurf: 'Windsurf',
+      copilot: 'GitHub Copilot',
+      generic: 'Other',
+    };
+    const agentDisplay = INTEGRATION_DISPLAY[summary.integration] ?? summary.integration;
+
+    process.stdout.write(`${chalk.green('✓')} Detected stack:  ${summary.skillName}\n`);
+    process.stdout.write(`${chalk.green('✓')} Detected agent:  ${agentDisplay}\n`);
+
     if (summary.filesWritten.length > 0) {
-      process.stdout.write(`Files written:\n${summary.filesWritten.map((file) => `- ${file}`).join('\n')}\n`);
+      process.stdout.write(`${chalk.green('✓')} Installed ${summary.filesWritten.length} skill${summary.filesWritten.length !== 1 ? 's' : ''}:\n`);
+      for (const file of summary.filesWritten) {
+        const dir = file.replace(/\/[^/]+$/, '/');
+        const skillName = `/${dir.replace(/.*skills\//, '').replace(/\/$/, '')}`;
+        process.stdout.write(`  ${chalk.gray(skillName.padEnd(20))} → ${dir}\n`);
+      }
     }
+
     if (summary.filesSkipped.length > 0) {
-      process.stdout.write(`Files skipped:\n${summary.filesSkipped.map((file) => `- ${file}`).join('\n')}\n`);
+      process.stdout.write(`\n${chalk.yellow('!')} Files skipped (already exist):\n`);
+      for (const file of summary.filesSkipped) {
+        process.stdout.write(`  - ${file}\n`);
+      }
     }
+
+    process.stdout.write(`\nOpen ${agentDisplay} and run /architect-plan to get started.\n`);
+
     for (const warning of summary.warnings) {
       process.stderr.write(`${warning}\n`);
     }

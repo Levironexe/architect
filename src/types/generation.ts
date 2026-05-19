@@ -30,6 +30,7 @@ export interface RenderedSkillFile {
 export interface InitSummary {
   targetDir: string;
   skillId: string;
+  skillName: string;
   integration: string;
   filesWritten: string[];
   filesSkipped: string[];

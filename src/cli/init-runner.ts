@@ -32,7 +32,7 @@ export interface InitCommandOptions extends ProjectScanOptions {
 interface InitRunnerDependencies {
   confirmOverwrite?: (message: string) => Promise<boolean>;
   detectAgent?: (dir: string) => AgentType;
-  promptAgent?: () => Promise<AgentType>;
+  promptAgent?: (detected: AgentType) => Promise<AgentType>;
   interactiveCheck?: () => boolean;
   loadSkills?: typeof loadSkills;
   runProjectScan?: typeof runProjectScan;
@@ -95,11 +95,15 @@ export async function runInitCommand(
     throw new Error('Could not detect stack. Override with --skill <id>.');
   }
 
-  let integration = options.integration ?? detectAgentForDirectory(targetDirectory);
-  if (!options.integration && integration === 'generic') {
-    if (isInteractive()) {
-      integration = await promptAgent();
-    } else {
+  const detectedIntegration = detectAgentForDirectory(targetDirectory);
+  let integration: AgentType;
+  if (options.integration) {
+    integration = options.integration;
+  } else if (isInteractive()) {
+    integration = await promptAgent(detectedIntegration);
+  } else {
+    integration = detectedIntegration;
+    if (integration === 'generic') {
       warnings.push('No known agent integration detected; using generic output.');
     }
   }
@@ -121,6 +125,7 @@ export async function runInitCommand(
       return {
         targetDir: targetDirectory,
         skillId: selectedSkill.id,
+        skillName: selectedSkill.name,
         integration,
         filesWritten: [],
         filesSkipped: existingTargets,
@@ -134,6 +139,7 @@ export async function runInitCommand(
   return {
     targetDir: targetDirectory,
     skillId: selectedSkill.id,
+    skillName: selectedSkill.name,
     integration,
     filesWritten,
     filesSkipped: [],
@@ -160,9 +166,10 @@ async function defaultConfirmOverwrite(message: string): Promise<boolean> {
   });
 }
 
-async function defaultPromptAgent(): Promise<AgentType> {
+async function defaultPromptAgent(detected: AgentType = 'generic'): Promise<AgentType> {
   return select<AgentType>({
     message: 'Which coding agent are you using?',
+    default: detected,
     choices: [
       { name: 'Claude Code  → .claude/skills/', value: 'claude' },
       { name: 'Cursor       → .cursor/rules/', value: 'cursor' },
