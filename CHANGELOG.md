@@ -2,31 +2,41 @@
 
 All notable changes to Architect CLI are recorded here.
 
-## Unreleased
+## 0.4.0
 
 ### Added
 
-- Interactive scan target prompting for human terminal sessions.
-- Configurable scan thresholds for LOC and complexity findings.
-- Explicit scan provider selection, including metrics-only mode.
-- Human-only progress feedback for long-running analysis.
-- Public documentation, contribution guide, issue templates, and CI workflow.
+- `architect diff` command — compare scan snapshots for before/after metrics.
+- `architect status` command — show refactoring phase progress from state.json.
+- `architect verify` command — post-phase verification (tsc, broken imports, health delta).
+- `architect scan --snapshot <path>` — save scan metrics as JSON snapshot.
+- Security analyzer — hardcoded secrets, weak JWT fallbacks, MD5/SHA1, missing auth, multiple PrismaClient instances.
+- Dead code analyzer — unreferenced files and exports.
+- Service layer as first-class phase in plan template.
+- Skill composition — integration-specific phases when multiple skills match (e.g., prisma + nextjs).
+- State tracking — /architect-plan saves baseline snapshot and creates state.json.
+- Verification in refactor loop — /architect-refactor runs verify after each phase.
+- Scan diff in catchup — /architect-catchup shows before/after comparison.
+- Resume support — /architect-refactor reads state.json to resume across sessions.
+- Engineering principles coverage for all 22 skills (error handling, security, config, testability, SOLID, DRY, API contracts).
+- `scripts/verify-phase.sh` — standalone bash wrapper for verification.
 
 ### Changed
 
-- Expected scan errors now include clearer next actions.
-- README now documents installation, command reference, scoring, providers, and example output.
+- README updated with full skill list, new CLI commands, composition, and 9 principles.
+- Plan template includes service layer and composed phase tokens.
+- Refactor template uses verify instead of raw scan for phase checkpoints.
+- Catchup template shows scan diff after re-scan.
 
-### Fixed
+## 0.3.1
 
-- Machine-readable scan output remains free of prompts, spinners, and ANSI styling.
+- Improved init output format and always prompt for agent selection.
 
-### Security
+## 0.3.0
 
-- Provider guidance avoids printing secret values and recommends environment-based configuration.
+- Added architect-catchup skill, plan handoff prompt, and README cleanup.
+- Improved scan accuracy, skill quality, and context auto-detect.
 
 ## 0.1.0
-
-### Added
 
 - Initial CLI scanning, dependency, duplication, skill detection, scoring, JSON output, and refactoring plan generation.
