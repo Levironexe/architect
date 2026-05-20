@@ -22,6 +22,8 @@ import { loadSkills } from '../skills/loader.js';
 import { detectAgent } from '../utils/agent-detector.js';
 import { isInteractiveTerminal } from '../utils/interactive.js';
 import { ensureDirectoryPath } from '../utils/path.js';
+import { detectLanguage, type DetectedLanguage } from '../languages/registry.js';
+import { collectProjectCharacteristicsFromLanguage, detectSkills } from '../skills/detector.js';
 
 export interface InitCommandOptions extends ProjectScanOptions {
   skill?: string;
@@ -66,26 +68,58 @@ export async function runInitCommand(
   const promptAgent = dependencies.promptAgent ?? defaultPromptAgent;
   const warnings: string[] = [];
 
-  if (!existsSync(join(targetDirectory, 'package.json'))) {
-    process.stderr.write('No package.json found. Continuing with file-pattern detection only.\n');
-  }
+  const detected = await detectLanguage(targetDirectory);
 
-  const fileCount = estimateFileCount(targetDirectory);
-  const spinner = fileCount > 500 ? createSpinner(`Scanning ${fileCount}+ files…`).start() : null;
-
-  let result: Awaited<ReturnType<typeof runProjectScan>>;
-  try {
-    result = await scanRunner(targetDirectory, options);
-  } finally {
-    spinner?.stop();
-  }
-
-  if (result.summary.totalFiles === 0) {
-    throw new Error('No source files found. Point architect at a JS/TS project root.');
+  if (!detected) {
+    throw new Error(
+      'Could not detect project language.\nSupported: JavaScript/TypeScript, Python, C#\nMake sure you are in a project root with a config file (package.json, pyproject.toml, requirements.txt, *.csproj) or source files.'
+    );
   }
 
   const { skills } = await skillLoader();
-  const selectedSkill = resolveSelectedSkill(options.skill, result, skills);
+  let selectedSkill: Awaited<ReturnType<typeof loadSkills>>['skills'][number] | undefined;
+  let result: Awaited<ReturnType<typeof runProjectScan>> | undefined;
+
+  if (detected.config.supportsScanning) {
+    const fileCount = estimateFileCount(targetDirectory);
+    const spinner = fileCount > 500 ? createSpinner(`Scanning ${fileCount}+ files…`).start() : null;
+
+    try {
+      result = await scanRunner(targetDirectory, options);
+    } finally {
+      spinner?.stop();
+    }
+
+    if (result.summary.totalFiles === 0) {
+      throw new Error('No source files found. Point architect at a JS/TS project root.');
+    }
+
+    selectedSkill = resolveSelectedSkill(options.skill, result, skills);
+  } else {
+    process.stderr.write(`Detected: ${detected.config.name}${detected.configFile ? ` (via ${detected.configFile})` : ''}\n`);
+
+    if (options.skill) {
+      selectedSkill = resolveSkillByReference(options.skill, skills);
+    } else {
+      const characteristics = await collectProjectCharacteristicsFromLanguage(targetDirectory, detected);
+      const matchedSkills = detectSkills(characteristics, skills);
+      const primary = matchedSkills.find((m) => m.primary);
+      selectedSkill = primary?.skill;
+
+      if (!selectedSkill) {
+        const langSkills = skills.filter((s) => s.language === detected.config.id);
+        if (langSkills.length > 0) {
+          const skillList = langSkills.map((s) => s.id).join(', ');
+          throw new Error(
+            `Detected ${detected.config.name} project but no matching framework.\nAvailable ${detected.config.name} skills: ${skillList}\nInstall manually with: architect init . --skill <id>`
+          );
+        }
+        throw new Error(`Detected ${detected.config.name} project but no skills available for this language.`);
+      }
+
+      process.stderr.write(`Matched skill: ${selectedSkill.name}\n`);
+    }
+  }
 
   if (!selectedSkill) {
     if (options.skill) {
@@ -108,7 +142,9 @@ export async function runInitCommand(
     }
   }
 
-  const context = buildTemplateContext(selectedSkill, result, result.matchedSkills ?? []);
+  const context = result
+    ? buildTemplateContext(selectedSkill, result, result.matchedSkills ?? [])
+    : buildTemplateContext(selectedSkill, undefined, []);
   const renderedFiles = await renderTemplates(context);
   const writer = writers[integration];
   const targets = writer(renderedFiles);

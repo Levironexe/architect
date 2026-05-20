@@ -30,18 +30,24 @@ export async function loadBundledTemplate(name: TemplateName): Promise<string> {
   return fs.readFile(resolveTemplatePath(name), 'utf8');
 }
 
-export function buildTemplateContext(skill: ArchitectureSkill, result: ScanResult, allMatched?: SkillMatch[]): TemplateContext {
-  const largestFiles = [...result.files]
-    .sort((left, right) => right.loc - left.loc || left.relativePath.localeCompare(right.relativePath))
-    .slice(0, 5)
-    .map((file) => `- ${file.relativePath} (${file.loc} LOC)`);
-  const hubFiles = [...result.dependencyGraph.hotspots]
-    .sort((left, right) => right.dependentCount - left.dependentCount || left.relativePath.localeCompare(right.relativePath))
-    .slice(0, 5)
-    .map((hotspot) => `- ${hotspot.relativePath} (${hotspot.dependentCount} dependents)`);
-  const missingDirs = (result.structureComparison?.entries ?? [])
-    .filter((entry) => entry.required && entry.status === 'missing')
-    .map((entry) => `- ${entry.path}`);
+export function buildTemplateContext(skill: ArchitectureSkill, result: ScanResult | undefined, allMatched?: SkillMatch[]): TemplateContext {
+  const largestFiles = result
+    ? [...result.files]
+        .sort((left, right) => right.loc - left.loc || left.relativePath.localeCompare(right.relativePath))
+        .slice(0, 5)
+        .map((file) => `- ${file.relativePath} (${file.loc} LOC)`)
+    : [];
+  const hubFiles = result
+    ? [...result.dependencyGraph.hotspots]
+        .sort((left, right) => right.dependentCount - left.dependentCount || left.relativePath.localeCompare(right.relativePath))
+        .slice(0, 5)
+        .map((hotspot) => `- ${hotspot.relativePath} (${hotspot.dependentCount} dependents)`)
+    : [];
+  const missingDirs = result
+    ? (result.structureComparison?.entries ?? [])
+        .filter((entry) => entry.required && entry.status === 'missing')
+        .map((entry) => `- ${entry.path}`)
+    : [];
 
   return {
     skill: {
@@ -65,7 +71,7 @@ export function buildTemplateContext(skill: ArchitectureSkill, result: ScanResul
     analysis: {
       largestFiles: largestFiles.join('\n'),
       hubFiles: hubFiles.join('\n'),
-      duplicationPercent: `${result.duplication.duplicationPercentage.toFixed(1)}%`,
+      duplicationPercent: result ? `${result.duplication.duplicationPercentage.toFixed(1)}%` : 'N/A',
       missingDirs: missingDirs.join('\n'),
       composedPhases: formatComposedPhases(allMatched ?? [])
     }

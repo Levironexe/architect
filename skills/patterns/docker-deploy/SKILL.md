@@ -5,7 +5,7 @@ name: "Docker"
 version: "2.0.0"
 description: "Docker containerization with multi-stage builds, non-root user, runtime-injected secrets, HEALTHCHECK, pinned base image tags, and correct COPY order to maximize layer cache."
 category: pattern
-language: javascript
+language: agnostic
 frameworks: []
 dependencies:
   none: []
