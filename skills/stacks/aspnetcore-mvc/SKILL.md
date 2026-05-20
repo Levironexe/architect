@@ -135,6 +135,41 @@ separation:
             [Required, Range(1, 100)]
             public int Quantity { get; set; }
         }
+    - concern: testability
+      belongs_in: tests
+      rule_text: "Use WebApplicationFactory<Program> for integration testing controllers with a real HTTP pipeline. Unit test services by injecting mock dependencies via constructor injection. Use xUnit or NUnit with the Arrange-Act-Assert pattern. Test projects mirror the src/ structure: Tests.Unit/ for services, Tests.Integration/ for controllers."
+      example: |
+        // Tests.Integration/Controllers/UsersControllerTests.cs
+        public class UsersControllerTests : IClassFixture<WebApplicationFactory<Program>>
+        {
+            private readonly HttpClient _client;
+
+            public UsersControllerTests(WebApplicationFactory<Program> factory)
+            {
+                _client = factory.CreateClient();
+            }
+
+            [Fact]
+            public async Task GetUsers_ReturnsOk()
+            {
+                var response = await _client.GetAsync("/api/users");
+                response.EnsureSuccessStatusCode();
+            }
+        }
+
+        // Tests.Unit/Services/UserServiceTests.cs
+        [Fact]
+        public async Task CreateUser_ValidInput_ReturnsUser()
+        {
+            var mockRepo = new Mock<IUserRepository>();
+            var service = new UserService(mockRepo.Object);
+            var result = await service.CreateUser(new CreateUserDto { Name = "Alice" });
+            Assert.Equal("Alice", result.Name);
+        }
+      indicators:
+        - "WebApplicationFactory"
+        - "IClassFixture"
+        - "Mock<"
 patterns:
   data_flow:
     direction: "HTTP Request → Controller (ModelState check) → Service (business logic + ViewModel mapping) → EF Core / Repository (Data layer) → ViewModel → View → HTML Response"

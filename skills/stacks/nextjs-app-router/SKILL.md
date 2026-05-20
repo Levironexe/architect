@@ -116,6 +116,106 @@ separation:
       indicators:
         - "\"use server\""
         - "'use server'"
+    - concern: error_handling
+      belongs_in: app
+      rule_text: "Use Next.js error.tsx file convention for UI error boundaries in every route segment that fetches data. Server Actions must not throw errors to the client — instead catch errors and return typed result objects like { success: false, error: string }. lib/ functions throw; Server Actions catch and translate. API routes (route.ts) use try/catch and return NextResponse with appropriate status codes."
+      example: |
+        // app/users/error.tsx — catches rendering/data errors for this route
+        'use client';
+        export default function UsersError({ error, reset }: { error: Error; reset: () => void }) {
+          return (
+            <div>
+              <h2>Something went wrong loading users</h2>
+              <button onClick={reset}>Try again</button>
+            </div>
+          );
+        }
+
+        // actions/user-actions.ts — returns result, never throws to client
+        'use server';
+        import { createUser } from '@/lib/users';
+        export async function createUserAction(formData: FormData) {
+          try {
+            const user = await createUser({ name: formData.get('name') as string });
+            return { success: true, user };
+          } catch (err) {
+            return { success: false, error: 'Failed to create user' };
+          }
+        }
+      indicators:
+        - "error.tsx"
+        - "{ success: false"
+        - "{ success: true"
+    - concern: security
+      belongs_in: lib
+      rule_text: "Never import server-only secrets in files that could be included in the client bundle. Use the 'server-only' package to poison client imports of sensitive modules. Server Actions must call auth() before any data mutation. API routes (route.ts) must verify authentication before processing requests. Environment variables without the NEXT_PUBLIC_ prefix are server-only — never destructure them in client components."
+      example: |
+        // lib/db.ts — import 'server-only' prevents accidental client inclusion
+        import 'server-only';
+        import { PrismaClient } from '@prisma/client';
+        export const prisma = new PrismaClient();
+
+        // actions/user-actions.ts — always verify auth before mutation
+        'use server';
+        import { auth } from '@/lib/auth';
+        export async function deleteUser(userId: string) {
+          const session = await auth();
+          if (!session) throw new Error('Unauthorized');
+          await prisma.user.delete({ where: { id: userId } });
+        }
+      indicators:
+        - "server-only"
+        - "auth()"
+        - "NEXT_PUBLIC_"
+    - concern: configuration
+      belongs_in: lib
+      rule_text: "Read all environment variables in src/lib/config.ts, validate with Zod, and export a typed object. Server-only secrets (DATABASE_URL, JWT_SECRET) must NOT use the NEXT_PUBLIC_ prefix. Client-safe values use NEXT_PUBLIC_ and are available in both server and client code. Import 'server-only' in config files that contain secrets to prevent accidental client inclusion."
+      example: |
+        // src/lib/config.ts
+        import 'server-only';
+        import { z } from 'zod';
+
+        const serverSchema = z.object({
+          DATABASE_URL: z.string().url(),
+          JWT_SECRET: z.string().min(32),
+        });
+
+        export const serverConfig = serverSchema.parse(process.env);
+
+        // src/lib/client-config.ts — safe for client
+        const clientSchema = z.object({
+          NEXT_PUBLIC_APP_URL: z.string().url(),
+          NEXT_PUBLIC_APP_NAME: z.string().default('My App'),
+        });
+
+        export const clientConfig = clientSchema.parse({
+          NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+          NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
+        });
+      indicators:
+        - "config.ts"
+        - "serverConfig"
+        - "NEXT_PUBLIC_"
+        - "server-only"
+    - concern: dependency_injection
+      belongs_in: lib
+      rule_text: "lib/ functions accept dependencies as optional parameters with production defaults. This enables testing without module mocking. For example, a function that queries the database accepts a db parameter that defaults to the real Prisma client but can be overridden in tests with a mock."
+      example: |
+        // lib/users.ts — injectable for testing
+        import { prisma as defaultDb } from '@/lib/db';
+        import type { PrismaClient } from '@prisma/client';
+
+        export async function listUsers(db: PrismaClient = defaultDb) {
+          return db.user.findMany({ orderBy: { createdAt: 'desc' } });
+        }
+
+        // tests/lib/users.test.ts
+        const mockDb = { user: { findMany: vi.fn().mockResolvedValue([]) } };
+        const users = await listUsers(mockDb as any);
+        expect(mockDb.user.findMany).toHaveBeenCalled();
+      indicators:
+        - "= defaultDb"
+        - "db: PrismaClient"
 patterns:
   data_flow:
     direction: "app/page.tsx -> lib/ -> database/external API; actions/ -> lib/ -> database"
@@ -194,5 +294,49 @@ anti_patterns:
         const users = await listActiveUsers();
         return <UserList users={users} />;
       }
+  - id: server_action_throws
+    severity: warning
+    description: "Server Actions throw errors instead of returning typed result objects. When a Server Action throws, Next.js shows a generic error boundary or the error is lost — the client component cannot distinguish between error types or show specific messages."
+    bad_example: |
+      // actions/user-actions.ts — throws to client
+      'use server';
+      export async function createUserAction(formData: FormData) {
+        const user = await createUser(formData); // throws on failure — client gets generic error
+        return user;
+      }
+    good_example: |
+      // actions/user-actions.ts — returns typed result
+      'use server';
+      export async function createUserAction(formData: FormData) {
+        try {
+          const user = await createUser(formData);
+          return { success: true as const, user };
+        } catch {
+          return { success: false as const, error: 'Failed to create user' };
+        }
+      }
+  - id: leaked_server_secret
+    severity: critical
+    description: "Importing a module that reads process.env secrets (database URL, API keys) inside a Client Component or a file without 'server-only' guard. Next.js may bundle the secret into client JavaScript, exposing it to anyone who inspects the page source."
+    bad_example: |
+      // components/dashboard.tsx
+      'use client';
+      import { prisma } from '@/lib/db'; // db module reads DATABASE_URL — now in client bundle!
+    good_example: |
+      // lib/db.ts — add server-only guard
+      import 'server-only';
+      import { PrismaClient } from '@prisma/client';
+      // Client Components that try to import this will get a build error
+  - id: scattered_process_env
+    severity: warning
+    description: "process.env.NEXT_PUBLIC_* and process.env.DATABASE_URL read directly in lib/ functions, Server Actions, and components. No validation, no typing, no single source of truth. If a variable name changes, every file must be updated."
+    bad_example: |
+      // scattered across lib/db.ts, lib/auth.ts, actions/user.ts
+      const url = process.env.DATABASE_URL!; // ! hides the undefined risk
+    good_example: |
+      // src/lib/config.ts — single source, validated at build/startup
+      export const serverConfig = serverSchema.parse(process.env);
+      // everywhere else:
+      import { serverConfig } from '@/lib/config';
 
 ---

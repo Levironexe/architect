@@ -119,6 +119,30 @@ separation:
         - "Cache-Control"
         - "s-maxage"
         - "stale-while-revalidate"
+    - concern: middleware_factory
+      belongs_in: src/middleware
+      rule_text: "Extract shared cross-cutting concerns (auth checks, rate limiting, CORS, logging) into reusable middleware factory functions. Each API route composes middleware declaratively instead of duplicating auth/validation logic. This follows the Open/Closed Principle — add new middleware without modifying existing routes."
+      example: |
+        // src/middleware/with-auth.ts
+        import { NextRequest, NextResponse } from 'next/server';
+
+        export function withAuth(handler: (req: NextRequest, userId: string) => Promise<NextResponse>) {
+          return async (req: NextRequest) => {
+            const token = req.headers.get('Authorization')?.replace('Bearer ', '');
+            if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            const userId = await verifyToken(token);
+            return handler(req, userId);
+          };
+        }
+
+        // app/api/users/route.ts — composed declaratively
+        export const GET = withAuth(async (req, userId) => {
+          const users = await getUsers();
+          return NextResponse.json(users);
+        });
+      indicators:
+        - "withAuth"
+        - "middleware factory"
 patterns:
   data_flow:
     direction: "Git Push → Vercel Build → Serverless (regional) or Edge (global) → CDN Cache → Response"

@@ -152,6 +152,32 @@ separation:
         - "playwright.config.ts"
         - "baseURL"
         - "retries"
+    - concern: auth_testing
+      belongs_in: tests
+      rule_text: "Test authentication flows explicitly: login success, login failure, session expiry, unauthorized access to protected routes, and role-based access control. Use storageState to reuse auth across tests for speed, but include dedicated auth spec files that test the login flow itself. Verify that secure headers (X-Frame-Options, Content-Security-Policy) are present on responses."
+      example: |
+        // tests/auth.spec.ts
+        import { test, expect } from '@playwright/test';
+
+        test('redirects unauthenticated users to login', async ({ page }) => {
+          await page.goto('/dashboard');
+          await expect(page).toHaveURL('/login');
+        });
+
+        test('rejects expired session', async ({ page, context }) => {
+          await context.clearCookies();
+          await page.goto('/dashboard');
+          await expect(page).toHaveURL('/login');
+        });
+
+        test('returns secure headers', async ({ request }) => {
+          const response = await request.get('/');
+          expect(response.headers()['x-frame-options']).toBeTruthy();
+        });
+      indicators:
+        - "clearCookies"
+        - "toHaveURL('/login')"
+        - "x-frame-options"
 patterns:
   data_flow:
     direction: "globalSetup (login once) → storageState file → authedPage fixture → Test spec → POM methods → Browser → Application"
@@ -264,5 +290,17 @@ anti_patterns:
         await browser.close();
       }
       export default globalSetup;
+  - id: skipped_auth_tests
+    severity: warning
+    description: "E2E suite uses storageState for all tests but never tests the actual login flow, session expiry, or unauthorized access. Auth bugs only surface in production because no test exercises the auth boundary."
+    bad_example: |
+      // All tests reuse saved auth state — login flow never tested
+      // playwright.config.ts
+      use: { storageState: 'auth.json' } // every test starts authenticated
+      // No auth.spec.ts exists
+    good_example: |
+      // Dedicated auth spec tests the boundary
+      // tests/auth.spec.ts tests login, logout, session expiry, unauthorized access
+      // Other specs reuse storageState for speed
 
 ---

@@ -84,6 +84,82 @@ separation:
         - ".findOne"
         - ".create("
         - "SELECT"
+    - concern: error_handling
+      belongs_in: src/middleware
+      rule_text: "Centralize error handling in a single Express error middleware at the end of the middleware chain. Define a custom AppError class that carries an HTTP status code and error code. Route handlers and services throw AppError instances — the error middleware catches them, logs, and returns a consistent JSON response. Never let raw Error objects or stack traces reach the client."
+      example: |
+        // src/middleware/error-handler.ts
+        import { Request, Response, NextFunction } from 'express';
+        import { AppError } from '../utils/errors';
+
+        export function errorHandler(err: Error, req: Request, res: Response, _next: NextFunction) {
+          if (err instanceof AppError) {
+            return res.status(err.statusCode).json({ error: err.code, message: err.message });
+          }
+          console.error('Unhandled error:', err);
+          res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Something went wrong' });
+        }
+
+        // src/utils/errors.ts
+        export class AppError extends Error {
+          constructor(public statusCode: number, public code: string, message: string) {
+            super(message);
+          }
+        }
+      indicators:
+        - "errorHandler"
+        - "AppError"
+        - "next(err)"
+    - concern: dependency_injection
+      belongs_in: src/services
+      rule_text: "Services receive their dependencies (database client, external API clients, config) as constructor or function parameters — never import and instantiate them directly. This enables unit testing with mocks and swapping implementations without changing service code. Controllers create services with real dependencies; tests create them with mocks."
+      example: |
+        // src/services/user.service.ts — dependencies injected
+        import type { PrismaClient } from '@prisma/client';
+
+        export function createUserService(db: PrismaClient) {
+          return {
+            async getUser(id: string) {
+              return db.user.findUnique({ where: { id } });
+            },
+            async createUser(data: { name: string; email: string }) {
+              return db.user.create({ data });
+            },
+          };
+        }
+
+        // src/controllers/user.controller.ts — wires real deps
+        import { prisma } from '../lib/db';
+        import { createUserService } from '../services/user.service';
+        const userService = createUserService(prisma);
+
+        // tests/services/user.service.test.ts — wires mock deps
+        const mockDb = { user: { findUnique: vi.fn(), create: vi.fn() } };
+        const service = createUserService(mockDb as any);
+      indicators:
+        - "createUserService"
+        - "function create"
+    - concern: shared_middleware
+      belongs_in: src/middleware
+      rule_text: "Extract repeated cross-cutting logic (pagination, filtering, sorting, rate limiting) into reusable middleware or utility functions. If the same pattern appears in 2+ route handlers, extract it. Middleware is defined once in src/middleware/ and applied declaratively via router.use() or per-route."
+      example: |
+        // src/middleware/paginate.ts — reusable across all list endpoints
+        import { Request, Response, NextFunction } from 'express';
+
+        export function paginate(defaultLimit = 20) {
+          return (req: Request, _res: Response, next: NextFunction) => {
+            const page = Math.max(1, parseInt(req.query.page as string) || 1);
+            const limit = Math.min(100, parseInt(req.query.limit as string) || defaultLimit);
+            req.pagination = { page, limit, offset: (page - 1) * limit };
+            next();
+          };
+        }
+
+        // src/routes/users.ts — applied declaratively
+        router.get('/', paginate(), UserController.list);
+      indicators:
+        - "paginate"
+        - "router.use"
 patterns:
   error_handling:
     recommended: "Use centralized error-handling middleware."
@@ -152,5 +228,36 @@ anti_patterns:
       // In middleware  -  reads from config, not from process.env
       import { config } from '@/config';
       const jwtSecret = config.auth.jwtSecret;
+  - id: swallowed_errors
+    severity: warning
+    description: "Empty catch blocks or catch blocks that only log and continue silently. The caller never learns the operation failed, leading to corrupted state or misleading success responses."
+    bad_example: |
+      try {
+        await db.query('INSERT INTO users...');
+      } catch (err) {
+        console.log(err); // swallowed — caller thinks insert succeeded
+      }
+      res.json({ success: true });
+    good_example: |
+      try {
+        await db.query('INSERT INTO users...');
+        res.json({ success: true });
+      } catch (err) {
+        next(new AppError(500, 'DB_ERROR', 'Failed to create user'));
+      }
+  - id: hardcoded_dependencies
+    severity: warning
+    description: "Services import and instantiate their own database client, HTTP client, or config directly. This makes them impossible to unit test without mocking the module system, and couples them to specific implementations."
+    bad_example: |
+      // src/services/user.service.ts — imports db directly
+      import { prisma } from '../lib/db';
+      export async function getUser(id: string) {
+        return prisma.user.findUnique({ where: { id } }); // can't test without real DB or module mock
+      }
+    good_example: |
+      // Dependencies passed in — testable with any implementation
+      export function createUserService(db: PrismaClient) {
+        return { async getUser(id: string) { return db.user.findUnique({ where: { id } }); } };
+      }
 
 ---

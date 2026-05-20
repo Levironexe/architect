@@ -127,6 +127,33 @@ separation:
       indicators:
         - "HeadObjectCommand"
         - "confirm"
+    - concern: testability
+      belongs_in: tests
+      rule_text: "Mock S3Client in unit tests using vi.mock() or dependency injection. Test the upload/download/presign service functions without hitting real S3. For integration tests, use localstack or S3-compatible MinIO running in Docker. Never hardcode bucket names or credentials in tests — use a test config."
+      example: |
+        // tests/services/storage.test.ts
+        import { describe, it, expect, vi, beforeEach } from 'vitest';
+        import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+
+        vi.mock('@aws-sdk/client-s3', () => ({
+          S3Client: vi.fn(() => ({ send: vi.fn().mockResolvedValue({}) })),
+          PutObjectCommand: vi.fn(),
+        }));
+
+        import { uploadFile } from '../../src/services/storage';
+
+        describe('uploadFile', () => {
+          it('calls S3 with correct params', async () => {
+            await uploadFile('test.png', Buffer.from('data'), 'image/png');
+            expect(PutObjectCommand).toHaveBeenCalledWith(
+              expect.objectContaining({ Key: 'test.png', ContentType: 'image/png' })
+            );
+          });
+        });
+      indicators:
+        - "vi.mock('@aws-sdk"
+        - "S3Client"
+        - "PutObjectCommand"
 patterns:
   data_flow:
     direction: "Client → POST /upload/presign (server validates MIME) → S3 pre-signed PUT URL → Client uploads directly to S3 → Client POST /upload/confirm → Server verifies object exists → DB stores key"

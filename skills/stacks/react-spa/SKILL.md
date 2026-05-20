@@ -92,6 +92,73 @@ separation:
       indicators:
         - "fetch("
         - "axios."
+    - concern: error_handling
+      belongs_in: components
+      rule_text: "Wrap route-level components with React Error Boundaries to catch render errors without crashing the entire app. Services return typed results or throw typed errors — never throw raw Error objects. Hooks translate service errors into user-facing state (error message, retry function). API service functions use a consistent error shape that components can pattern-match on."
+      example: |
+        // components/ErrorBoundary.tsx
+        import { Component, ReactNode } from 'react';
+
+        interface Props { children: ReactNode; fallback: ReactNode }
+        interface State { hasError: boolean }
+
+        export class ErrorBoundary extends Component<Props, State> {
+          state = { hasError: false };
+          static getDerivedStateFromError() { return { hasError: true }; }
+          render() {
+            return this.state.hasError ? this.props.fallback : this.props.children;
+          }
+        }
+
+        // services/api.ts — consistent error shape
+        export class ApiError extends Error {
+          constructor(public status: number, public code: string, message: string) { super(message); }
+        }
+
+        export async function fetchJson<T>(url: string): Promise<T> {
+          const res = await fetch(url);
+          if (!res.ok) throw new ApiError(res.status, 'API_ERROR', await res.text());
+          return res.json();
+        }
+      indicators:
+        - "ErrorBoundary"
+        - "ApiError"
+    - concern: security
+      belongs_in: services
+      rule_text: "Never store auth tokens in localStorage — use httpOnly cookies set by the backend. Services attach the Authorization header from a central auth module, not per-fetch. Sanitize any user-generated HTML before rendering to prevent XSS. Never embed secrets or API keys in client-side code — all sensitive calls go through your backend API."
+      example: |
+        // services/auth.ts — centralized token handling
+        export async function fetchWithAuth(url: string, options: RequestInit = {}) {
+          return fetch(url, {
+            ...options,
+            credentials: 'include', // sends httpOnly cookies automatically
+            headers: { ...options.headers, 'Content-Type': 'application/json' },
+          });
+        }
+      indicators:
+        - "credentials: 'include'"
+        - "Authorization"
+        - "httpOnly"
+    - concern: configuration
+      belongs_in: src/config
+      rule_text: "Read all environment variables once in src/config/env.ts, validate them, and export a typed config object. Components and services import from this module — never read import.meta.env or process.env directly. Vite exposes only variables prefixed with VITE_ to the client — server-only secrets must never use this prefix."
+      example: |
+        // src/config/env.ts
+        import { z } from 'zod';
+
+        const envSchema = z.object({
+          VITE_API_URL: z.string().url(),
+          VITE_APP_NAME: z.string().default('My App'),
+        });
+
+        export const env = envSchema.parse(import.meta.env);
+
+        // Usage anywhere: import { env } from '@/config/env';
+        // env.VITE_API_URL — typed and validated
+      indicators:
+        - "import.meta.env"
+        - "VITE_"
+        - "config/env"
 patterns:
   data_flow:
     direction: "src/pages -> src/hooks -> src/services -> external API"
@@ -150,5 +217,51 @@ anti_patterns:
       {users.map((user) => (
         <UserCard key={user.id} user={user} />
       ))}
+  - id: silent_fetch_failure
+    severity: warning
+    description: "Fetch calls wrapped in try/catch that set error state to a generic string, or worse, silently fall back to empty data. The user sees a blank screen or stale data with no indication that something failed."
+    bad_example: |
+      const [users, setUsers] = useState([]);
+      useEffect(() => {
+        fetch('/api/users').then(r => r.json()).then(setUsers).catch(() => {}); // silent failure
+      }, []);
+    good_example: |
+      const [users, setUsers] = useState<User[]>([]);
+      const [error, setError] = useState<string | null>(null);
+      useEffect(() => {
+        fetchJson<User[]>('/api/users')
+          .then(setUsers)
+          .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load users'));
+      }, []);
+  - id: token_in_localstorage
+    severity: critical
+    description: "Storing JWT or session tokens in localStorage. Any XSS vulnerability gives an attacker full access to the token — localStorage is readable by any script on the page. httpOnly cookies are immune to XSS because JavaScript cannot access them."
+    bad_example: |
+      // Login handler — stores token where any script can read it
+      const { token } = await login(email, password);
+      localStorage.setItem('token', token);
+      // Later: headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    good_example: |
+      // Login handler — backend sets httpOnly cookie, frontend never sees the token
+      await fetch('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+        credentials: 'include', // cookie is set automatically by Set-Cookie header
+      });
+      // Subsequent requests: credentials: 'include' sends the cookie
+  - id: scattered_env_reads
+    severity: warning
+    description: "import.meta.env.VITE_API_URL scattered across multiple components and services. If the variable name changes, every file must be updated. No validation — a missing variable causes a runtime crash instead of a startup error."
+    bad_example: |
+      // scattered across 8 files
+      fetch(`${import.meta.env.VITE_API_URL}/users`);
+      // another file:
+      const ws = new WebSocket(import.meta.env.VITE_WS_URL); // typo? missing? no error until runtime
+    good_example: |
+      // src/config/env.ts validates at startup
+      export const env = envSchema.parse(import.meta.env); // crashes immediately if VITE_API_URL missing
+      // everywhere else:
+      import { env } from '@/config/env';
+      fetch(`${env.VITE_API_URL}/users`);
 
 ---

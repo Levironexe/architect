@@ -177,6 +177,35 @@ separation:
         - "postgres_changes"
         - "removeChannel"
         - ".subscribe()"
+    - concern: client_factory
+      belongs_in: src/lib
+      rule_text: "Create Supabase client instances through a factory or utility module rather than repeating createClient/createServerClient configuration in every file. Server and browser clients have different setup (cookies, auth helpers) — centralize both in src/lib/supabase.ts so configuration changes happen in one place."
+      example: |
+        // src/lib/supabase.ts — single source for both client types
+        import { createClient } from '@supabase/supabase-js';
+        import { createServerClient } from '@supabase/ssr';
+        import type { Database } from '@/types/supabase';
+
+        // Browser client — used in Client Components
+        export function createBrowserSupabase() {
+          return createClient<Database>(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+          );
+        }
+
+        // Server client — used in Server Components, Actions, API routes
+        export function createServerSupabase(cookieStore: ReturnType<typeof cookies>) {
+          return createServerClient<Database>(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            { cookies: { /* cookie adapter */ } }
+          );
+        }
+      indicators:
+        - "createBrowserSupabase"
+        - "createServerSupabase"
+        - "supabase.ts"
 patterns:
   data_flow:
     direction: "Client Component → Browser Client → RLS-enforced Query | Server Component → Server Client → RLS-enforced Query"

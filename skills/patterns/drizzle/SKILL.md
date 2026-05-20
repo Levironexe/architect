@@ -189,6 +189,28 @@ separation:
         - "db.transaction("
         - "tx.insert("
         - "tx.update("
+    - concern: input_validation
+      belongs_in: src/services
+      rule_text: "Validate all user input with a schema library (Zod, Valibot, etc.) before passing to Drizzle query builder. Drizzle uses parameterized queries which prevent SQL injection, but unvalidated input can still produce unexpected where clauses, insert garbage data, or cause type mismatches at runtime. Validate at the service boundary."
+      example: |
+        // src/services/user.service.ts
+        import { z } from 'zod';
+        import { db } from '../db';
+        import { users } from '../db/schema';
+
+        const CreateUserInput = z.object({
+          name: z.string().min(1).max(100),
+          email: z.string().email(),
+        });
+
+        export async function createUser(input: unknown) {
+          const data = CreateUserInput.parse(input);
+          const [user] = await db.insert(users).values(data).returning();
+          return user;
+        }
+      indicators:
+        - ".parse("
+        - "z.object"
 patterns:
   data_flow:
     direction: "API Route/Server Action → Service → Query Function (src/db/queries/) → Drizzle → Database"
@@ -276,5 +298,17 @@ anti_patterns:
       # ✓ Production: apply versioned migrations from the drizzle/ directory
       npx drizzle-kit migrate
       # Each migration is a timestamped SQL file with a checksum  -  safe to replay
+  - id: raw_input_in_query
+    severity: warning
+    description: "User input passed directly to Drizzle eq(), like(), or values() without validation. While parameterized, invalid types can cause runtime crashes or store unexpected data."
+    bad_example: |
+      app.get('/users', async (req, res) => {
+        const users = await db.select().from(usersTable)
+          .where(eq(usersTable.role, req.query.role)); // any string accepted as role
+      });
+    good_example: |
+      const RoleFilter = z.enum(['admin', 'user', 'moderator']);
+      const role = RoleFilter.parse(req.query.role); // rejects invalid roles
+      const users = await db.select().from(usersTable).where(eq(usersTable.role, role));
 
 ---
