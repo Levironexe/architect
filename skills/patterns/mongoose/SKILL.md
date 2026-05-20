@@ -172,6 +172,56 @@ separation:
         - "startTransaction"
         - "commitTransaction"
         - "abortTransaction"
+    - concern: input_validation
+      belongs_in: src/services
+      rule_text: "Validate and sanitize all user input before passing to Mongoose queries. MongoDB is vulnerable to query injection when user input is used directly in query operators — an attacker can pass { '$gt': '' } instead of a string to bypass filters. Always validate ObjectId format before using in findById. Use a schema library (Zod, Joi) at the service boundary, not just Mongoose schema validation (which runs too late)."
+      example: |
+        // src/services/user.service.ts
+        import { z } from 'zod';
+        import { Types } from 'mongoose';
+        import { User } from '../models/user.model';
+
+        const ObjectIdSchema = z.string().refine((val) => Types.ObjectId.isValid(val), 'Invalid ID');
+
+        export async function getUser(id: unknown) {
+          const validId = ObjectIdSchema.parse(id);
+          return User.findById(validId).lean();
+        }
+      indicators:
+        - "ObjectId.isValid"
+        - ".parse("
+        - "z.string()"
+    - concern: connection_config
+      belongs_in: src/lib
+      rule_text: "Configure the MongoDB connection in a single module (src/lib/db.ts) with environment-specific settings. Set connection pool size (default 5 in development, higher in production), replica set name, and read preference via the connection string or MongooseConnectOptions. Validate DATABASE_URL at startup — fail fast if missing. Use mongoose.connection events to log connection state."
+      example: |
+        // src/lib/db.ts
+        import mongoose from 'mongoose';
+
+        const MONGODB_URI = process.env.DATABASE_URL;
+        if (!MONGODB_URI) throw new Error('DATABASE_URL environment variable is required');
+
+        const options: mongoose.ConnectOptions = {
+          maxPoolSize: process.env.NODE_ENV === 'production' ? 20 : 5,
+          serverSelectionTimeoutMS: 5000,
+          socketTimeoutMS: 45000,
+        };
+
+        let cached = global.__mongoose;
+        if (!cached) cached = global.__mongoose = { conn: null, promise: null };
+
+        export async function connectDB() {
+          if (cached.conn) return cached.conn;
+          if (!cached.promise) {
+            cached.promise = mongoose.connect(MONGODB_URI, options);
+          }
+          cached.conn = await cached.promise;
+          return cached.conn;
+        }
+      indicators:
+        - "maxPoolSize"
+        - "connectDB"
+        - "mongoose.connect"
 patterns:
   data_flow:
     direction: "API Route/Server Action → Service → Repository → Mongoose Model → MongoDB"
@@ -289,5 +339,33 @@ anti_patterns:
 
       // ✓ Or use findByIdAndUpdate for simpler mutations
       await User.findByIdAndUpdate(id, { name: 'New Name' }, { new: true });
+  - id: no_connection_pooling
+    severity: warning
+    description: "Calling mongoose.connect() in every request handler or module without caching the connection. Each call creates a new connection pool — in serverless environments this exhausts MongoDB's connection limit within minutes."
+    bad_example: |
+      // Called in every API route — new pool per request
+      export async function handler(req, res) {
+        await mongoose.connect(process.env.DATABASE_URL);
+        const users = await User.find();
+        res.json(users);
+      }
+    good_example: |
+      // Cached singleton — one pool shared across all requests
+      import { connectDB } from '@/lib/db';
+      export async function handler(req, res) {
+        await connectDB(); // reuses existing connection
+        const users = await User.find();
+        res.json(users);
+      }
+  - id: nosql_injection
+    severity: critical
+    description: "User input used directly in MongoDB query operators without sanitization. An attacker can send { '$gt': '' } as a query parameter value, turning an equality check into a 'match everything' query that leaks data."
+    bad_example: |
+      // req.query.email could be { '$gt': '' } instead of a string
+      const user = await User.findOne({ email: req.query.email });
+    good_example: |
+      const EmailSchema = z.string().email();
+      const email = EmailSchema.parse(req.query.email); // rejects non-string input
+      const user = await User.findOne({ email });
 
 ---

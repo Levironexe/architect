@@ -70,6 +70,61 @@ separation:
       indicators:
         - "extends Error"
         - "new Error("
+    - concern: dependency_injection
+      belongs_in: src
+      rule_text: "Pass dependencies as function parameters or constructor arguments rather than importing them directly at the top of the file. This makes functions testable (pass mocks), reusable (swap implementations), and decoupled from specific packages. Default parameters provide production dependencies so callers don't need to wire them manually."
+      example: |
+        // Good: injectable
+        export function createUserService(db = defaultDb, mailer = defaultMailer) {
+          return {
+            async createUser(data) {
+              const user = await db.create(data);
+              await mailer.sendWelcome(user.email);
+              return user;
+            },
+          };
+        }
+
+        // Bad: hardcoded imports
+        import { db } from '../lib/db';
+        import { mailer } from '../lib/mailer';
+        export async function createUser(data) { /* can't test without real db + mailer */ }
+      indicators:
+        - "= defaultDb"
+        - "= defaultMailer"
+    - concern: dry_extraction
+      belongs_in: src/utils
+      rule_text: "When the same logic appears in 2+ places, extract it into a shared utility in src/utils/. But only extract when the implementations are genuinely the same — two functions that look alike but serve different domains should stay separate. DRY is about knowledge duplication, not code similarity."
+      example: |
+        // Before: same formatting logic in 3 files
+        const price = `$${(amount / 100).toFixed(2)}`;
+
+        // After: extracted to utils
+        // src/utils/format.ts
+        export function formatCents(cents: number): string {
+          return `$${(cents / 100).toFixed(2)}`;
+        }
+      indicators:
+        - "src/utils/"
+        - "export function format"
+    - concern: api_contracts
+      belongs_in: src/types
+      rule_text: "Define separate input and output types for every API boundary. Never return raw database objects — shape the response with explicit types. Input types validate what comes in; output types guarantee what goes out. Use Zod, io-ts, or TypeScript interfaces to enforce contracts at the boundary."
+      example: |
+        // src/types/user.ts
+        export interface CreateUserInput { name: string; email: string; }
+        export interface UserResponse { id: string; name: string; email: string; createdAt: string; }
+        // Never: return the full ORM object with passwordHash, internal flags, etc.
+
+        // src/services/user.service.ts
+        export async function createUser(input: CreateUserInput): Promise<UserResponse> {
+          const user = await db.user.create({ data: input });
+          return { id: user.id, name: user.name, email: user.email, createdAt: user.createdAt.toISOString() };
+        }
+      indicators:
+        - "Input"
+        - "Response"
+        - "src/types/"
 patterns:
   naming:
     files: "Use kebab-case for all filenames (user-service.ts, auth-middleware.ts). Use *.test.ts or *.spec.ts suffixes for test files. Never use spaces or underscores in filenames."

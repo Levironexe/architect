@@ -150,6 +150,51 @@ separation:
         - "await expect("
         - ".rejects."
         - ".resolves."
+    - concern: security_testing
+      belongs_in: tests
+      rule_text: "Mock secrets and API keys in tests using vi.stubEnv() or a test .env file — never use real credentials. Test that auth guards reject unauthenticated requests. Verify that sensitive fields (passwords, tokens) are excluded from API responses. Never log or snapshot actual secret values in test output."
+      example: |
+        // tests/services/user.service.test.ts
+        import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+        beforeEach(() => {
+          vi.stubEnv('JWT_SECRET', 'test-secret-not-real');
+          vi.stubEnv('DATABASE_URL', 'postgres://test:test@localhost/test');
+        });
+
+        it('should not include password hash in user response', async () => {
+          const user = await getPublicUser('user-123');
+          expect(user).not.toHaveProperty('passwordHash');
+          expect(user).not.toHaveProperty('password');
+        });
+      indicators:
+        - "vi.stubEnv"
+        - "not.toHaveProperty('password"
+    - concern: test_organization
+      belongs_in: tests
+      rule_text: "Follow the test pyramid: many fast unit tests, fewer integration tests, minimal E2E tests. Each test file tests one module (SRP for tests). Organize tests mirroring source structure or by test type (tests/unit/, tests/integration/). Share fixtures and factories via tests/helpers/ — don't duplicate setup logic across test files. Each test case should assert one behavior."
+      example: |
+        // tests/unit/services/user.service.test.ts — one module, one concern
+        describe('UserService.createUser', () => {
+          it('returns created user', async () => { /* one assertion */ });
+          it('throws on duplicate email', async () => { /* one assertion */ });
+          it('hashes password before saving', async () => { /* one assertion */ });
+        });
+
+        // tests/helpers/factories.ts — shared, DRY
+        export function buildUser(overrides = {}) {
+          return { id: '1', name: 'Test', email: 'test@test.com', ...overrides };
+        }
+
+        // tests/integration/routes/users.test.ts — fewer, slower, real deps
+        describe('POST /users', () => {
+          it('creates user and returns 201', async () => { /* hits real handler */ });
+        });
+      indicators:
+        - "tests/unit/"
+        - "tests/integration/"
+        - "tests/helpers/"
+        - "buildUser"
 patterns:
   data_flow:
     direction: "Test → vi.mock() (module replacement) → Module Under Test → Assertion"
@@ -261,5 +306,29 @@ anti_patterns:
         expect(order.items).toHaveLength(2);
         expect(order.items[0].subtotal).toBe(20);
       });
+  - id: real_secrets_in_tests
+    severity: critical
+    description: "Tests use real API keys, database credentials, or JWT secrets instead of mock values. If test output is logged in CI, secrets are exposed in build logs. If tests run against production services, test data pollutes real data."
+    bad_example: |
+      // test uses real Stripe key — charges real cards if test hits live API
+      const stripe = new Stripe('sk_live_abc123...');
+    good_example: |
+      // test uses stubbed env — no real service calls
+      vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_fake');
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  - id: mega_test_file
+    severity: warning
+    description: "A single test file tests multiple unrelated modules or contains 50+ test cases. Test failures are hard to locate, test runs are slow because everything runs sequentially, and the file becomes as unmaintainable as the god files it's supposed to prevent."
+    bad_example: |
+      // tests/everything.test.ts — 200 lines testing users, products, auth, and utils
+      describe('UserService', () => { /* 15 tests */ });
+      describe('ProductService', () => { /* 12 tests */ });
+      describe('AuthMiddleware', () => { /* 8 tests */ });
+      describe('formatDate', () => { /* 5 tests */ });
+    good_example: |
+      // tests/unit/services/user.service.test.ts — one module
+      // tests/unit/services/product.service.test.ts — one module
+      // tests/unit/middleware/auth.test.ts — one module
+      // tests/unit/utils/date.test.ts — one module
 
 ---

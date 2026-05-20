@@ -121,6 +121,33 @@ separation:
       indicators:
         - "HEALTHCHECK"
         - "/health"
+    - concern: testing_in_containers
+      belongs_in: Dockerfile
+      rule_text: "Add a test stage to the multi-stage Dockerfile that runs unit tests during the build. If tests fail, the image is not built. Use a separate docker-compose.test.yml for integration tests that need databases or other services. Keep test dependencies in a build stage that gets discarded — they should not appear in the production image."
+      example: |
+        # Dockerfile — test stage runs before production stage
+        FROM node:20-alpine AS deps
+        WORKDIR /app
+        COPY package*.json ./
+        RUN npm ci
+
+        FROM deps AS test
+        COPY . .
+        RUN npm run test -- --reporter=verbose
+        # If tests fail, build stops here
+
+        FROM deps AS build
+        COPY . .
+        RUN npm run build
+
+        FROM node:20-alpine AS production
+        COPY --from=build /app/dist ./dist
+        COPY --from=deps /app/node_modules ./node_modules
+        CMD ["node", "dist/index.js"]
+      indicators:
+        - "AS test"
+        - "npm run test"
+        - "AS production"
 patterns:
   data_flow:
     direction: "Source → Builder Stage (npm ci + tsc) → Production Stage (npm ci --omit=dev + dist copy) → Container Runtime (env vars injected)"
