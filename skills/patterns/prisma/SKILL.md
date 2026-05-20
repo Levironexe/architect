@@ -134,6 +134,27 @@ separation:
       indicators:
         - "prisma.$transaction"
         - "$transaction("
+    - concern: input_validation
+      belongs_in: src/services
+      rule_text: "Validate all user input with a schema library (Zod, Yup, etc.) BEFORE passing it to Prisma queries. Prisma parameterizes values automatically which prevents SQL injection, but unvalidated input can still cause unexpected behavior — e.g., passing an object where a string is expected, or allowing negative values for quantities. Validate at the service layer, not in repositories."
+      example: |
+        // src/services/user.service.ts
+        import { z } from 'zod';
+        import { userRepository } from '../repositories/user.repository';
+
+        const CreateUserSchema = z.object({
+          name: z.string().min(1).max(100),
+          email: z.string().email(),
+        });
+
+        export async function createUser(input: unknown) {
+          const data = CreateUserSchema.parse(input); // throws ZodError if invalid
+          return userRepository.create(data);
+        }
+      indicators:
+        - "z.object"
+        - ".parse("
+        - "Schema"
 patterns:
   data_flow:
     direction: "API Route/Server Action → Service → Repository → Prisma Client → Database"
@@ -254,6 +275,19 @@ anti_patterns:
         select: { id: true, email: true, name: true, createdAt: true },
         // passwordHash, internalFlags, etc. never leave the DB layer
       });
+  - id: unvalidated_prisma_input
+    severity: warning
+    description: "User input passed directly to Prisma where/create/update without schema validation. While Prisma parameterizes values (preventing SQL injection), unvalidated input can cause type errors at runtime, store garbage data, or trigger unexpected Prisma errors that leak database schema information in error messages."
+    bad_example: |
+      // Route handler passes raw body to Prisma
+      app.post('/users', async (req, res) => {
+        const user = await prisma.user.create({ data: req.body }); // any shape accepted
+        res.json(user);
+      });
+    good_example: |
+      // Service validates before Prisma touches it
+      const data = CreateUserSchema.parse(req.body); // rejects invalid shapes
+      const user = await prisma.user.create({ data });
 composition:
   - when_combined_with: nextjs-app-router
     additional_phases:

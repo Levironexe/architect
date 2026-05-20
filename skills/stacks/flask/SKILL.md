@@ -105,6 +105,56 @@ separation:
             data = request.get_json(force=True)
             user = register_user(email=data["email"], password=data["password"], db=db)
             return jsonify({"id": user.id, "email": user.email}), 201
+    - concern: error_handling
+      belongs_in: app
+      rule_text: "Register error handlers with @app.errorhandler() for each custom exception class and for generic HTTP status codes (404, 500). Define domain exception classes in a central module. Services and routes raise these exceptions — Flask's error handler catches them and returns consistent JSON responses. Use abort() only for quick HTTP errors in simple cases."
+      example: |
+        # app/errors.py
+        class AppError(Exception):
+            def __init__(self, message: str, code: str, status_code: int = 400):
+                self.message = message
+                self.code = code
+                self.status_code = status_code
+
+        # app/__init__.py
+        from app.errors import AppError
+
+        @app.errorhandler(AppError)
+        def handle_app_error(error):
+            return {'error': error.code, 'message': error.message}, error.status_code
+
+        @app.errorhandler(404)
+        def handle_not_found(error):
+            return {'error': 'NOT_FOUND', 'message': 'Resource not found'}, 404
+      indicators:
+        - "errorhandler"
+        - "AppError"
+    - concern: testability
+      belongs_in: tests
+      rule_text: "Use Flask's test client (app.test_client()) for integration testing routes. Create an app factory (create_app()) that accepts a config parameter so tests can override settings (test database, disabled CSRF, etc.). Unit test services in isolation by importing them directly — services should not depend on Flask's app context. Use pytest fixtures for the test client and database setup."
+      example: |
+        # tests/conftest.py
+        import pytest
+        from app import create_app
+
+        @pytest.fixture
+        def app():
+            app = create_app({'TESTING': True, 'DATABASE_URL': 'sqlite:///:memory:'})
+            yield app
+
+        @pytest.fixture
+        def client(app):
+            return app.test_client()
+
+        # tests/test_users.py
+        def test_get_users(client):
+            response = client.get('/api/users')
+            assert response.status_code == 200
+            assert isinstance(response.json, list)
+      indicators:
+        - "test_client"
+        - "create_app"
+        - "@pytest.fixture"
 patterns:
   data_flow:
     direction: "HTTP Request → Blueprint route handler (extract + validate) → Service (business logic) → SQLAlchemy Model (DB) → JSON response or Jinja2 template"
@@ -189,5 +239,20 @@ anti_patterns:
       class TestingConfig(Config):
           TESTING = True
           SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+  - id: inconsistent_error_format
+    severity: warning
+    description: "Some routes return {'error': msg}, others return {'message': msg}, others return plain strings. API consumers cannot reliably parse error responses because every route invents its own format."
+    bad_example: |
+      @app.route('/users/<id>')
+      def get_user(id):
+          user = find_user(id)
+          if not user:
+              return 'User not found', 404  # plain text — inconsistent with JSON API
+    good_example: |
+      @app.route('/users/<id>')
+      def get_user(id):
+          user = find_user(id)
+          if not user:
+              raise AppError('User not found', 'NOT_FOUND', 404)  # consistent JSON via error handler
 
 ---

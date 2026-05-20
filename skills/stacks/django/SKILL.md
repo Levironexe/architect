@@ -66,6 +66,32 @@ separation:
       anti_indicators:
         - "self.request"
         - "serializer.save"
+    - concern: error_handling
+      belongs_in: core
+      rule_text: "Define custom exception classes in a central module (e.g., core/exceptions.py). Views and services raise these domain exceptions — a custom DRF exception handler or Django middleware catches them and returns consistent error responses. Never return raw 500 errors with tracebacks to the client. Use Django REST Framework's exception_handler for API views."
+      example: |
+        # core/exceptions.py
+        class DomainError(Exception):
+            def __init__(self, message: str, code: str = 'DOMAIN_ERROR'):
+                self.message = message
+                self.code = code
+
+        class NotFoundError(DomainError):
+            def __init__(self, resource: str, id: str):
+                super().__init__(f'{resource} {id} not found', 'NOT_FOUND')
+
+        # core/exception_handler.py
+        from rest_framework.views import exception_handler
+        from rest_framework.response import Response
+
+        def custom_exception_handler(exc, context):
+            if isinstance(exc, DomainError):
+                return Response({'error': exc.code, 'message': exc.message}, status=400)
+            response = exception_handler(exc, context)
+            return response
+      indicators:
+        - "exception_handler"
+        - "DomainError"
     - concern: read_operations
       belongs_in: "{app_name}/selectors.py"
       rule_text: "All QuerySet construction and filtering lives in selector functions. Selectors are read-only — they never call save(), delete(), or create(). Views use selectors to fetch data and pass it to output serializers."
@@ -83,6 +109,27 @@ separation:
         - ".save()"
         - ".delete()"
         - ".create("
+    - concern: security
+      belongs_in: config
+      rule_text: "Read all secrets from environment variables using django-environ or os.environ — never hardcode SECRET_KEY, database credentials, or API keys in settings.py. Use Django's built-in CSRF protection (do not disable it). Apply permission classes to every DRF view that accesses user data. Validate file uploads by MIME type and size before saving."
+      example: |
+        # config/settings.py — secrets from environment
+        import environ
+        env = environ.Env()
+        environ.Env.read_env('.env')
+
+        SECRET_KEY = env('DJANGO_SECRET_KEY')
+        DATABASES = { 'default': env.db('DATABASE_URL') }
+
+        # views.py — permission on every view
+        from rest_framework.permissions import IsAuthenticated
+        class UserView(APIView):
+            permission_classes = [IsAuthenticated]
+      indicators:
+        - "environ.Env"
+        - "env("
+        - "IsAuthenticated"
+        - "permission_classes"
     - concern: api_views
       belongs_in: "{app_name}/apis.py"
       rule_text: "DRF API views are thin. They validate input with a nested InputSerializer, call one service or selector function, and return an OutputSerializer. No ORM queries, no if/else domain logic. Separate InputSerializer and OutputSerializer classes are nested inside the view class."
@@ -213,5 +260,38 @@ anti_patterns:
           def get(self, request):
               users = list_active_users()
               return Response(UserOutputSerializer(users, many=True).data)
+  - id: bare_except_in_views
+    severity: warning
+    description: "Views use bare except: or except Exception: blocks that catch everything including programming errors (TypeError, AttributeError). These bugs get silently converted to user-facing error messages instead of surfacing in logs and crash monitoring."
+    bad_example: |
+      # views.py
+      class UserView(APIView):
+          def post(self, request):
+              try:
+                  user = create_user(request.data)
+                  return Response(UserSerializer(user).data)
+              except Exception:  # catches TypeError, AttributeError, everything
+                  return Response({'error': 'Something went wrong'}, status=500)
+    good_example: |
+      # views.py — only catch domain errors; let bugs crash loudly
+      class UserView(APIView):
+          def post(self, request):
+              try:
+                  user = create_user(request.data)
+                  return Response(UserSerializer(user).data)
+              except DomainError as e:
+                  return Response({'error': e.code, 'message': e.message}, status=400)
+              # TypeError, AttributeError etc. bubble up to DRF exception handler → 500 + Sentry
+  - id: hardcoded_django_secret
+    severity: critical
+    description: "SECRET_KEY or database credentials hardcoded directly in settings.py. If the repository is public (or becomes public), all sessions can be forged and the database is exposed."
+    bad_example: |
+      # settings.py
+      SECRET_KEY = 'django-insecure-abc123xyz'  # committed to git
+      DATABASES = { 'default': { 'PASSWORD': 'mypassword123' } }
+    good_example: |
+      # settings.py — reads from environment
+      SECRET_KEY = env('DJANGO_SECRET_KEY')  # fails loudly if missing
+      DATABASES = { 'default': env.db('DATABASE_URL') }
 
 ---

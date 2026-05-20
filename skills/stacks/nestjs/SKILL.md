@@ -76,6 +76,40 @@ separation:
         - "@UsePipes"
         - "APP_GUARD"
         - "APP_PIPE"
+    - concern: configuration
+      belongs_in: src/config
+      rule_text: "Use @nestjs/config ConfigModule.forRoot() with a validation schema (Joi or Zod). Load config in app.module.ts and inject ConfigService into any module that needs env values. Never read process.env directly in services or controllers. Define environment-specific config files for dev/test/prod if needed."
+      example: |
+        // src/config/env.validation.ts
+        import * as Joi from 'joi';
+
+        export const envValidationSchema = Joi.object({
+          DATABASE_URL: Joi.string().uri().required(),
+          JWT_SECRET: Joi.string().min(32).required(),
+          PORT: Joi.number().default(3000),
+          NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
+        });
+
+        // app.module.ts
+        @Module({
+          imports: [
+            ConfigModule.forRoot({
+              isGlobal: true,
+              validationSchema: envValidationSchema,
+            }),
+          ],
+        })
+        export class AppModule {}
+
+        // Usage in any service:
+        constructor(private config: ConfigService) {
+          this.dbUrl = config.getOrThrow<string>('DATABASE_URL');
+        }
+      indicators:
+        - "ConfigModule"
+        - "ConfigService"
+        - "getOrThrow"
+        - "envValidationSchema"
 patterns:
   data_flow:
     direction: "Controller → Service → Repository/ORM"
@@ -129,6 +163,20 @@ anti_patterns:
       @Post()
       create(@Body() dto: CreateUserDto) {
         return this.usersService.create(dto);
+      }
+  - id: process_env_in_services
+    severity: warning
+    description: "Services read process.env directly instead of injecting ConfigService. This bypasses validation, is untestable (can't mock env vars easily), and scatters config reads across the codebase."
+    bad_example: |
+      @Injectable()
+      export class AuthService {
+        private secret = process.env.JWT_SECRET!; // untestable, unvalidated
+      }
+    good_example: |
+      @Injectable()
+      export class AuthService {
+        constructor(private config: ConfigService) {}
+        private get secret() { return this.config.getOrThrow<string>('JWT_SECRET'); }
       }
 
 ---

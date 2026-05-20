@@ -69,6 +69,139 @@ separation:
         - "import { use"
         - "from '~/composables"
         - "from '~/components"
+    - concern: error_handling
+      belongs_in: composables
+      rule_text: "Use Nuxt's error.vue page for fatal errors and createError() for expected HTTP errors in server routes. Composables wrap $fetch calls and return typed error state — components never call $fetch directly. Server API routes (server/api/) use createError() to return structured error responses. Client-side composables use useAsyncData or useFetch which provide built-in error refs."
+      example: |
+        // error.vue — global error page
+        <script setup lang="ts">
+        const props = defineProps<{ error: { statusCode: number; message: string } }>();
+        const handleClear = () => clearError({ redirect: '/' });
+        </script>
+        <template>
+          <div>
+            <h1>{{ error.statusCode }}</h1>
+            <p>{{ error.message }}</p>
+            <button @click="handleClear">Go home</button>
+          </div>
+        </template>
+
+        // server/api/users/[id].get.ts — structured error
+        export default defineEventHandler(async (event) => {
+          const id = getRouterParam(event, 'id');
+          const user = await findUser(id);
+          if (!user) throw createError({ statusCode: 404, message: 'User not found' });
+          return user;
+        });
+      indicators:
+        - "createError"
+        - "error.vue"
+        - "clearError"
+    - concern: security
+      belongs_in: server
+      rule_text: "Keep secrets server-side using runtimeConfig (not public runtimeConfig). Use Nuxt auth middleware for route protection. Server API routes (server/api/) validate all input before processing. Never expose database credentials or API secrets to the client bundle — only values in runtimeConfig.public reach the browser."
+      example: |
+        // nuxt.config.ts — server secrets never reach the client
+        export default defineNuxtConfig({
+          runtimeConfig: {
+            databaseUrl: process.env.DATABASE_URL, // server-only
+            apiSecret: process.env.API_SECRET,       // server-only
+            public: {
+              appName: 'My App', // safe — visible to browser
+            },
+          },
+        });
+
+        // middleware/auth.ts — route guard
+        export default defineNuxtRouteMiddleware((to) => {
+          const { loggedIn } = useUserSession();
+          if (!loggedIn.value && to.path !== '/login') {
+            return navigateTo('/login');
+          }
+        });
+      indicators:
+        - "runtimeConfig"
+        - "defineNuxtRouteMiddleware"
+        - "useUserSession"
+    - concern: configuration
+      belongs_in: nuxt.config.ts
+      rule_text: "Define all configuration in nuxt.config.ts runtimeConfig. Server-only secrets go in the top-level runtimeConfig object; client-safe values go in runtimeConfig.public. Access via useRuntimeConfig() in composables and server routes — never read process.env directly. Validate required config at app startup using a Nitro plugin."
+      example: |
+        // nuxt.config.ts
+        export default defineNuxtConfig({
+          runtimeConfig: {
+            dbUrl: process.env.DATABASE_URL,        // server-only
+            jwtSecret: process.env.JWT_SECRET,      // server-only
+            public: {
+              appName: process.env.NUXT_PUBLIC_APP_NAME || 'My App',
+            },
+          },
+        });
+
+        // server/plugins/validate-config.ts — fail fast on missing config
+        export default defineNitroPlugin(() => {
+          const config = useRuntimeConfig();
+          if (!config.dbUrl) throw new Error('DATABASE_URL is required');
+          if (!config.jwtSecret) throw new Error('JWT_SECRET is required');
+        });
+
+        // Usage: const config = useRuntimeConfig();
+      indicators:
+        - "useRuntimeConfig"
+        - "runtimeConfig"
+        - "NUXT_PUBLIC_"
+    - concern: testability
+      belongs_in: tests
+      rule_text: "Unit test composables and utility functions with Vitest — they are plain TypeScript, no Vue runtime needed. Test components with @vue/test-utils and mount(). Server API routes (server/api/) can be tested by importing the handler and calling it with mock events. Organize tests mirroring the source structure: tests/composables/, tests/components/, tests/server/."
+      example: |
+        // tests/composables/useCounter.test.ts
+        import { describe, it, expect } from 'vitest';
+        import { useCounter } from '~/composables/useCounter';
+
+        describe('useCounter', () => {
+          it('increments count', () => {
+            const { count, increment } = useCounter();
+            expect(count.value).toBe(0);
+            increment();
+            expect(count.value).toBe(1);
+          });
+        });
+
+        // tests/components/UserCard.test.ts
+        import { mount } from '@vue/test-utils';
+        import UserCard from '~/components/UserCard.vue';
+
+        it('renders user name', () => {
+          const wrapper = mount(UserCard, { props: { name: 'Alice' } });
+          expect(wrapper.text()).toContain('Alice');
+        });
+      indicators:
+        - "@vue/test-utils"
+        - "mount("
+        - "useCounter"
+    - concern: composable_reuse
+      belongs_in: composables
+      rule_text: "Extract repeated stateful logic into composables in composables/. If the same ref + watch + onMounted pattern appears in 2+ components, extract it as a composable. Shared utility functions (pure, no Vue reactivity) go in utils/. Never duplicate fetch + error + loading state management — use useFetch() or a custom composable."
+      example: |
+        // composables/useSearch.ts — extracted from 3 components that had the same pattern
+        export function useSearch<T>(fetchFn: (query: string) => Promise<T[]>) {
+          const query = ref('');
+          const results = ref<T[]>([]);
+          const loading = ref(false);
+
+          const search = useDebounceFn(async () => {
+            loading.value = true;
+            results.value = await fetchFn(query.value);
+            loading.value = false;
+          }, 300);
+
+          watch(query, search);
+          return { query, results, loading };
+        }
+      indicators:
+        - "composables/"
+        - "useDebounceFn"
+        - "export function use"
 patterns:
   data_flow:
     direction: "Page → Composable → useFetch/useAsyncData → Server Route → Service"
@@ -112,5 +245,47 @@ anti_patterns:
       export function useUsers() { return useFetch('/api/users'); }
       // pages/users.vue
       const { data: users } = useUsers();
+  - id: uncaught_fetch_errors
+    severity: warning
+    description: "Components call $fetch directly without error handling. When the request fails, Nuxt shows the global error page instead of a component-level error state. The user loses their current page context."
+    bad_example: |
+      // pages/users.vue — raw $fetch, no error handling
+      const users = await $fetch('/api/users'); // throws on failure, kills the page
+    good_example: |
+      // pages/users.vue — useFetch provides error ref
+      const { data: users, error } = await useFetch('/api/users');
+      // template can show inline error without leaving the page
+  - id: secrets_in_public_config
+    severity: critical
+    description: "Placing API keys or database credentials in runtimeConfig.public or in NUXT_PUBLIC_ environment variables. These values are embedded in the client JavaScript bundle and visible to anyone who opens browser DevTools."
+    bad_example: |
+      // nuxt.config.ts — secret leaked to browser
+      export default defineNuxtConfig({
+        runtimeConfig: {
+          public: {
+            stripeSecret: process.env.STRIPE_SECRET_KEY, // visible in client bundle!
+          },
+        },
+      });
+    good_example: |
+      // nuxt.config.ts — secret stays server-side
+      export default defineNuxtConfig({
+        runtimeConfig: {
+          stripeSecret: process.env.STRIPE_SECRET_KEY, // server-only
+          public: {
+            stripePublicKey: process.env.STRIPE_PUBLIC_KEY, // safe — publishable key
+          },
+        },
+      });
+  - id: direct_process_env
+    severity: warning
+    description: "Reading process.env directly in server routes or composables instead of using useRuntimeConfig(). This bypasses Nuxt's config system, makes values untyped, and prevents runtime config overrides."
+    bad_example: |
+      // server/api/users.ts
+      const dbUrl = process.env.DATABASE_URL; // untyped, no validation, no override support
+    good_example: |
+      // server/api/users.ts
+      const config = useRuntimeConfig();
+      const dbUrl = config.dbUrl; // typed, validated at startup, overridable
 
 ---

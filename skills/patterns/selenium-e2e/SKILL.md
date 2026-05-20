@@ -168,6 +168,28 @@ separation:
         - "takeScreenshot"
         - "writeFileSync"
         - "test-screenshots"
+    - concern: auth_testing
+      belongs_in: tests
+      rule_text: "Include dedicated authentication test suites that verify login, logout, session management, and unauthorized access. Reuse authenticated sessions via cookies or tokens for speed, but always test the auth flow itself separately. Verify CSRF token handling on form submissions. Check that protected pages redirect unauthenticated users."
+      example: |
+        // tests/auth.spec.ts
+        describe('Authentication', () => {
+          it('redirects to login when not authenticated', async () => {
+            await driver.get(`${baseUrl}/dashboard`);
+            expect(await driver.getCurrentUrl()).toContain('/login');
+          });
+
+          it('prevents access after logout', async () => {
+            await loginAs('testuser');
+            await driver.findElement(By.id('logout')).click();
+            await driver.get(`${baseUrl}/dashboard`);
+            expect(await driver.getCurrentUrl()).toContain('/login');
+          });
+        });
+      indicators:
+        - "getCurrentUrl"
+        - "/login"
+        - "logout"
 patterns:
   data_flow:
     direction: "Test → POM Methods (explicit waits) → WebDriver → Browser → Application"
@@ -274,6 +296,20 @@ anti_patterns:
           fs.writeFileSync(`test-screenshots/${Date.now()}.png`, screenshot, 'base64');
         }
         await driver.quit();
+      });
+  - id: no_auth_boundary_tests
+    severity: warning
+    description: "Test suite logs in once in a global setup and never tests what happens when the session is missing, expired, or invalid. Auth regressions go undetected because every test assumes a valid session."
+    bad_example: |
+      // Global setup logs in once — no test checks what happens without auth
+      beforeAll(async () => { await loginAs('admin'); });
+      // Every test runs as admin — no unauthorized access tests exist
+    good_example: |
+      // Separate auth suite tests the boundary explicitly
+      describe('Auth boundary', () => {
+        it('rejects unauthenticated access', ...);
+        it('rejects expired tokens', ...);
+        it('respects role-based access', ...);
       });
 
 ---
