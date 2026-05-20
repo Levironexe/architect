@@ -278,9 +278,9 @@ Every skill teaches 9 engineering principles:
 
 ## Contributing a Skill
 
-Skills are Markdown files with YAML frontmatter in `skills/`. To add one:
+Skills are `SKILL.md` files in `skills/`. To add one:
 
-1. Create `skills/stacks/<id>/SKILL.md` (see existing files for the schema)
+1. Create `skills/stacks/<id>/SKILL.md` (see existing skills for the format)
 2. Add a detection fixture under `tests/fixtures/<id>/`
 3. Run `npm test` — your skill must be detected and not conflict with existing ones
 4. Open a pull request
