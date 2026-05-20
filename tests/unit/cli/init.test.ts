@@ -33,7 +33,9 @@ describe('init command', () => {
     const refactorPath = path.join(tempDir, '.claude/skills/architect-refactor/SKILL.md');
 
     expect(output.stderr).toBe('');
-    expect(output.stdout).toContain('Initialized claude guidance with skill express-api');
+    expect(output.stdout).toContain('Detected stack:');
+    expect(output.stdout).toContain('Express');
+    expect(output.stdout).toContain('Claude Code');
     expect(existsSync(planPath)).toBe(true);
     expect(existsSync(refactorPath)).toBe(true);
     expect(readFileSync(planPath, 'utf8')).toContain('Express.js REST API');
@@ -49,7 +51,8 @@ describe('init command', () => {
     const genericPlanPath = path.join(tempDir, '.architect/skills/architect-plan/SKILL.md');
 
     expect(output.stderr).toBe('');
-    expect(output.stdout).toContain('Initialized generic guidance with skill general-js');
+    expect(output.stdout).toContain('Detected stack:');
+    expect(output.stdout).toContain('General JavaScript');
     expect(existsSync(genericPlanPath)).toBe(true);
     expect(readFileSync(genericPlanPath, 'utf8')).toContain('General JavaScript/TypeScript');
   });
@@ -64,7 +67,7 @@ describe('init command', () => {
       });
 
       expect(output.stdout).toBe('');
-      expect(output.stderr).toContain('No source files found');
+      expect(output.stderr).toContain('Could not detect project language');
     } finally {
       rmSync(emptyDir, { recursive: true, force: true });
     }
@@ -89,7 +92,7 @@ describe('init command', () => {
       expect(exitCode).toBe(0);
     });
 
-    expect(declined.stdout).toContain('Files skipped:');
+    expect(declined.stdout).toContain('Files skipped');
     expect(readFileSync(existingPath, 'utf8')).toBe('existing plan');
 
     const updated = await captureOutput(async () => {
@@ -97,7 +100,7 @@ describe('init command', () => {
       expect(exitCode).toBe(0);
     });
 
-    expect(updated.stdout).toContain('Files written:');
+    expect(updated.stdout).toContain('Installed');
     expect(readFileSync(existingPath, 'utf8')).not.toBe('existing plan');
   });
 });

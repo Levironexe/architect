@@ -4,7 +4,7 @@
 </div>
 
 <p align="center">
-  <strong>A CLI tool that scans your JavaScript or TypeScript codebase, detects its architecture pattern, and installs agent skills that guide your coding agent through a safe, phased refactoring.</strong>
+  <strong>A CLI tool that scans your codebase, detects its architecture pattern, and installs agent skills that guide your coding agent through a safe, phased refactoring. Supports JavaScript/TypeScript, Python, C#, and Java projects.</strong>
 </p>
 
 <p align="center">
@@ -53,9 +53,10 @@ architect init .
 ```
 architect init .
       │
-      ├─ Scans every .js/.ts file   → LOC, complexity, imports, duplication, security, dead code
-      ├─ Detects your stack         → express-api / nextjs-app-router / react-spa / …
-      ├─ Detects integration skills → prisma + clerk + supabase (composes additional phases)
+      ├─ Detects language            → JS/TS, Python, C#, or Java (via config files or extensions)
+      ├─ Scans (JS/TS only)         → LOC, complexity, imports, duplication, security, dead code
+      ├─ Detects your stack         → express-api / django / aspnetcore-webapi / fastapi / …
+      ├─ Detects integration skills → prisma + clerk + selenium-e2e + s3-storage (auto-composed)
       └─ Writes skill files         → /architect-plan, /architect-refactor, /architect-catchup
 
 /architect-plan
@@ -226,21 +227,30 @@ Architect auto-detects the agent. Override with `--integration <agent>`.
 
 ### Integration Skills
 
-| Skill ID | Pattern |
-|----------|---------|
-| `prisma` | Prisma ORM (singleton, repository, migrations) |
-| `drizzle` | Drizzle ORM (schema-first, type-safe queries) |
-| `mongoose` | Mongoose ODM (schema, model, repository) |
-| `supabase` | Supabase (server/browser clients, RLS, realtime) |
-| `supabase-auth` | Supabase Auth (RLS policies, session management) |
-| `clerk-auth` | Clerk (middleware, webhooks, org-scoping) |
-| `nextauth` | NextAuth.js (route handler, session provider) |
-| `vitest-testing` | Vitest (unit/integration testing patterns) |
-| `playwright-e2e` | Playwright (E2E, POM, auth fixtures) |
-| `selenium-e2e` | Selenium (E2E, POM, driver management) |
-| `vercel-deploy` | Vercel deployment (edge, serverless, env vars) |
-| `docker-deploy` | Docker (multi-stage, security, health checks) |
-| `s3-storage` | S3/object storage (presigned URLs, upload flows) |
+| Skill ID | Pattern | Language |
+|----------|---------|----------|
+| `prisma` | Prisma ORM (singleton, repository, migrations) | JS/TS |
+| `drizzle` | Drizzle ORM (schema-first, type-safe queries) | JS/TS |
+| `mongoose` | Mongoose ODM (schema, model, repository) | JS/TS |
+| `supabase` | Supabase (server/browser clients, RLS, realtime) | JS/TS |
+| `supabase-auth` | Supabase Auth (RLS policies, session management) | JS/TS |
+| `clerk-auth` | Clerk (middleware, webhooks, org-scoping) | JS/TS |
+| `nextauth` | NextAuth.js (route handler, session provider) | JS/TS |
+| `vitest-testing` | Vitest (unit/integration testing patterns) | JS/TS |
+| `playwright-e2e` | Playwright E2E (POM, auth fixtures) | JS/TS |
+| `playwright-csharp` | Playwright E2E (POM, NUnit, async) | C# |
+| `playwright-python` | Playwright E2E (POM, pytest fixtures) | Python |
+| `playwright-java` | Playwright E2E (POM, JUnit5) | Java |
+| `selenium-e2e` | Selenium E2E (POM, driver factory) | JS/TS |
+| `selenium-csharp` | Selenium E2E (POM, NUnit, driver factory) | C# |
+| `selenium-python` | Selenium E2E (POM, pytest, conftest) | Python |
+| `selenium-java` | Selenium E2E (POM, JUnit5, PageFactory) | Java |
+| `s3-storage` | S3/object storage (presigned URLs, upload flows) | JS/TS |
+| `s3-python` | S3 storage (boto3, presigned URLs, moto testing) | Python |
+| `s3-csharp` | S3 storage (AWSSDK.S3, IAmazonS3 DI) | C# |
+| `s3-java` | S3 storage (AWS SDK v2, S3Presigner) | Java |
+| `vercel-deploy` | Vercel deployment (edge, serverless, env vars) | JS/TS |
+| `docker-deploy` | Docker (multi-stage, security, health checks) | Any |
 
 ### Meta Skills
 
@@ -291,7 +301,7 @@ Skills are `SKILL.md` files in `skills/`. To add one:
 
 - Node.js 20+ (LTS recommended)
 - A supported AI coding agent (Claude Code, Cursor, GitHub Copilot, or Windsurf)
-- A JavaScript or TypeScript project
+- A JavaScript/TypeScript, Python, C#, or Java project
 
 ---
 

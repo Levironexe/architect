@@ -3,6 +3,9 @@ import path from 'node:path';
 
 import type { FileAnalysis } from '../types/analysis.js';
 import type { ArchitectureSkill, CompositionPhase, ProjectCharacteristics, SkillMatch } from '../types/skill.js';
+import { detectLanguage, detectAllLanguages, type DetectedLanguage } from '../languages/registry.js';
+
+export { detectLanguage, detectAllLanguages, type DetectedLanguage };
 
 export async function collectProjectCharacteristics(rootDir: string, filePaths: string[], analyses: FileAnalysis[]): Promise<ProjectCharacteristics> {
   const dependencies = new Set(await readPackageDependencies(rootDir));
@@ -23,6 +26,50 @@ export async function collectProjectCharacteristics(rootDir: string, filePaths: 
   };
 }
 
+export async function collectProjectCharacteristicsFromLanguage(rootDir: string, detected: DetectedLanguage): Promise<ProjectCharacteristics> {
+  const deps = await detected.config.readDependencies(rootDir);
+  const dependencies = new Set(deps);
+
+  let files: string[] = [];
+  try {
+    files = await collectLanguageFiles(rootDir, detected.config.extensions);
+  } catch {
+    // extension scan failed, continue with empty files
+  }
+
+  return {
+    rootDir,
+    dependencies,
+    files,
+    sourceText: ''
+  };
+}
+
+async function collectLanguageFiles(rootDir: string, extensions: string[]): Promise<string[]> {
+  const extSet = new Set(extensions);
+  const files: string[] = [];
+  const skipDirs = new Set(['node_modules', '.git', 'dist', 'build', '.next', '__pycache__', '.venv', 'venv', 'env', 'bin', 'obj', '.turbo']);
+
+  async function walk(dir: string, depth: number): Promise<void> {
+    if (depth > 6) return;
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (!skipDirs.has(entry.name)) await walk(fullPath, depth + 1);
+      } else {
+        const ext = path.extname(entry.name);
+        if (extSet.has(ext)) {
+          files.push(path.relative(rootDir, fullPath).split(path.sep).join('/'));
+        }
+      }
+    }
+  }
+
+  await walk(rootDir, 0);
+  return files;
+}
+
 export function detectSkills(characteristics: ProjectCharacteristics, skills: ArchitectureSkill[]): SkillMatch[] {
   const scored = skills
     .map((skill) => scoreSkill(skill, characteristics))
@@ -34,7 +81,8 @@ export function detectSkills(characteristics: ProjectCharacteristics, skills: Ar
 
       return right.score - left.score || left.skill.id.localeCompare(right.skill.id);
     });
-  const primary = scored.find((match) => match.skill.category === 'stack' && match.score >= 2);
+  const primary = scored.find((match) => match.skill.category === 'stack' && match.score >= 2)
+    ?? scored.find((match) => match.skill.category === 'pattern' && match.score >= 2);
 
   return scored.map((match) => ({
     ...match,
@@ -79,9 +127,9 @@ function scoreSkill(skill: ArchitectureSkill, characteristics: ProjectCharacteri
     }
   }
 
-  if (skill.category === 'meta' && score === 0 && hasLanguageSignal(characteristics)) {
+  if (skill.category === 'meta' && score === 0 && hasLanguageSignal(characteristics, skill.language)) {
     score = 1;
-    reasons.push('language:javascript');
+    reasons.push(`language:${skill.language}`);
   }
 
   return {
@@ -121,7 +169,19 @@ async function readSourceText(filePaths: string[]): Promise<string> {
   return contents.join('\n');
 }
 
-function hasLanguageSignal(characteristics: ProjectCharacteristics): boolean {
+import { LANGUAGE_REGISTRY } from '../languages/registry.js';
+
+const LANGUAGE_EXTENSION_MAP = new Map<string, RegExp>();
+for (const lang of LANGUAGE_REGISTRY) {
+  const escaped = lang.extensions.map((e) => e.replace('.', '\\.')).join('|');
+  LANGUAGE_EXTENSION_MAP.set(lang.id, new RegExp(`(${escaped})$`));
+}
+
+function hasLanguageSignal(characteristics: ProjectCharacteristics, language?: string): boolean {
+  if (language) {
+    const pattern = LANGUAGE_EXTENSION_MAP.get(language);
+    if (pattern) return characteristics.files.some((filePath) => pattern.test(filePath));
+  }
   return characteristics.files.some((filePath) => /\.(js|jsx|ts|tsx)$/.test(filePath));
 }
 

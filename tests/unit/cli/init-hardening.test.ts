@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runInitCommand } from '../../../src/cli/init-runner';
 import { captureOutput } from '../test-helpers';
 
-describe('init-runner: no-package.json warning', () => {
+describe('init-runner: language detection without package.json', () => {
   let tempDir: string;
 
   beforeEach(() => {
@@ -20,24 +20,24 @@ describe('init-runner: no-package.json warning', () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('emits a warning to stderr when package.json is absent', async () => {
+  it('detects JS via extension fallback and still runs scan without package.json', async () => {
     const mockScanRunner = vi.fn().mockResolvedValue({
       summary: { totalFiles: 1 },
       matchedSkills: []
     });
     const mockSkillLoader = vi.fn().mockResolvedValue({ skills: [] });
 
-    const output = await captureOutput(async () => {
+    await captureOutput(async () => {
       await runInitCommand(tempDir, {}, {
         runProjectScan: mockScanRunner as never,
         loadSkills: mockSkillLoader as never
       }).catch(() => {});
     });
 
-    expect(output.stderr).toContain('No package.json found. Continuing with file-pattern detection only.');
+    expect(mockScanRunner).toHaveBeenCalledOnce();
   });
 
-  it('does NOT emit the warning when package.json exists', async () => {
+  it('detects JS via config file when package.json exists', async () => {
     writeFileSync(path.join(tempDir, 'package.json'), '{"name":"test"}', 'utf8');
 
     const mockScanRunner = vi.fn().mockResolvedValue({
@@ -46,14 +46,14 @@ describe('init-runner: no-package.json warning', () => {
     });
     const mockSkillLoader = vi.fn().mockResolvedValue({ skills: [] });
 
-    const output = await captureOutput(async () => {
+    await captureOutput(async () => {
       await runInitCommand(tempDir, {}, {
         runProjectScan: mockScanRunner as never,
         loadSkills: mockSkillLoader as never
       }).catch(() => {});
     });
 
-    expect(output.stderr).not.toContain('No package.json found');
+    expect(mockScanRunner).toHaveBeenCalledOnce();
   });
 });
 
