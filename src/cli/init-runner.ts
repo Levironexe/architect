@@ -102,7 +102,8 @@ export async function runInitCommand(
       selectedSkill = resolveSkillByReference(options.skill, skills);
     } else {
       const characteristics = await collectProjectCharacteristicsFromLanguage(targetDirectory, detected);
-      const matchedSkills = detectSkills(characteristics, skills);
+      const languageSkills = skills.filter((s) => s.language === detected.config.id || s.language === 'agnostic');
+      const matchedSkills = detectSkills(characteristics, languageSkills);
       const primary = matchedSkills.find((m) => m.primary);
       selectedSkill = primary?.skill;
 

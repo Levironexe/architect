@@ -73,7 +73,8 @@ function parseGradleDependencies(contents: string): string[] {
       if (!dep) continue;
       deps.push(dep);
       const parts = dep.split(':');
-      if (parts.length >= 2 && parts[1]) {
+      if (parts.length >= 2 && parts[0] && parts[1]) {
+        deps.push(`${parts[0]}:${parts[1]}`);
         deps.push(parts[1]);
       }
     }
