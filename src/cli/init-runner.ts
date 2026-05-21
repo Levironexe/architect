@@ -91,7 +91,7 @@ export async function runInitCommand(
     }
 
     if (result.summary.totalFiles === 0) {
-      throw new Error('No source files found. Point architect at a JS/TS project root.');
+      throw new Error(`No source files found. Point architect at a ${detected.config.name} project root.`);
     }
 
     selectedSkill = resolveSelectedSkill(options.skill, result, skills);

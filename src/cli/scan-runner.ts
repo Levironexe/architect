@@ -17,6 +17,8 @@ import type { ScanDiagnostic, ScanThresholds, ScanWarning, SkippedInput } from '
 import { ensureDirectoryPath } from '../utils/path.js';
 import { createProgressDiagnostics, createThresholdDiagnostics } from '../utils/progress.js';
 import { DEFAULT_SCAN_THRESHOLDS } from '../utils/thresholds.js';
+import { detectLanguage } from '../languages/registry.js';
+import { runLiteScan } from './lite-scan-runner.js';
 
 export type ProjectScanOptions = {
   json?: boolean;
@@ -30,6 +32,11 @@ interface AnalysisSet {
 }
 
 export async function runProjectScan(directory: string, options: ProjectScanOptions = {}): Promise<ScanResult> {
+  const detected = await detectLanguage(directory);
+  if (detected?.config.supportsScanning === 'lite') {
+    return runLiteScan(directory, detected, options);
+  }
+
   const targetDirectory = ensureDirectoryPath(directory);
   const startedAt = Date.now();
   const thresholds = options.thresholds ?? DEFAULT_SCAN_THRESHOLDS;
@@ -51,6 +58,7 @@ export async function runProjectScan(directory: string, options: ProjectScanOpti
   attachScoresAndGuidance(result, analysis.files, duplication, result.security);
   result.warnings = buildScanWarnings(result);
   result.diagnostics = [...(result.diagnostics ?? []), ...buildScanDiagnostics(result)];
+  result.scanTier = 'full';
 
   return result;
 }

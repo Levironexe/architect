@@ -7,6 +7,15 @@ const WEAK_HASH_PATTERN = /createHash\s*\(\s*['"](?:md5|sha1)['"]\s*\)/g;
 const PRISMA_NEW_PATTERN = /new\s+PrismaClient\s*\(/g;
 const QUERY_TOKEN_PATTERN = /(?:req\.query\.token|searchParams\.get\s*\(\s*['"]token['"]\s*\))/g;
 
+const PYTHON_WEAK_HASH_PATTERN = /hashlib\.(?:md5|sha1)\s*\(/g;
+const PYTHON_PICKLE_PATTERN = /pickle\.loads?\s*\(/g;
+const PYTHON_EVAL_PATTERN = /(?:^|[^.\w])(?:eval|exec)\s*\(/g;
+
+const CSHARP_WEAK_HASH_PATTERN = /(?:MD5\.Create|new\s+MD5CryptoServiceProvider|SHA1\.Create|new\s+SHA1CryptoServiceProvider)\s*\(/g;
+
+const JAVA_WEAK_HASH_PATTERN = /MessageDigest\.getInstance\s*\(\s*["'](?:MD5|SHA-1)["']\s*\)/g;
+const JAVA_EXEC_PATTERN = /Runtime\.getRuntime\s*\(\s*\)\.exec\s*\(/g;
+
 export function analyzeSecurityPatterns(files: FileAnalysis[], sourceContents: Map<string, string>): SecuritySummary {
   const findings: SecurityFinding[] = [];
 
@@ -44,6 +53,48 @@ export function analyzeSecurityPatterns(files: FileAnalysis[], sourceContents: M
       check: 'token_in_query',
       message: 'Auth token extracted from query parameters.',
       suggestion: 'Use Authorization header or cookies — query params are logged in server access logs.'
+    });
+
+    scanLines(lines, file.relativePath, PYTHON_WEAK_HASH_PATTERN, findings, {
+      severity: 'warning',
+      check: 'weak_hash',
+      message: 'Weak hash algorithm (MD5 or SHA1) used.',
+      suggestion: 'Use hashlib.sha256 or bcrypt for password hashing.'
+    });
+
+    scanLines(lines, file.relativePath, PYTHON_PICKLE_PATTERN, findings, {
+      severity: 'warning',
+      check: 'unsafe_deserialization',
+      message: 'pickle.load on untrusted data allows arbitrary code execution.',
+      suggestion: 'Use JSON or a safe serialization format for untrusted input.'
+    });
+
+    scanLines(lines, file.relativePath, PYTHON_EVAL_PATTERN, findings, {
+      severity: 'critical',
+      check: 'code_injection',
+      message: 'eval/exec on untrusted input allows arbitrary code execution.',
+      suggestion: 'Use ast.literal_eval for safe evaluation or avoid eval entirely.'
+    });
+
+    scanLines(lines, file.relativePath, CSHARP_WEAK_HASH_PATTERN, findings, {
+      severity: 'warning',
+      check: 'weak_hash',
+      message: 'Weak hash algorithm (MD5 or SHA1) used.',
+      suggestion: 'Use SHA256 or bcrypt for password hashing.'
+    });
+
+    scanLines(lines, file.relativePath, JAVA_WEAK_HASH_PATTERN, findings, {
+      severity: 'warning',
+      check: 'weak_hash',
+      message: 'Weak hash algorithm (MD5 or SHA-1) used.',
+      suggestion: 'Use MessageDigest.getInstance("SHA-256") or bcrypt.'
+    });
+
+    scanLines(lines, file.relativePath, JAVA_EXEC_PATTERN, findings, {
+      severity: 'warning',
+      check: 'command_injection',
+      message: 'Runtime.exec with user input may allow command injection.',
+      suggestion: 'Use ProcessBuilder with explicit argument list instead of string concatenation.'
     });
 
     for (let i = 0; i < lines.length; i++) {
@@ -108,7 +159,8 @@ function scanLines(
 ): void {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    if (line.trimStart().startsWith('//') || line.trimStart().startsWith('*')) continue;
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('#')) continue;
 
     pattern.lastIndex = 0;
     if (pattern.test(line)) {
@@ -122,5 +174,9 @@ function scanLines(
 }
 
 function isApiRouteFile(relativePath: string): boolean {
-  return /(?:api\/|routes\/|controllers\/)/.test(relativePath) && /route\.[jt]sx?$|controller\.[jt]sx?$/.test(relativePath);
+  if (/(?:api\/|routes\/|controllers\/)/.test(relativePath) && /route\.[jt]sx?$|controller\.[jt]sx?$/.test(relativePath)) return true;
+  if (/(?:views|routes|urls)\.py$/.test(relativePath)) return true;
+  if (/Controller\.cs$/.test(relativePath)) return true;
+  if (/(?:Controller|Resource)\.java$/.test(relativePath)) return true;
+  return false;
 }

@@ -7,7 +7,8 @@ export const JAVA_CONFIG: LanguageConfig = {
   name: 'Java',
   extensions: ['.java'],
   configFiles: ['pom.xml', 'build.gradle', 'build.gradle.kts'],
-  supportsScanning: false,
+  supportsScanning: 'lite',
+  commentSyntax: { line: ['//'], blockStart: '/*', blockEnd: '*/' },
 
   async readDependencies(rootDir: string): Promise<string[]> {
     const mavenDeps = await readMavenDeps(rootDir);

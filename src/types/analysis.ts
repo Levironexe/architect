@@ -151,6 +151,7 @@ export interface ScanResult {
   warnings?: ScanWarning[];
   diagnostics?: ScanDiagnostic[];
   skippedInputs?: SkippedInput[];
+  scanTier?: 'lite' | 'full';
 }
 
 export interface ScanOptions {

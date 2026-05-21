@@ -8,13 +8,18 @@ import { ALWAYS_EXCLUDED_DIRS, isSupportedExtension, SUPPORTED_EXTENSIONS } from
 import type { SkippedInput } from '../types/scan-output.js';
 import { ensureDirectoryPath, resolveContainedRealPath } from '../utils/path.js';
 
-export async function discoverFiles(targetDirectory: string): Promise<string[]> {
+const ALL_EXCLUDED_DIRS = [...ALWAYS_EXCLUDED_DIRS, '__pycache__', '.venv', 'venv', 'env', 'bin', 'obj', '.gradle', 'target', '.turbo', '.next', 'coverage'];
+
+export async function discoverFiles(targetDirectory: string, extensions?: string[]): Promise<string[]> {
   const rootDirectory = ensureDirectoryPath(targetDirectory);
-  const candidateFiles = await glob(`**/*.{${SUPPORTED_EXTENSIONS.map((extension: string) => extension.slice(1)).join(',')}}`, {
+  const exts = extensions ?? [...SUPPORTED_EXTENSIONS];
+  const extNames = exts.map((extension: string) => extension.replace(/^\./, ''));
+  const pattern = extNames.length === 1 ? `**/*.${extNames[0]}` : `**/*.{${extNames.join(',')}}`;
+  const candidateFiles = await glob(pattern, {
     absolute: true,
     cwd: rootDirectory,
     nodir: true,
-    ignore: ALWAYS_EXCLUDED_DIRS.map((directory: string) => `${directory}/**`)
+    ignore: ALL_EXCLUDED_DIRS.map((directory: string) => `${directory}/**`)
   });
 
   const gitignore = loadGitignore(rootDirectory);
@@ -37,13 +42,13 @@ export async function discoverFiles(targetDirectory: string): Promise<string[]> 
   return Array.from(uniqueFiles).sort();
 }
 
-export async function discoverSkippedInputs(targetDirectory: string): Promise<SkippedInput[]> {
+export async function discoverSkippedInputs(targetDirectory: string, extensions?: string[]): Promise<SkippedInput[]> {
   const rootDirectory = ensureDirectoryPath(targetDirectory);
   const candidateFiles = await glob('**/*', {
     absolute: true,
     cwd: rootDirectory,
     nodir: true,
-    ignore: ALWAYS_EXCLUDED_DIRS.map((directory: string) => `${directory}/**`)
+    ignore: ALL_EXCLUDED_DIRS.map((directory: string) => `${directory}/**`)
   });
   const gitignore = loadGitignore(rootDirectory);
   const skipped: SkippedInput[] = [];
@@ -71,7 +76,11 @@ export async function discoverSkippedInputs(targetDirectory: string): Promise<Sk
       continue;
     }
 
-    if (!isSupportedExtension(filePath)) {
+    const isSupported = extensions
+      ? extensions.some((ext) => filePath.endsWith(ext))
+      : isSupportedExtension(filePath);
+
+    if (!isSupported) {
       skipped.push({
         path: relativePath,
         reason: isBinaryLike(filePath) ? 'binary' : 'unsupported_type',

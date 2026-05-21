@@ -7,7 +7,8 @@ export const JAVASCRIPT_CONFIG: LanguageConfig = {
   name: 'JavaScript/TypeScript',
   extensions: ['.js', '.jsx', '.ts', '.tsx'],
   configFiles: ['package.json'],
-  supportsScanning: true,
+  supportsScanning: 'full',
+  commentSyntax: { line: ['//'], blockStart: '/*', blockEnd: '*/' },
 
   async readDependencies(rootDir: string): Promise<string[]> {
     try {

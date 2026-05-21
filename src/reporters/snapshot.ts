@@ -18,5 +18,6 @@ export function extractSnapshot(result: ScanResult): ScanSnapshot {
     total_loc: totalLoc,
     avg_file_loc: avgFileLoc,
     god_files: godFiles,
+    scan_tier: result.scanTier,
   };
 }

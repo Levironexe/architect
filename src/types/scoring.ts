@@ -14,4 +14,6 @@ export interface ScoreBreakdown {
   duplication: DimensionScore;
   overall: number;
   label: HealthLabel;
+  fileSizeDistribution?: DimensionScore;
+  tier?: 'lite' | 'full';
 }
