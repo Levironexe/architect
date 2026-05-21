@@ -1,7 +1,7 @@
 {
   "name": "@levironexe/architect",
-  "version": "0.5.1",
-  "description": "Structural health scanner for vibe-coded JavaScript and TypeScript projects.",
+  "version": "0.6.0",
+  "description": "Structural health scanner and refactoring planner for JavaScript/TypeScript, Python, C#, and Java projects.",
   "type": "module",
   "bin": {
     "architect": "dist/cli/index.js"

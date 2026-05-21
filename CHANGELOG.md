@@ -2,6 +2,28 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## 0.6.0
+
+### Added
+
+- **Multi-language scanning (lite scan)** — `architect scan` now works for Python, C#, and Java projects, not just JS/TS.
+- **Lite scan metrics** — file count, LOC per file, duplication % (jscpd), security findings, file-size distribution score, and health score for all 4 languages.
+- **Language-aware line counter** — correctly handles `#` (Python), `//` (C#/Java/JS), `/* */` and `"""` block comments.
+- **File-size distribution score** — replaces modularity score for non-JS/TS (penalizes god files, high avg LOC, single-file dominance).
+- **Language-specific security patterns** — Python: `hashlib.md5`, `pickle.loads`, `eval/exec`. C#: `MD5.Create`, `SHA1.Create`. Java: `MessageDigest.getInstance("MD5")`, `Runtime.exec`.
+- **Scan tier tracking** — `scanTier: 'lite' | 'full'` on scan results and snapshots.
+- **Language-aware verify** — `architect verify` skips tsc/import checks for non-JS/TS projects.
+
+### Changed
+
+- `LanguageConfig.supportsScanning` changed from `boolean` to `false | 'lite' | 'full'`.
+- Python, C#, Java configs now have `supportsScanning: 'lite'` (was `false`).
+- File walker accepts dynamic extensions per language (was hardcoded JS/TS).
+- Duplication analyzer excludes language-specific build dirs (`__pycache__`, `venv`, `obj`, `target`, `.gradle`).
+- Security scanner skips `#` comment lines for Python files.
+- `isApiRouteFile` now matches Python views/routes, C# Controllers, Java Controllers/Resources.
+- Error messages are language-aware ("No source files found" instead of "No JS/TS files found").
+
 ## 0.5.0
 
 ### Added

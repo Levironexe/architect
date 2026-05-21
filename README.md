@@ -54,7 +54,8 @@ architect init .
 architect init .
       │
       ├─ Detects language            → JS/TS, Python, C#, or Java (via config files or extensions)
-      ├─ Scans (JS/TS only)         → LOC, complexity, imports, duplication, security, dead code
+      ├─ Scans your project         → LOC, duplication, security (all languages)
+      │                               + complexity, imports, dead code (JS/TS)
       ├─ Detects your stack         → express-api / django / aspnetcore-webapi / fastapi / …
       ├─ Detects integration skills → prisma + clerk + selenium-e2e + s3-storage (auto-composed)
       └─ Writes skill files         → /architect-plan, /architect-refactor, /architect-catchup
@@ -169,7 +170,7 @@ architect status . --json     # machine-readable output
 
 ### `architect verify <directory>`
 
-Runs post-phase verification: TypeScript compilation, broken import detection, and scan delta comparison. Exit code 0 = passed, 1 = failed.
+Runs post-phase verification: compilation check (JS/TS), broken import detection (JS/TS), and scan delta comparison (all languages). Exit code 0 = passed, 1 = failed.
 
 ```bash
 architect verify .              # run full verification suite

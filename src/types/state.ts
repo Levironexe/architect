@@ -28,6 +28,7 @@ export interface ScanSnapshot {
   total_loc: number;
   avg_file_loc: number;
   god_files: number;
+  scan_tier?: 'lite' | 'full';
 }
 
 export interface DiffMetric {

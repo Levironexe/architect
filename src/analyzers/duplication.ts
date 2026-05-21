@@ -41,7 +41,11 @@ export async function analyzeDuplication(
     silent: true,
     absolute: true,
     reporters: [],
-    ignore: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/.git/**']
+    ignore: [
+      '**/node_modules/**', '**/dist/**', '**/build/**', '**/.git/**',
+      '**/__pycache__/**', '**/.venv/**', '**/venv/**', '**/bin/**',
+      '**/obj/**', '**/target/**', '**/.gradle/**'
+    ]
   });
 
   const findings: DuplicationFinding[] = clones

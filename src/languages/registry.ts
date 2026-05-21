@@ -2,13 +2,20 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { glob } from 'glob';
 
+export interface CommentSyntax {
+  line: string[];
+  blockStart?: string;
+  blockEnd?: string;
+}
+
 export interface LanguageConfig {
   id: string;
   name: string;
   extensions: string[];
   configFiles: string[];
   readDependencies: (rootDir: string) => Promise<string[]>;
-  supportsScanning: boolean;
+  supportsScanning: false | 'lite' | 'full';
+  commentSyntax: CommentSyntax;
 }
 
 export interface DetectedLanguage {

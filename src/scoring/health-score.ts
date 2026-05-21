@@ -10,6 +10,18 @@ export function calculateHealthScore(modularity: DimensionScore, duplication: Di
   };
 }
 
+export function calculateLiteHealthScore(fileSizeDistribution: DimensionScore, duplication: DimensionScore): ScoreBreakdown {
+  const overall = clampScore(fileSizeDistribution.score * 0.5 + duplication.score * 0.5);
+  return {
+    modularity: fileSizeDistribution,
+    duplication,
+    overall,
+    label: labelForScore(overall),
+    fileSizeDistribution,
+    tier: 'lite'
+  };
+}
+
 export function clampScore(score: number): number {
   return Math.max(0, Math.min(100, Math.round(score)));
 }

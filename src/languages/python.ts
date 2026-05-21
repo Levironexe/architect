@@ -7,7 +7,8 @@ export const PYTHON_CONFIG: LanguageConfig = {
   name: 'Python',
   extensions: ['.py'],
   configFiles: ['pyproject.toml', 'requirements.txt', 'setup.py', 'Pipfile'],
-  supportsScanning: false,
+  supportsScanning: 'lite',
+  commentSyntax: { line: ['#'], blockStart: '"""', blockEnd: '"""' },
 
   async readDependencies(rootDir: string): Promise<string[]> {
     const deps = await readPyprojectDeps(rootDir);

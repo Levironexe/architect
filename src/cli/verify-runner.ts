@@ -6,6 +6,7 @@ import { runProjectScan } from './scan-runner.js';
 import { extractSnapshot } from '../reporters/snapshot.js';
 import { findBrokenImports } from '../analyzers/dependency-graph.js';
 import { renderVerifyReport } from '../reporters/verify-terminal.js';
+import { detectLanguage } from '../languages/registry.js';
 
 export interface VerifyCommandOptions {
   phase?: string;
@@ -17,9 +18,11 @@ export async function executeVerify(directory: string, options: VerifyCommandOpt
   const scansDir = join(directory, '.architect', 'scans');
   const statePath = join(directory, '.architect', 'state.json');
 
-  const tscErrors = runTscCheck(directory);
+  const detected = await detectLanguage(directory);
+  const isFullScan = detected?.config.supportsScanning === 'full';
+  const tscErrors = isFullScan ? runTscCheck(directory) : 0;
   const scanResult = await runProjectScan(directory);
-  const brokenImports = findBrokenImports(directory, scanResult.files);
+  const brokenImports = isFullScan ? findBrokenImports(directory, scanResult.files) : [];
   const currentSnapshot = extractSnapshot(scanResult);
 
   let baselineSnapshot: ScanSnapshot | null = null;
