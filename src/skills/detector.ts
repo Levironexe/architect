@@ -30,24 +30,33 @@ export async function collectProjectCharacteristicsFromLanguage(rootDir: string,
   const deps = await detected.config.readDependencies(rootDir);
   const dependencies = new Set(deps);
 
-  let files: string[] = [];
+  let collected: CollectedFiles = { sourceFiles: [], allEntries: [] };
   try {
-    files = await collectLanguageFiles(rootDir, detected.config.extensions);
+    collected = await collectLanguageFiles(rootDir, detected.config.extensions);
   } catch {
     // extension scan failed, continue with empty files
   }
 
+  const sourceFilePaths = collected.sourceFiles.map((f) => path.join(rootDir, f));
   return {
     rootDir,
     dependencies,
-    files,
-    sourceText: ''
+    files: collected.allEntries,
+    sourceText: await readSourceText(sourceFilePaths)
   };
 }
 
-async function collectLanguageFiles(rootDir: string, extensions: string[]): Promise<string[]> {
+interface CollectedFiles {
+  sourceFiles: string[];
+  allEntries: string[];
+}
+
+const PROJECT_FILE_EXTENSIONS = new Set(['.json', '.yaml', '.yml', '.xml', '.csproj', '.sln', '.fsproj', '.vbproj', '.props', '.targets']);
+
+async function collectLanguageFiles(rootDir: string, extensions: string[]): Promise<CollectedFiles> {
   const extSet = new Set(extensions);
-  const files: string[] = [];
+  const sourceFiles: string[] = [];
+  const allEntries: string[] = [];
   const skipDirs = new Set(['node_modules', '.git', 'dist', 'build', '.next', '__pycache__', '.venv', 'venv', 'env', 'bin', 'obj', '.turbo']);
 
   async function walk(dir: string, depth: number): Promise<void> {
@@ -55,19 +64,26 @@ async function collectLanguageFiles(rootDir: string, extensions: string[]): Prom
     const entries = await fs.readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
+      const relative = path.relative(rootDir, fullPath).split(path.sep).join('/');
       if (entry.isDirectory()) {
-        if (!skipDirs.has(entry.name)) await walk(fullPath, depth + 1);
+        if (!skipDirs.has(entry.name)) {
+          allEntries.push(relative);
+          await walk(fullPath, depth + 1);
+        }
       } else {
         const ext = path.extname(entry.name);
         if (extSet.has(ext)) {
-          files.push(path.relative(rootDir, fullPath).split(path.sep).join('/'));
+          sourceFiles.push(relative);
+          allEntries.push(relative);
+        } else if (PROJECT_FILE_EXTENSIONS.has(ext)) {
+          allEntries.push(relative);
         }
       }
     }
   }
 
   await walk(rootDir, 0);
-  return files;
+  return { sourceFiles, allEntries };
 }
 
 export function detectSkills(characteristics: ProjectCharacteristics, skills: ArchitectureSkill[]): SkillMatch[] {
