@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-05-20T15:36:57.932Z",
+  "health_score": 100,
+  "flagged_files": 0,
+  "flagged_functions": 0,
+  "circular_deps": 0,
+  "duplication_pct": 0,
+  "total_files": 0,
+  "total_loc": 0,
+  "avg_file_loc": 0,
+  "god_files": 0
+}

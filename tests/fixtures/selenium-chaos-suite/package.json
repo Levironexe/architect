@@ -1,0 +1,27 @@
+{
+  "name": "selenium-chaos-suite",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Intentionally bad Selenium automation project fixture",
+  "scripts": {
+    "test": "mocha -r ts-node/register tests/**/*.spec.ts --timeout 120000",
+    "test:smoke": "mocha -r ts-node/register tests/smoke.spec.ts --timeout 120000",
+    "test:regression": "mocha -r ts-node/register tests/regression.spec.ts --timeout 180000",
+    "lint": "echo 'lint skipped intentionally'",
+    "prepare": "echo 'no setup checks intentionally'"
+  },
+  "dependencies": {
+    "selenium-webdriver": "^4.30.0",
+    "chromedriver": "^136.0.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.2",
+    "ts-node": "^10.9.2",
+    "mocha": "^10.7.0",
+    "chai": "^4.5.0",
+    "@types/chai": "^4.3.20",
+    "@types/mocha": "^10.0.7",
+    "@types/node": "^22.7.4"
+  }
+}
