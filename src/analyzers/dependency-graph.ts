@@ -99,6 +99,128 @@ export async function analyzeDependencyGraph(
   };
 }
 
+export function buildDependencyGraphFromImports(
+  files: FileAnalysis[],
+  extensions: string[]
+): DependencyGraphSummary {
+  if (files.length === 0) {
+    return createEmptyDependencyGraphSummary(false);
+  }
+
+  const knownPaths = new Set(files.map((f) => f.relativePath));
+  const importedByMap = new Map<string, string[]>();
+
+  const nodes: DependencyNode[] = files.map((file) => {
+    const resolvedImports: string[] = [];
+
+    for (const imp of file.imports) {
+      if (!imp.isRelative) continue;
+      const resolved = resolveRelativeImport(file.relativePath, imp.source);
+      if (!resolved) continue;
+
+      const matched = matchesWithLanguageExtensions(resolved, knownPaths, extensions);
+      if (matched) {
+        resolvedImports.push(matched);
+        const importedBy = importedByMap.get(matched) ?? [];
+        importedBy.push(file.relativePath);
+        importedByMap.set(matched, importedBy);
+      }
+    }
+
+    return {
+      path: file.path,
+      relativePath: file.relativePath,
+      imports: resolvedImports,
+      importedBy: [],
+    };
+  });
+
+  for (const node of nodes) {
+    node.importedBy = (importedByMap.get(node.relativePath) ?? []).sort();
+  }
+
+  const hotspotThreshold = Math.max(2, Math.ceil(nodes.length * 0.1));
+  const hotspots = nodes
+    .filter((node) => node.importedBy.length >= hotspotThreshold)
+    .map((node) => ({
+      relativePath: node.relativePath,
+      dependentCount: node.importedBy.length,
+    }))
+    .sort((left, right) => right.dependentCount - left.dependentCount || left.relativePath.localeCompare(right.relativePath));
+
+  const exportHubs: ExportHub[] = files
+    .filter((file) => file.exports.length > EXPORT_HUB_THRESHOLD)
+    .map((file) => ({ relativePath: file.relativePath, exportCount: file.exports.length }))
+    .sort((left, right) => right.exportCount - left.exportCount);
+
+  const circularDependencies = detectCycles(nodes);
+
+  const unreferencedFiles = nodes
+    .filter((node) => node.importedBy.length === 0)
+    .map((node) => node.relativePath)
+    .sort();
+
+  return {
+    nodes,
+    circularDependencies,
+    hotspots,
+    exportHubs,
+    unreferencedFiles,
+    isPartial: false,
+  };
+}
+
+function matchesWithLanguageExtensions(resolved: string, knownPaths: Set<string>, extensions: string[]): string | null {
+  if (knownPaths.has(resolved)) return resolved;
+  for (const ext of extensions) {
+    if (knownPaths.has(resolved + ext)) return resolved + ext;
+    if (knownPaths.has(`${resolved}/__init__${ext}`)) return `${resolved}/__init__${ext}`;
+    if (knownPaths.has(`${resolved}/index${ext}`)) return `${resolved}/index${ext}`;
+  }
+  return null;
+}
+
+function detectCycles(nodes: DependencyNode[]): { files: string[] }[] {
+  const visited = new Set<string>();
+  const inStack = new Set<string>();
+  const cycles: { files: string[] }[] = [];
+  const nodeMap = new Map(nodes.map((n) => [n.relativePath, n]));
+
+  function dfs(nodePath: string, stack: string[]): void {
+    if (inStack.has(nodePath)) {
+      const cycleStart = stack.indexOf(nodePath);
+      if (cycleStart >= 0) {
+        const cycle = stack.slice(cycleStart);
+        cycle.push(nodePath);
+        cycles.push({ files: cycle });
+      }
+      return;
+    }
+    if (visited.has(nodePath)) return;
+
+    visited.add(nodePath);
+    inStack.add(nodePath);
+    stack.push(nodePath);
+
+    const node = nodeMap.get(nodePath);
+    if (node) {
+      for (const imp of node.imports) {
+        dfs(imp, [...stack]);
+      }
+    }
+
+    inStack.delete(nodePath);
+  }
+
+  for (const node of nodes) {
+    if (!visited.has(node.relativePath)) {
+      dfs(node.relativePath, []);
+    }
+  }
+
+  return cycles;
+}
+
 export function findBrokenImports(
   rootDirectory: string,
   files: FileAnalysis[]

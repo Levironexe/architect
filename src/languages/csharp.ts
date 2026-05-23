@@ -7,7 +7,7 @@ export const CSHARP_CONFIG: LanguageConfig = {
   name: 'C#',
   extensions: ['.cs'],
   configFiles: ['*.csproj', '*.sln'],
-  supportsScanning: 'lite',
+  supportsScanning: 'full',
   commentSyntax: { line: ['//'], blockStart: '/*', blockEnd: '*/' },
 
   async readDependencies(rootDir: string): Promise<string[]> {

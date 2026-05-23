@@ -48,7 +48,11 @@
     "js-yaml": "^4.1.1",
     "jscpd": "^4.0.9",
     "madge": "^8.0.0",
-    "ora": "^9.4.0"
+    "ora": "^9.4.0",
+    "tree-sitter-c-sharp": "^0.23.5",
+    "tree-sitter-java": "^0.23.5",
+    "tree-sitter-python": "^0.25.0",
+    "web-tree-sitter": "^0.26.9"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

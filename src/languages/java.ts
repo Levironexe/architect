@@ -7,7 +7,7 @@ export const JAVA_CONFIG: LanguageConfig = {
   name: 'Java',
   extensions: ['.java'],
   configFiles: ['pom.xml', 'build.gradle', 'build.gradle.kts'],
-  supportsScanning: 'lite',
+  supportsScanning: 'full',
   commentSyntax: { line: ['//'], blockStart: '/*', blockEnd: '*/' },
 
   async readDependencies(rootDir: string): Promise<string[]> {
