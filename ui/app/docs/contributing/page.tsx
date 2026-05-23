@@ -7,5 +7,5 @@ export default function ContributingPage() {
     join(process.cwd(), 'app/docs/content/contributing.md'),
     'utf-8'
   )
-  return <DocsPageContent content={content} breadcrumb="Docs / Contributing" />
+  return <DocsPageContent content={content} breadcrumb="Docs / Contributing" slug="contributing" />
 }

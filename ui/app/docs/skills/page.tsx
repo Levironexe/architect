@@ -7,5 +7,5 @@ export default function SkillsPage() {
     join(process.cwd(), 'app/docs/content/skills.md'),
     'utf-8'
   )
-  return <DocsPageContent content={content} breadcrumb="Docs / Skills" />
+  return <DocsPageContent content={content} breadcrumb="Docs / Skills" slug="skills" />
 }

@@ -7,5 +7,5 @@ export default function IntegrationsPage() {
     join(process.cwd(), 'app/docs/content/integrations.md'),
     'utf-8'
   )
-  return <DocsPageContent content={content} breadcrumb="Docs / Integrations" />
+  return <DocsPageContent content={content} breadcrumb="Docs / Integrations" slug="integrations" />
 }
