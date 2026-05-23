@@ -92,13 +92,13 @@ with the next step.
 
 Run verification:
 ```
-npx @levironexe/architect verify . --phase N
+architect verify . --phase N
 ```
 (Replace N with the current phase number.)
 
 If the command is not available, fall back to:
 ```
-npx @levironexe/architect scan .
+architect scan .
 ```
 
 **If verification FAILS** (exit code 1, or tsc errors / broken imports reported):
@@ -137,7 +137,7 @@ If there is no next phase, output:
 ```
 ✅ All phases complete.
 
-The refactoring is done. Run `npx @levironexe/architect diff .` to see the full before/after comparison.
+The refactoring is done. Run `architect diff .` to see the full before/after comparison.
 ```
 
 ### 4. On developer confirmation

@@ -36,7 +36,7 @@ If either file is missing, stop immediately and output:
 If both files exist, run the following command from the project root:
 
 ```
-npx @levironexe/architect init . --update
+architect init . --update
 ```
 
 Wait for the command to complete before proceeding.
@@ -46,8 +46,8 @@ Wait for the command to complete before proceeding.
 If `.architect/scans/baseline.json` exists, save a fresh snapshot and show the delta:
 
 ```
-npx @levironexe/architect scan . --snapshot .architect/scans/latest.json
-npx @levironexe/architect diff .
+architect scan . --snapshot .architect/scans/latest.json
+architect diff .
 ```
 
 Show the diff table output to the developer so they can see what changed since the baseline

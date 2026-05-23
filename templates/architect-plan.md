@@ -104,7 +104,7 @@ architect context --techstack {{skills.detected}}
 
 If `architect` is not found globally, fall back to:
 ```
-npx @levironexe/architect context --techstack {{skills.detected}}
+architect context --techstack {{skills.detected}}
 ```
 
 This may return blueprints for several detected stacks. Apply the rules from each  -  the primary
@@ -226,7 +226,7 @@ follows the {{skill.name}} blueprint."
 
 After writing the plan, run:
 ```
-npx @levironexe/architect scan . --snapshot .architect/scans/baseline.json
+architect scan . --snapshot .architect/scans/baseline.json
 ```
 
 Then create `.architect/state.json` with the following structure (replace placeholders with
