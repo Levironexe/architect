@@ -1,0 +1,42 @@
+@import "tailwindcss";
+@import "highlight.js/styles/github.css";
+
+@theme inline {
+  --color-cream: #fcfcfb;
+  --color-dark: #111111;
+  --color-muted: #8c8c8c;
+  --color-surface: #f3f2ef;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --tracking-tightest: -0.04em;
+}
+
+@keyframes marquee-left {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes marquee-right {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(0); }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@layer base {
+  body {
+    background-color: #fcfcfb;
+    color: #111111;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: #111111;
+    color: #fcfcfb;
+  }
+}

@@ -1,0 +1,114 @@
+# Architect
+
+> The architectural context installer for your coding agent.
+
+Architect is an open-source CLI tool that installs stack-specific architectural skills into your coding agent (Claude Code, Cursor, Windsurf, GitHub Copilot). Point it at an existing vibe-coded project, pick your agent, and Architect installs three slash commands that give the agent a complete, stack-specific architectural blueprint to work from.
+
+GitHub: https://github.com/levironexe/architect
+npm: https://www.npmjs.com/package/@levironexe/architect
+
+## Installation
+
+```bash
+npm install -g @levironexe/architect
+architect init . --integration claude
+```
+
+Then inside Claude Code:
+
+```
+/architect-plan      → examines the codebase, detects the stack, loads best practices,
+                       writes a phased refactoring roadmap to .architect/plan.md
+
+/architect-refactor  → reads .architect/plan.md and executes the refactor
+                       step by step, waiting for confirmation at each phase
+
+/architect-catchup   → re-scans the project and refreshes installed skills
+                       so guidance stays aligned with the current codebase
+```
+
+## The Problem It Solves
+
+Vibe-coded projects accumulate technical debt fast. AI-generated code optimizes for "make it work," not "make it maintainable." The result: everything in one file, no separation of concerns, inconsistent patterns, and a codebase that becomes impossible to extend within three months — the "Spaghetti Point."
+
+Nobody installs stack-specific architectural knowledge into a coding agent for an existing project, automatically. Architect fills that gap.
+
+## How It Works
+
+1. **`architect init .`** — Scans your project with static analysis (file sizes, complexity, imports, duplication, security, dead code). Detects the tech stack. Writes skill files into your agent's config directory with stack-specific rules embedded.
+
+2. **`/architect-plan`** — Your agent reads the project, calls `architect context` to load the full blueprint, compares current structure against it, and writes a phased refactoring roadmap to `.architect/plan.md`. Saves a baseline health snapshot.
+
+3. **`/architect-refactor`** — Your agent executes the plan one phase at a time. After each phase it runs `architect verify` (TypeScript check, import resolution, health comparison). Pauses for confirmation. Supports resume via `.architect/state.json`.
+
+4. **`/architect-catchup`** — Re-scans the project after new code is written. Refreshes skill files with updated context. Shows before/after health metrics.
+
+## CLI Commands
+
+| Command | Purpose |
+|---------|---------|
+| `architect init <dir>` | Scan project, detect stack, write skill files |
+| `architect scan <dir>` | Static analysis report (no agent needed) |
+| `architect context --techstack <id>` | Print full architecture blueprint for a stack |
+| `architect diff <dir>` | Compare before/after scan snapshots |
+| `architect status <dir>` | Show phase completion progress |
+| `architect verify <dir> --phase N` | Post-phase verification: tsc, imports, health delta |
+| `architect skill list` | List all available skills |
+| `architect skill info <name>` | Show skill details |
+
+## What The Scan Measures
+
+- **Flagged files** — Files over 300 LOC (too large to maintain)
+- **Flagged functions** — Functions with complexity > 15
+- **Dependency hotspots** — Files imported by many others
+- **Circular dependencies** — Mutual imports that cause bugs
+- **Duplicate code** — Copy-pasted logic blocks
+- **Security findings** — Hardcoded secrets, weak JWT, missing auth, weak hashing
+- **Dead code** — Unreferenced files and unused exports
+- **Health score** — Overall grade combining all metrics
+
+## Built-in Skills (26)
+
+### Stack Skills (12)
+Express.js, FastAPI, Fastify, Flask, Hono, NestJS, Next.js App Router, React SPA, Vue/Nuxt, Django, ASP.NET Core MVC, ASP.NET Core Web API
+
+### Integration Skills (13)
+Clerk Auth, Docker Deploy, Drizzle ORM, Mongoose, NextAuth, Playwright E2E, Prisma, S3 Storage, Selenium E2E, Supabase, Supabase Auth, Vercel Deploy, Vitest Testing
+
+### Meta Skills (1)
+General JavaScript/TypeScript conventions
+
+## Supported Agents
+
+| Agent | Skill directory |
+|-------|----------------|
+| Claude Code | `.claude/skills/<name>/SKILL.md` |
+| Cursor | `.cursor/rules/architect.mdc` |
+| Windsurf | `.windsurf/rules/architect.md` |
+| GitHub Copilot | `.github/copilot-instructions.md` |
+| Generic | `.architect/skills/<name>/SKILL.md` |
+
+## Key Principles
+
+Architect does NOT call any LLM. It runs pure static analysis — no API keys needed. Your coding agent IS the intelligence. Architect gives it the right architectural knowledge to act on.
+
+Every skill is grounded in battle-tested software engineering principles: Separation of Concerns, SOLID, Layered Architecture, DRY, Security Patterns, Error Handling, API Contracts, Testability, and Configuration Management.
+
+## File Structure Created
+
+```
+.architect/
+  plan.md          ← Phased refactoring roadmap
+  state.json       ← Phase tracking (enables resume)
+  scans/
+    baseline.json  ← Pre-refactor snapshot
+    phase-N.json   ← Post-phase snapshots
+    latest.json    ← Most recent catchup snapshot
+```
+
+## Links
+
+- Website: https://leviron-architect.vercel.app
+- GitHub: https://github.com/levironexe/architect
+- npm: https://www.npmjs.com/package/@levironexe/architect
+- Documentation: https://leviron-architect.vercel.app/docs
