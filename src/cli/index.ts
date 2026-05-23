@@ -198,12 +198,12 @@ export async function executeScan(directory: string | undefined, options: ScanCo
     const result = await runProjectScan(targetDirectory, { ...options, thresholds });
     if (options.snapshot) {
       const snapshot = extractSnapshot(result);
+      const snapshotDir = dirname(options.snapshot);
+      mkdirSync(snapshotDir, { recursive: true });
+      writeFileSync(options.snapshot, JSON.stringify(snapshot, null, 2) + '\n');
       if (snapshot.total_files === 0) {
-        process.stderr.write(`Snapshot skipped: scan found 0 files. Ensure you are in the correct directory.\n`);
+        process.stderr.write(`WARN  Snapshot saved with 0 files — this baseline will be useless. Check that you are in the correct directory and the language is supported.\n`);
       } else {
-        const snapshotDir = dirname(options.snapshot);
-        mkdirSync(snapshotDir, { recursive: true });
-        writeFileSync(options.snapshot, JSON.stringify(snapshot, null, 2) + '\n');
         process.stderr.write(`Snapshot saved: ${options.snapshot}\n`);
       }
     }
