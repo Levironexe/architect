@@ -2,6 +2,12 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## 0.7.4
+
+### Fixed
+
+- **Removed self-dependency pinning npx to v0.5.0** — package.json listed itself as a dependency at `^0.5.0`, causing `npx @levironexe/architect` to resolve to the stale local copy instead of the globally installed version. Root cause of blank baselines in all non-JS projects.
+
 ## 0.7.3
 
 ### Fixed
