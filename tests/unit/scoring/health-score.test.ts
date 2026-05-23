@@ -5,13 +5,13 @@ import { scoreDuplication } from '../../../src/scoring/duplication-score';
 import { scoreModularity } from '../../../src/scoring/modularity-score';
 
 describe('calculateHealthScore', () => {
-  it('computes overall score as 50/50 weighted average of modularity and duplication', () => {
+  it('computes overall score as 65/35 weighted average of modularity and duplication', () => {
     const result = calculateHealthScore(
       { score: 80, weight: 50, label: 'healthy', reasons: [] },
       { score: 60, weight: 50, label: 'warning', reasons: [] }
     );
 
-    expect(result.overall).toBe(70);
+    expect(result.overall).toBe(73);
     expect(result.label).toBe('warning');
   });
 
@@ -31,7 +31,7 @@ describe('calculateHealthScore', () => {
       { score: 10, weight: 50, label: 'critical', reasons: [] }
     );
 
-    expect(result.overall).toBe(15);
+    expect(result.overall).toBe(17);
     expect(result.label).toBe('critical');
   });
 

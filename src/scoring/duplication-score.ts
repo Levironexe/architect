@@ -5,7 +5,7 @@ const WEIGHT = 20;
 
 export function scoreDuplication(duplication: DuplicationSummary): DimensionScore {
   const percentage = duplication.duplicationPercentage;
-  const score = percentage <= 5 ? 100 : percentage <= 15 ? 70 : percentage <= 30 ? 40 : 10;
+  const score = percentage <= 5 ? 100 : percentage <= 10 ? 80 : percentage <= 20 ? 65 : percentage <= 35 ? 45 : percentage <= 50 ? 30 : 15;
   const reasons = [`${percentage.toFixed(1)}% duplication`];
 
   if (duplication.isPartial) {

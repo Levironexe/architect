@@ -24,12 +24,15 @@ export function scoreModularity(files: FileAnalysis[]): DimensionScore {
   let score = 100;
 
   if (oversizedFiles > 0) {
-    score -= Math.min(30, (oversizedFiles / files.length) * 40);
+    const ratioPenalty = (oversizedFiles / files.length) * 60;
+    const countPenalty = Math.min(30, oversizedFiles * 3);
+    score -= Math.min(50, ratioPenalty + countPenalty);
     reasons.push(`${oversizedFiles} oversized file(s)`);
   }
 
   if (oversizedFunctions > 0) {
-    score -= Math.min(25, (oversizedFunctions / Math.max(functions.length, 1)) * 35);
+    const ratio = oversizedFunctions / Math.max(functions.length, 1);
+    score -= Math.min(25, ratio * 60 + Math.min(10, oversizedFunctions));
     reasons.push(`${oversizedFunctions} oversized function(s)`);
   }
 
