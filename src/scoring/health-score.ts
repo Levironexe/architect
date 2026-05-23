@@ -1,7 +1,7 @@
 import type { DimensionScore, HealthLabel, ScoreBreakdown } from '../types/scoring.js';
 
 export function calculateHealthScore(modularity: DimensionScore, duplication: DimensionScore): ScoreBreakdown {
-  const overall = clampScore(modularity.score * 0.5 + duplication.score * 0.5);
+  const overall = clampScore(modularity.score * 0.65 + duplication.score * 0.35);
   return {
     modularity,
     duplication,
@@ -11,7 +11,7 @@ export function calculateHealthScore(modularity: DimensionScore, duplication: Di
 }
 
 export function calculateLiteHealthScore(fileSizeDistribution: DimensionScore, duplication: DimensionScore): ScoreBreakdown {
-  const overall = clampScore(fileSizeDistribution.score * 0.5 + duplication.score * 0.5);
+  const overall = clampScore(fileSizeDistribution.score * 0.65 + duplication.score * 0.35);
   return {
     modularity: fileSizeDistribution,
     duplication,
