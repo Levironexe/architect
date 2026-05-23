@@ -2,6 +2,22 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## 0.7.0
+
+### Added
+
+- **Full scan for Python, C#, and Java** — tree-sitter WASM-based AST parsing extracts functions, classes, imports, exports, and cyclomatic complexity for all three languages, achieving parity with JS/TS full scan.
+- **Import-based dependency graph** — `buildDependencyGraphFromImports()` builds dependency graphs from import/using/import statements for non-JS languages (replaces madge which is JS-only).
+- **Circular dependency detection** — DFS-based cycle detection works for all languages via the import graph.
+- **Graceful WASM fallback** — if tree-sitter initialization fails, scan automatically falls back to lite scan instead of crashing.
+- **Performance guard** — warns when >5000 files are discovered before scan begins.
+
+### Changed
+
+- Python, C#, Java configs upgraded from `supportsScanning: 'lite'` to `supportsScanning: 'full'`.
+- Language detection in terminal reporter now recognizes Python, C#, and Java files.
+- Modularity scoring, dead code analysis, and dependency insights now work for all supported languages.
+
 ## 0.6.1
 
 ### Fixed
