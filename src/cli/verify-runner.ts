@@ -56,10 +56,14 @@ export async function executeVerify(directory: string, options: VerifyCommandOpt
     passed: tscErrors === 0 && brokenImports.length === 0,
   };
 
-  if (options.phase) {
+  if (options.phase && currentSnapshot.total_files > 0) {
     const snapshotPath = join(scansDir, `phase-${options.phase}.json`);
     mkdirSync(dirname(snapshotPath), { recursive: true });
     writeFileSync(snapshotPath, JSON.stringify(currentSnapshot, null, 2) + '\n');
+  }
+
+  if (baselineSnapshot && baselineSnapshot.total_files === 0) {
+    process.stderr.write('WARN  Baseline snapshot has 0 files — health deltas will be inaccurate. Regenerate with: architect scan . --snapshot .architect/scans/baseline.json\n');
   }
 
   if (options.json) {
