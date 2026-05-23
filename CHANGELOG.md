@@ -2,6 +2,13 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## 0.7.2
+
+### Fixed
+
+- **Blank snapshots warn instead of skipping** — `scan --snapshot` and `verify --phase N` now save the file even when 0 files found, but emit a loud WARN so the agent knows to fix the root cause.
+- **Stale baseline warning** — `verify` warns when baseline has 0 files, preventing misleading health deltas.
+
 ## 0.7.1
 
 ### Fixed
