@@ -6,7 +6,7 @@ export const JAVA_CONFIG: LanguageConfig = {
   id: 'java',
   name: 'Java',
   extensions: ['.java'],
-  configFiles: ['pom.xml', 'build.gradle', 'build.gradle.kts'],
+  configFiles: ['pom.xml', 'build.gradle', 'build.gradle.kts', 'settings.gradle', 'settings.gradle.kts'],
   supportsScanning: 'full',
   commentSyntax: { line: ['//'], blockStart: '/*', blockEnd: '*/' },
 

@@ -6,7 +6,7 @@ export const PYTHON_CONFIG: LanguageConfig = {
   id: 'python',
   name: 'Python',
   extensions: ['.py'],
-  configFiles: ['pyproject.toml', 'requirements.txt', 'setup.py', 'Pipfile'],
+  configFiles: ['pyproject.toml', 'requirements.txt', 'setup.py', 'Pipfile', 'manage.py', 'setup.cfg'],
   supportsScanning: 'full',
   commentSyntax: { line: ['#'], blockStart: '"""', blockEnd: '"""' },
 
