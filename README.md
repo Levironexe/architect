@@ -8,9 +8,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Levironexe/architect-cli/releases/latest"><img src="https://img.shields.io/github/v/release/Levironexe/architect-cli" alt="Latest Release"/></a>
+  <a href="https://github.com/Levironexe/architect/releases/latest"><img src="https://img.shields.io/github/v/release/Levironexe/architect" alt="Latest Release"/></a>
   <a href="https://www.npmjs.com/package/@levironexe/architect"><img src="https://img.shields.io/npm/v/@levironexe/architect" alt="npm version"/></a>
-  <a href="https://github.com/Levironexe/architect-cli/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Levironexe/architect-cli" alt="License"/></a>
+  <a href="https://github.com/Levironexe/architect/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Levironexe/architect" alt="License"/></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen" alt="Node.js 20+"/>
 </p>
 
