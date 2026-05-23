@@ -12,9 +12,15 @@ const PYTHON_PICKLE_PATTERN = /pickle\.loads?\s*\(/g;
 const PYTHON_EVAL_PATTERN = /(?:^|[^.\w])(?:eval|exec)\s*\(/g;
 
 const CSHARP_WEAK_HASH_PATTERN = /(?:MD5\.Create|new\s+MD5CryptoServiceProvider|SHA1\.Create|new\s+SHA1CryptoServiceProvider)\s*\(/g;
+const CSHARP_HARDCODED_KEY_PATTERN = /(?:SymmetricSecurityKey|SecurityKey)\s*\(\s*\n?\s*Encoding\.\w+\.GetBytes\s*\(\s*["'][^"']+["']\s*\)/g;
+const CSHARP_HARDCODED_CONNSTR_PATTERN = /(?:ConnectionString|connectionString|UseSqlServer|UseNpgsql|UseSqlite)\s*\(\s*["'][^"']*(?:Password|Pwd)\s*=[^"']+["']\s*\)/gi;
+const CSHARP_HARDCODED_CREDENTIAL_PATTERN = /new\s+NetworkCredential\s*\(\s*["'][^"']+["']\s*,\s*["'][^"']+["']\s*\)/g;
 
 const JAVA_WEAK_HASH_PATTERN = /MessageDigest\.getInstance\s*\(\s*["'](?:MD5|SHA-1)["']\s*\)/g;
 const JAVA_EXEC_PATTERN = /Runtime\.getRuntime\s*\(\s*\)\.exec\s*\(/g;
+const JAVA_HARDCODED_KEY_PATTERN = /(?:SecretKeySpec|setSigningKey)\s*\(\s*["'][^"']{8,}["']/g;
+
+const PYTHON_HARDCODED_SECRET_PATTERN = /(?:SECRET_KEY|JWT_SECRET|API_KEY|PASSWORD|DATABASE_URL)\s*=\s*['"][^'"]{8,}['"]/g;
 
 export function analyzeSecurityPatterns(files: FileAnalysis[], sourceContents: Map<string, string>): SecuritySummary {
   const findings: SecurityFinding[] = [];
@@ -26,6 +32,7 @@ export function analyzeSecurityPatterns(files: FileAnalysis[], sourceContents: M
     if (!content) continue;
 
     const lines = content.split('\n');
+    const isPasswordRelated = /password|credential|auth|hash/i.test(file.relativePath);
 
     scanLines(lines, file.relativePath, HARDCODED_SECRET_PATTERN, findings, {
       severity: 'critical',
@@ -42,9 +49,11 @@ export function analyzeSecurityPatterns(files: FileAnalysis[], sourceContents: M
     });
 
     scanLines(lines, file.relativePath, WEAK_HASH_PATTERN, findings, {
-      severity: 'warning',
+      severity: isPasswordRelated ? 'critical' : 'warning',
       check: 'weak_hash',
-      message: 'Weak hash algorithm (MD5 or SHA1) used.',
+      message: isPasswordRelated
+        ? 'Broken crypto: MD5/SHA1 used for password hashing.'
+        : 'Weak hash algorithm (MD5 or SHA1) used.',
       suggestion: 'Use SHA-256 or bcrypt for password hashing.'
     });
 
@@ -56,9 +65,11 @@ export function analyzeSecurityPatterns(files: FileAnalysis[], sourceContents: M
     });
 
     scanLines(lines, file.relativePath, PYTHON_WEAK_HASH_PATTERN, findings, {
-      severity: 'warning',
+      severity: isPasswordRelated ? 'critical' : 'warning',
       check: 'weak_hash',
-      message: 'Weak hash algorithm (MD5 or SHA1) used.',
+      message: isPasswordRelated
+        ? 'Broken crypto: MD5/SHA1 used for password hashing.'
+        : 'Weak hash algorithm (MD5 or SHA1) used.',
       suggestion: 'Use hashlib.sha256 or bcrypt for password hashing.'
     });
 
@@ -77,16 +88,41 @@ export function analyzeSecurityPatterns(files: FileAnalysis[], sourceContents: M
     });
 
     scanLines(lines, file.relativePath, CSHARP_WEAK_HASH_PATTERN, findings, {
-      severity: 'warning',
+      severity: isPasswordRelated ? 'critical' : 'warning',
       check: 'weak_hash',
-      message: 'Weak hash algorithm (MD5 or SHA1) used.',
-      suggestion: 'Use SHA256 or bcrypt for password hashing.'
+      message: isPasswordRelated
+        ? 'Broken crypto: MD5/SHA1 used for password hashing.'
+        : 'Weak hash algorithm (MD5 or SHA1) used.',
+      suggestion: 'Use SHA256, bcrypt, or PBKDF2 for password hashing.'
+    });
+
+    scanContent(content, lines, file.relativePath, CSHARP_HARDCODED_KEY_PATTERN, findings, {
+      severity: 'critical',
+      check: 'hardcoded_secret',
+      message: 'Hardcoded signing key in source code.',
+      suggestion: 'Move to environment variable or secrets manager.'
+    });
+
+    scanLines(lines, file.relativePath, CSHARP_HARDCODED_CONNSTR_PATTERN, findings, {
+      severity: 'critical',
+      check: 'hardcoded_secret',
+      message: 'Hardcoded database password in connection string.',
+      suggestion: 'Use environment variable or secrets manager for connection strings.'
+    });
+
+    scanLines(lines, file.relativePath, CSHARP_HARDCODED_CREDENTIAL_PATTERN, findings, {
+      severity: 'critical',
+      check: 'hardcoded_secret',
+      message: 'Hardcoded credentials in NetworkCredential constructor.',
+      suggestion: 'Move credentials to environment variables or secrets manager.'
     });
 
     scanLines(lines, file.relativePath, JAVA_WEAK_HASH_PATTERN, findings, {
-      severity: 'warning',
+      severity: isPasswordRelated ? 'critical' : 'warning',
       check: 'weak_hash',
-      message: 'Weak hash algorithm (MD5 or SHA-1) used.',
+      message: isPasswordRelated
+        ? 'Broken crypto: MD5/SHA-1 used for password hashing.'
+        : 'Weak hash algorithm (MD5 or SHA-1) used.',
       suggestion: 'Use MessageDigest.getInstance("SHA-256") or bcrypt.'
     });
 
@@ -97,6 +133,20 @@ export function analyzeSecurityPatterns(files: FileAnalysis[], sourceContents: M
       suggestion: 'Use ProcessBuilder with explicit argument list instead of string concatenation.'
     });
 
+    scanLines(lines, file.relativePath, JAVA_HARDCODED_KEY_PATTERN, findings, {
+      severity: 'critical',
+      check: 'hardcoded_secret',
+      message: 'Hardcoded signing/encryption key in source code.',
+      suggestion: 'Move to environment variable or secrets manager.'
+    });
+
+    scanLines(lines, file.relativePath, PYTHON_HARDCODED_SECRET_PATTERN, findings, {
+      severity: 'critical',
+      check: 'hardcoded_secret',
+      message: 'Hardcoded secret or key in source code.',
+      suggestion: 'Use environment variable (os.environ) or a secrets manager.'
+    });
+
     for (let i = 0; i < lines.length; i++) {
       if (PRISMA_NEW_PATTERN.test(lines[i]!)) {
         PRISMA_NEW_PATTERN.lastIndex = 0;
@@ -105,17 +155,14 @@ export function analyzeSecurityPatterns(files: FileAnalysis[], sourceContents: M
     }
 
     if (isApiRouteFile(file.relativePath)) {
-      const hasAuthImport = file.imports.some(
-        (imp) => /auth|session|middleware|protect|guard/i.test(imp.source) ||
-          imp.specifiers.some((s) => /auth|session|protect|guard|verify/i.test(s))
-      );
+      const hasAuth = detectAuthPresence(file, content);
 
-      if (!hasAuthImport) {
+      if (!hasAuth) {
         findings.push({
           severity: 'warning',
           check: 'missing_auth',
           file: file.relativePath,
-          message: 'API route has no auth/session import.',
+          message: 'API route file has no authentication guard.',
           suggestion: 'Add authentication middleware or guard to protect user data endpoints.'
         });
       }
@@ -171,6 +218,37 @@ function scanLines(
       });
     }
   }
+}
+
+function scanContent(
+  content: string,
+  lines: string[],
+  relativePath: string,
+  pattern: RegExp,
+  findings: SecurityFinding[],
+  template: FindingTemplate
+): void {
+  pattern.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(content)) !== null) {
+    const lineNumber = content.slice(0, match.index).split('\n').length;
+    findings.push({ ...template, file: relativePath, line: lineNumber });
+  }
+}
+
+function detectAuthPresence(file: FileAnalysis, content: string): boolean {
+  const hasAuthImport = file.imports.some(
+    (imp) => /auth|session|middleware|protect|guard/i.test(imp.source) ||
+      imp.specifiers.some((s) => /auth|session|protect|guard|verify/i.test(s))
+  );
+  if (hasAuthImport) return true;
+
+  if (/\[Authorize\]/.test(content)) return true;
+  if (/@login_required|@permission_required|@requires_auth/.test(content)) return true;
+  if (/@PreAuthorize|@Secured|@RolesAllowed/.test(content)) return true;
+  if (/\.UseAuthorization\(\)/.test(content)) return true;
+
+  return false;
 }
 
 function isApiRouteFile(relativePath: string): boolean {

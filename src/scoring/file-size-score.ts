@@ -9,16 +9,27 @@ export function scoreFileSizeDistribution(files: FileAnalysis[]): DimensionScore
   }
 
   const totalLoc = files.reduce((total, file) => total + file.loc, 0);
-  const oversizedFiles = files.filter((file) => file.loc > 300).length;
+  const oversizedFiles = files.filter((file) => file.loc > 300);
   const avgLoc = totalLoc / files.length;
   const largestFileLoc = Math.max(...files.map((file) => file.loc));
   const singleFileRatio = totalLoc === 0 ? 0 : largestFileLoc / totalLoc;
   const reasons: string[] = [];
   let score = 100;
 
-  if (oversizedFiles > 0) {
-    score -= Math.min(30, (oversizedFiles / files.length) * 40);
-    reasons.push(`${oversizedFiles} oversized file(s) (>300 LOC)`);
+  if (oversizedFiles.length > 0) {
+    const countPenalty = Math.min(20, (oversizedFiles.length / files.length) * 40);
+    const severityPenalty = oversizedFiles.reduce((total, file) => {
+      const excess = file.loc - 300;
+      if (excess > 200) return total + 8;
+      if (excess > 100) return total + 5;
+      return total + 2;
+    }, 0);
+    score -= Math.min(45, countPenalty + severityPenalty);
+    reasons.push(`${oversizedFiles.length} oversized file(s) (>300 LOC)`);
+    const godFiles = oversizedFiles.filter((file) => file.loc > 400);
+    if (godFiles.length > 0) {
+      reasons.push(`${godFiles.length} god file(s) (>400 LOC): ${godFiles.map((f) => f.relativePath).join(', ')}`);
+    }
   }
 
   if (avgLoc > 150) {
