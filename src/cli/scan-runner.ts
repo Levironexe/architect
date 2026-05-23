@@ -1,15 +1,15 @@
 import { readFileSync } from 'node:fs';
-import { analyzeFile } from '../analyzers/ast-parser.js';
-import { analyzeDependencyGraph } from '../analyzers/dependency-graph.js';
+import { analyzeDependencyGraph, buildDependencyGraphFromImports } from '../analyzers/dependency-graph.js';
 import { analyzeDuplication } from '../analyzers/duplication.js';
 import { analyzeSecurityPatterns } from '../analyzers/security-check.js';
 import { analyzeDeadCode } from '../analyzers/dead-code.js';
 import { discoverFiles, discoverSkippedInputs } from '../analyzers/file-walker.js';
+import { analyzeFileByLanguage } from '../analyzers/language-analyzer.js';
 import { buildIssues, createReportGuidance } from '../scoring/issue-builder.js';
 import { calculateHealthScore, clampScore } from '../scoring/health-score.js';
 import { scoreDuplication } from '../scoring/duplication-score.js';
 import { scoreModularity } from '../scoring/modularity-score.js';
-import { collectProjectCharacteristics, detectSkills } from '../skills/detector.js';
+import { collectProjectCharacteristics, collectProjectCharacteristicsFromLanguage, detectSkills } from '../skills/detector.js';
 import { loadSkills } from '../skills/loader.js';
 import { compareStructure } from '../skills/structure-check.js';
 import { createEmptySummary, type FileAnalysis, type ParseError, type ScanResult } from '../types/analysis.js';
@@ -17,7 +17,7 @@ import type { ScanDiagnostic, ScanThresholds, ScanWarning, SkippedInput } from '
 import { ensureDirectoryPath } from '../utils/path.js';
 import { createProgressDiagnostics, createThresholdDiagnostics } from '../utils/progress.js';
 import { DEFAULT_SCAN_THRESHOLDS } from '../utils/thresholds.js';
-import { detectLanguage } from '../languages/registry.js';
+import { detectLanguage, type DetectedLanguage } from '../languages/registry.js';
 import { runLiteScan } from './lite-scan-runner.js';
 
 export type ProjectScanOptions = {
@@ -40,16 +40,27 @@ export async function runProjectScan(directory: string, options: ProjectScanOpti
   const targetDirectory = ensureDirectoryPath(directory);
   const startedAt = Date.now();
   const thresholds = options.thresholds ?? DEFAULT_SCAN_THRESHOLDS;
-  const discoveredFiles = await discoverFiles(targetDirectory);
-  const skippedInputs = await discoverSkippedInputs(targetDirectory);
-  const analysis = await analyzeFiles(discoveredFiles, targetDirectory, thresholds);
-  const dependencyGraph = await analyzeDependencyGraph(targetDirectory, analysis.files, analysis.parseErrors);
+  const isJavaScript = !detected || detected.config.id === 'javascript';
+  const extensions = isJavaScript ? undefined : detected!.config.extensions;
+  const discoveredFiles = await discoverFiles(targetDirectory, extensions);
+  const skippedInputs = await discoverSkippedInputs(targetDirectory, extensions);
+  const languageId = detected?.config.id ?? 'javascript';
+  const analysis = await analyzeFiles(discoveredFiles, targetDirectory, languageId, thresholds);
+
+  const dependencyGraph = isJavaScript
+    ? await analyzeDependencyGraph(targetDirectory, analysis.files, analysis.parseErrors)
+    : buildDependencyGraphFromImports(analysis.files, detected!.config.extensions);
   const duplication = await analyzeDuplication(targetDirectory, analysis.files, analysis.parseErrors);
   const result = buildScanResult(targetDirectory, analysis.files, analysis.parseErrors, dependencyGraph, duplication, Date.now() - startedAt);
 
   result.skippedInputs = skippedInputs;
   result.diagnostics = createInitialDiagnostics(thresholds, discoveredFiles.length, options.verbose === true, skippedInputs);
-  await attachSkillContext(result, targetDirectory, discoveredFiles, analysis.files);
+
+  if (isJavaScript) {
+    await attachSkillContext(result, targetDirectory, discoveredFiles, analysis.files);
+  } else {
+    await attachNonJsSkillContext(result, targetDirectory, detected!);
+  }
 
   const sourceContents = readSourceContents(analysis.files);
   result.security = analyzeSecurityPatterns(analysis.files, sourceContents);
@@ -63,13 +74,13 @@ export async function runProjectScan(directory: string, options: ProjectScanOpti
   return result;
 }
 
-async function analyzeFiles(filePaths: string[], targetDirectory: string, thresholds: ScanThresholds): Promise<AnalysisSet> {
+async function analyzeFiles(filePaths: string[], targetDirectory: string, languageId: string, thresholds: ScanThresholds): Promise<AnalysisSet> {
   const files: FileAnalysis[] = [];
   const parseErrors: ParseError[] = [];
 
   for (const filePath of filePaths) {
     try {
-      files.push(await analyzeFile(filePath, targetDirectory, thresholds));
+      files.push(await analyzeFileByLanguage(filePath, targetDirectory, languageId, thresholds));
     } catch (error) {
       parseErrors.push({
         path: filePath,
@@ -80,6 +91,23 @@ async function analyzeFiles(filePaths: string[], targetDirectory: string, thresh
   }
 
   return { files, parseErrors };
+}
+
+async function attachNonJsSkillContext(
+  result: ScanResult,
+  targetDirectory: string,
+  detected: DetectedLanguage
+): Promise<void> {
+  const skillLoadResult = await loadSkills();
+  const characteristics = await collectProjectCharacteristicsFromLanguage(targetDirectory, detected);
+  const languageSkills = skillLoadResult.skills.filter(
+    (s) => s.language === detected.config.id || s.language === 'agnostic'
+  );
+  const matchedSkills = detectSkills(characteristics, languageSkills);
+
+  result.skillLoadWarnings = skillLoadResult.warnings;
+  result.matchedSkills = matchedSkills;
+  result.structureComparison = await compareStructure(targetDirectory, matchedSkills);
 }
 
 function createInitialDiagnostics(thresholds: ScanThresholds, fileCount: number, verbose: boolean, skippedInputs: SkippedInput[]): ScanDiagnostic[] {
