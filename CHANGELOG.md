@@ -2,6 +2,14 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## 0.7.1
+
+### Fixed
+
+- **Health scoring rebalanced** — modularity now weighted 65% (was 50%), duplication 35%. Refactored projects no longer score worse than their monolithic originals due to intermediate duplication.
+- **Duplication curve softened** — >30% duplication scores 45 (was 10), new bracket at 35-50% (score 30). Prevents cliff-drop scoring.
+- **Modularity penalty strengthened** — oversized file penalty uses both ratio and absolute count, with higher caps. 17 god files now properly tanks the score.
+
 ## 0.7.0
 
 ### Added
