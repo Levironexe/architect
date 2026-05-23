@@ -1,6 +1,6 @@
 {
   "name": "@levironexe/architect",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "Structural health scanner and refactoring planner for JavaScript/TypeScript, Python, C#, and Java projects.",
   "type": "module",
   "bin": {
