@@ -6,6 +6,7 @@ import { render } from './templateRenderer.js';
 import type { ScanResult } from '../types/analysis.js';
 import type { RenderedSkillFile, TemplateContext } from '../types/generation.js';
 import type { ArchitectureSkill, CompositionPhase, SkillMatch, StructureEntry } from '../types/skill.js';
+import type { SecuritySummary } from '../types/security.js';
 import { collectComposedPhases } from '../skills/detector.js';
 
 const TEMPLATE_NAMES = ['architect-plan', 'architect-refactor', 'architect-catchup'] as const;
@@ -73,7 +74,10 @@ export function buildTemplateContext(skill: ArchitectureSkill, result: ScanResul
       hubFiles: hubFiles.join('\n'),
       duplicationPercent: result ? `${result.duplication.duplicationPercentage.toFixed(1)}%` : 'N/A',
       missingDirs: missingDirs.join('\n'),
-      composedPhases: formatComposedPhases(allMatched ?? [])
+      composedPhases: formatComposedPhases(allMatched ?? []),
+      securityFindings: result?.security ? formatSecurityFindings(result.security) : '',
+      scanTier: result?.scanTier ?? 'unknown',
+      healthScore: result?.scores ? `${result.scores.overall}/100 (${result.scores.label})` : 'N/A'
     }
   };
 }
@@ -194,6 +198,14 @@ export function formatServiceLayerRules(skill: ArchitectureSkill): string {
 
 function resolveTemplatePath(name: TemplateName): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), `../../templates/${name}.md`);
+}
+
+function formatSecurityFindings(security: SecuritySummary): string {
+  if (security.findings.length === 0) return 'No security issues detected.';
+
+  return security.findings
+    .map((f) => `- [${f.severity}] ${f.file}${f.line ? `:${f.line}` : ''}: ${f.message}`)
+    .join('\n');
 }
 
 function indentBlock(value: string): string {

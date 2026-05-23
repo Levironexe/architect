@@ -21,6 +21,9 @@ export interface TemplateContext {
     duplicationPercent: string;
     missingDirs: string;
     composedPhases: string;
+    securityFindings: string;
+    scanTier: string;
+    healthScore: string;
   };
 }
 

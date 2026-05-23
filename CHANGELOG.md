@@ -2,6 +2,20 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## 0.6.1
+
+### Fixed
+
+- **Stack detection for non-JS/TS** — `collectProjectCharacteristicsFromLanguage` now collects project files (`.json`, `.csproj`, `.sln`) and reads source text, fixing false detection (e.g., MVC detected instead of Web API).
+
+### Changed
+
+- **Plan template: anti-patterns injected** — `/architect-plan` now includes the stack's anti-patterns with bad/good examples, so the agent knows exactly what to look for.
+- **Plan template: security findings injected** — static scan security findings listed in the skill context.
+- **Plan template: scan tier disclaimer** — for lite scans, the agent is told not to trust the static score and to assess architecture itself.
+- **Plan template: Step 4b (Score the architecture)** — agent rates separation, dependency direction, abstraction quality, security, and organization 1-5, gives overall 1-10.
+- **Plan template: language-agnostic** — Step 1 references `.csproj`, `pom.xml`, `pyproject.toml`, etc., not just `package.json`.
+
 ## 0.6.0
 
 ### Added
