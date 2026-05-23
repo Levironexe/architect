@@ -2,6 +2,14 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## 0.7.3
+
+### Fixed
+
+- **Django projects detected via `manage.py`** — projects without `requirements.txt` were undetected, causing scan to default to JS/TS and return 0 files. Root cause of blank baselines.
+- **Added `setup.cfg`** to Python config file detection.
+- **Added `settings.gradle` / `settings.gradle.kts`** to Java config file detection for multi-module Gradle projects.
+
 ## 0.7.2
 
 ### Fixed
