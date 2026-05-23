@@ -5,6 +5,7 @@ import { analyzeSecurityPatterns } from '../analyzers/security-check.js';
 import { analyzeDeadCode } from '../analyzers/dead-code.js';
 import { discoverFiles, discoverSkippedInputs } from '../analyzers/file-walker.js';
 import { analyzeFileByLanguage } from '../analyzers/language-analyzer.js';
+import { getParser } from '../analyzers/tree-sitter/init.js';
 import { buildIssues, createReportGuidance } from '../scoring/issue-builder.js';
 import { calculateHealthScore, clampScore } from '../scoring/health-score.js';
 import { scoreDuplication } from '../scoring/duplication-score.js';
@@ -37,12 +38,24 @@ export async function runProjectScan(directory: string, options: ProjectScanOpti
     return runLiteScan(directory, detected, options);
   }
 
+  const isNonJs = detected && detected.config.id !== 'javascript';
+  if (isNonJs) {
+    const wasmOk = await testTreeSitterInit(detected.config.id);
+    if (!wasmOk) {
+      process.stderr.write(`WARN  Tree-sitter WASM init failed for ${detected.config.name}; falling back to lite scan\n`);
+      return runLiteScan(directory, detected, options);
+    }
+  }
+
   const targetDirectory = ensureDirectoryPath(directory);
   const startedAt = Date.now();
   const thresholds = options.thresholds ?? DEFAULT_SCAN_THRESHOLDS;
   const isJavaScript = !detected || detected.config.id === 'javascript';
   const extensions = isJavaScript ? undefined : detected!.config.extensions;
   const discoveredFiles = await discoverFiles(targetDirectory, extensions);
+  if (discoveredFiles.length > 5000) {
+    process.stderr.write(`WARN  Large project: ${discoveredFiles.length} files discovered. Scan may take a while.\n`);
+  }
   const skippedInputs = await discoverSkippedInputs(targetDirectory, extensions);
   const languageId = detected?.config.id ?? 'javascript';
   const analysis = await analyzeFiles(discoveredFiles, targetDirectory, languageId, thresholds);
@@ -229,4 +242,13 @@ function buildScanResult(
   summary.scanDurationMs = scanDurationMs;
 
   return { summary, files, parseErrors, dependencyGraph, duplication };
+}
+
+async function testTreeSitterInit(languageId: string): Promise<boolean> {
+  try {
+    await getParser(languageId);
+    return true;
+  } catch {
+    return false;
+  }
 }

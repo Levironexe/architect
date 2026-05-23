@@ -289,13 +289,11 @@ function formatLanguages(files: FileAnalysis[]): string {
   const extensions = new Set(files.map((file) => path.extname(file.relativePath)));
   const labels: string[] = [];
 
-  if (extensions.has('.ts') || extensions.has('.tsx')) {
-    labels.push('TypeScript');
-  }
-
-  if (extensions.has('.js') || extensions.has('.jsx')) {
-    labels.push('JavaScript');
-  }
+  if (extensions.has('.ts') || extensions.has('.tsx')) labels.push('TypeScript');
+  if (extensions.has('.js') || extensions.has('.jsx')) labels.push('JavaScript');
+  if (extensions.has('.py')) labels.push('Python');
+  if (extensions.has('.cs')) labels.push('C#');
+  if (extensions.has('.java')) labels.push('Java');
 
   return labels.length > 0 ? labels.join(', ') : 'Unknown';
 }
