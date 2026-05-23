@@ -47,8 +47,21 @@ what the target architecture looks like.
 **Service layer pattern** (if applicable):
 {{skill.separation.service_layer}}
 
+**Security findings** (from static analysis):
+{{analysis.securityFindings}}
+
+**Anti-patterns to look for** (specific to this stack  -  check every file for these):
+{{skill.anti_patterns}}
+
 **Integration-specific phases** (generated from skill composition rules):
 {{analysis.composedPhases}}
+
+**Scan tier**: {{analysis.scanTier}} | **Static health score**: {{analysis.healthScore}}
+
+If the scan tier is "lite", the static health score only measures file sizes and duplication  -  it
+cannot detect architectural problems like mixed concerns, layer violations, or missing abstractions.
+Your job is to read the code and assess these yourself. Do not trust a high static score as evidence
+that the architecture is sound.
 
 If any of the above blocks are empty, proceed without them  -  the live codebase is your primary source.
 
@@ -57,20 +70,25 @@ If any of the above blocks are empty, proceed without them  -  the live codebase
 ### 1. Read the codebase
 
 Open and read:
-- `package.json` (or equivalent manifest) to confirm the tech stack and dependencies
+- The project manifest (`package.json`, `*.csproj`, `pom.xml`, `build.gradle`, `pyproject.toml`,
+  `requirements.txt`, or equivalent) to confirm the tech stack and dependencies
 - The 3 largest source files from the list above (or the largest files you can find if the list
   is empty)  -  understand what they do and what concerns they mix
+- The entry point (`Program.cs`, `app.py`, `main.ts`, `index.ts`, etc.)
 
-While reading `package.json`, flag dependency bloat:
+While reading the manifest, flag dependency bloat:
 - Multiple packages solving the same problem (e.g., 2+ ORMs, 2+ date libraries, 2+ state managers)
 - Packages imported in source files but never actually used
 
 While reading source files, flag security issues:
 - Hardcoded secrets: grep for `['"].*(?:secret|password|key|token).*['"]` patterns assigned to variables
 - Auth guards missing on route handlers that touch user data
-- `process.env` reads scattered outside a central config module
+- Configuration values scattered across files instead of centralized
 
-Record both as problem areas to address in the plan.
+Review the "Security findings" and "Anti-patterns" lists above. For each anti-pattern listed,
+search the codebase for concrete instances. Record every violation with file name and line number.
+
+Record all findings as problem areas to address in the plan.
 
 ### 2. Confirm the detected stack
 
@@ -111,8 +129,14 @@ Based on what you've read, identify the concrete structural problems:
 - What code lives in the wrong place relative to the blueprint?
 - Where is duplication concentrated?
 - Which hub files are risky to touch?
-- Where does a file re-derive data already available from a `lib/` function? (inline filters,
+- Where does a file re-derive data already available from a shared utility? (inline filters,
   re-calculations, re-sorts that should be called once from a shared module)
+
+**Check every anti-pattern from the list above.** For each anti-pattern in the "Anti-patterns to
+look for" section, open the files most likely to violate it and record:
+- The anti-pattern ID
+- The file and line number
+- What specifically is wrong (e.g., "business logic in controller: credit check on line 45")
 
 **Enumerate exhaustively.** When you identify a problem pattern in a file, search for every
 instance of that pattern in that file before writing the plan step. Do not write "remove the X
@@ -123,6 +147,23 @@ Also enumerate from the pre-flight checks in step 1:
 - Each duplicate-library pair → one cleanup step (remove the redundant one, update all callsites)
 - Each hardcoded secret → one security step (move to env var + config module)
 - Each missing auth guard → one security step
+- Each security finding from the scan → one security step if not already covered
+
+### 4b. Score the architecture
+
+After identifying all problems, write a brief architectural assessment at the top of the plan.
+Rate each dimension 1-5 and give an overall score:
+
+- **Separation of concerns**: Are responsibilities split correctly across files/layers?
+- **Dependency direction**: Do dependencies flow inward (domain ← app ← infra ← API)?
+- **Abstraction quality**: Are there proper interfaces, repositories, services  -  or is everything
+  concrete and tightly coupled?
+- **Security posture**: Hardcoded secrets, weak crypto, missing auth guards?
+- **Code organization**: God files, flat structure, naming inconsistencies?
+
+Rate overall architecture 1-10 and explain the single biggest structural risk. This assessment
+helps the developer understand why the refactoring matters  -  especially when the static scan
+score is high but the architecture is poor.
 
 ### 5. Write `.architect/plan.md`
 
