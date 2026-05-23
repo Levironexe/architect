@@ -2,6 +2,12 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## 0.7.5
+
+### Fixed
+
+- **Templates use `architect` instead of `npx @levironexe/architect`** — prevents stale version resolution via local `node_modules`. All three skill templates updated.
+
 ## 0.7.4
 
 ### Fixed
