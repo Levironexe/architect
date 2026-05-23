@@ -9,3 +9,6 @@ coverage/
 *.tmp
 *.swp
 vitest-report/
+
+# Test fixtures
+tests/fixtures/
