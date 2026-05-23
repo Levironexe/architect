@@ -7,5 +7,5 @@ export default function CommandsPage() {
     join(process.cwd(), 'app/docs/content/commands.md'),
     'utf-8'
   )
-  return <DocsPageContent content={content} breadcrumb="Docs / Commands" />
+  return <DocsPageContent content={content} breadcrumb="Docs / Commands" slug="commands" />
 }

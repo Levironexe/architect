@@ -2,13 +2,15 @@
 import { useState } from 'react'
 import { DocsMarkdown } from '@/app/components/DocsMarkdown'
 import { DocsRightTOC } from '@/app/components/DocsRightTOC'
+import { DocsFeedback } from './DocsFeedback'
 
 interface DocsPageContentProps {
   content: string
   breadcrumb: string
+  slug: string
 }
 
-export function DocsPageContent({ content, breadcrumb }: DocsPageContentProps) {
+export function DocsPageContent({ content, breadcrumb, slug }: DocsPageContentProps) {
   const [copied, setCopied] = useState(false)
   return (
     <div className="flex gap-12">
@@ -33,6 +35,7 @@ export function DocsPageContent({ content, breadcrumb }: DocsPageContentProps) {
           </button>
         </div>
         <DocsMarkdown content={content} />
+        <DocsFeedback slug={slug} />
       </article>
       <DocsRightTOC content={content} />
     </div>
