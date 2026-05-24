@@ -159,10 +159,10 @@ export function Hero() {
         })}
       </h1>
       <h2 className="text-3xl md:text-5xl font-serif text-dark mb-8 leading-tight">
-        The architectural context installer<br />for your coding agent.
+        Best practices for your stack.<br />Anti-patterns caught. Zero config.
       </h2>
       <p className="text-lg md:text-xl text-muted max-w-2xl mx-auto mb-10 font-normal leading-relaxed">
-        Point it at an existing vibe-coded project, pick your agent, and Architect installs three slash commands that give the agent a complete, stack-specific architectural blueprint to work from.
+        Point it at an existing vibe-coded project, pick your agent, and Architect installs three slash commands that teach your agent the best practices, separation rules, and anti-patterns for your exact stack.
       </p>
       <div className="flex justify-center mb-8">
         <InstallCommand />

@@ -254,5 +254,27 @@ anti_patterns:
           user = find_user(id)
           if not user:
               raise AppError('User not found', 'NOT_FOUND', 404)  # consistent JSON via error handler
+  - id: oversized_extraction
+    severity: warning
+    description: "A module was extracted from a blueprint but is still 300+ LOC. Split into focused sub-modules by domain."
+    bad_example: |
+      # services/order_service.py  -  400 LOC  -  orders, payments, inventory, notifications
+    good_example: |
+      # services/order_service.py  -  100 LOC  -  order lifecycle only
+      # services/payment_service.py  -  80 LOC  -  payment processing only
+  - id: bare_exception_swallow
+    severity: warning
+    description: "Using bare except or except Exception blocks that catch everything and silently continue. Programming errors (TypeError, AttributeError) get hidden instead of crashing loudly."
+    bad_example: |
+      try:
+          process_payment(order)
+      except Exception:
+          pass  # payment silently fails
+    good_example: |
+      try:
+          process_payment(order)
+      except PaymentError as e:
+          logger.error("Payment failed for order %s: %s", order.id, e)
+          raise
 
 ---

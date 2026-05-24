@@ -268,5 +268,13 @@ anti_patterns:
       @model OrderDetailViewModel
       <p>Total: @Model.DisplayTotal</p>
       @* DisplayTotal was calculated in the service layer *@
+  - id: oversized_extraction
+    severity: warning
+    description: "A service or controller was extracted but is still 300+ LOC. Split by domain responsibility. Use dependency injection to compose focused services."
+    bad_example: |
+      // Services/AppService.cs  -  500 LOC  -  users, orders, payments, notifications
+    good_example: |
+      // Services/OrderService.cs  -  120 LOC  -  order lifecycle only
+      // Services/PaymentService.cs  -  80 LOC  -  payment processing only
 
 ---

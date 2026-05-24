@@ -56,8 +56,12 @@ function resolveAfterSnapshot(scansDir: string, phase?: string): string | null {
   }
 
   const files = readdirSync(scansDir)
-    .filter((f) => f.startsWith('phase-') && f.endsWith('.json'))
-    .sort();
+    .filter((f) => f.includes('phase-') && f.endsWith('.json'))
+    .sort((a, b) => {
+      const numA = parseInt(a.match(/phase-(\d+)/)?.[1] ?? '0', 10);
+      const numB = parseInt(b.match(/phase-(\d+)/)?.[1] ?? '0', 10);
+      return numA - numB;
+    });
 
   if (files.length === 0) return null;
   return join(scansDir, files[files.length - 1]!);
@@ -65,7 +69,7 @@ function resolveAfterSnapshot(scansDir: string, phase?: string): string | null {
 
 function computeMetrics(before: ScanSnapshot, after: ScanSnapshot): DiffMetric[] {
   return [
-    { label: 'Health score', before: before.health_score, after: after.health_score, delta: after.health_score - before.health_score },
+    { label: 'Health score', before: before.health_score, after: after.health_score, delta: after.health_score - before.health_score, higherIsBetter: true },
     { label: 'Flagged files', before: before.flagged_files, after: after.flagged_files, delta: after.flagged_files - before.flagged_files },
     { label: 'Duplication', before: before.duplication_pct, after: after.duplication_pct, delta: round(after.duplication_pct - before.duplication_pct), unit: '%' },
     { label: 'Circular deps', before: before.circular_deps, after: after.circular_deps, delta: after.circular_deps - before.circular_deps },

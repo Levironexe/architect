@@ -310,5 +310,13 @@ anti_patterns:
       const RoleFilter = z.enum(['admin', 'user', 'moderator']);
       const role = RoleFilter.parse(req.query.role); // rejects invalid roles
       const users = await db.select().from(usersTable).where(eq(usersTable.role, role));
+  - id: oversized_repository
+    severity: warning
+    description: "A data access file contains 300+ LOC spanning multiple tables. Split by domain entity."
+    bad_example: |
+      // db/queries.ts  -  400 LOC  -  users, orders, products all in one
+    good_example: |
+      // db/queries/users.ts  -  80 LOC
+      // db/queries/orders.ts  -  100 LOC
 
 ---

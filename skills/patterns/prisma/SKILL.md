@@ -288,6 +288,18 @@ anti_patterns:
       // Service validates before Prisma touches it
       const data = CreateUserSchema.parse(req.body); // rejects invalid shapes
       const user = await prisma.user.create({ data });
+  - id: oversized_repository
+    severity: warning
+    description: "A repository file contains 300+ LOC spanning multiple unrelated query domains. Split into focused repository files by entity or aggregate root."
+    bad_example: |
+      // repositories/db.repository.ts  -  500 LOC
+      export async function findUser() { ... }
+      export async function findOrder() { ... }
+      export async function findPayment() { ... }
+    good_example: |
+      // repositories/user.repository.ts  -  80 LOC
+      // repositories/order.repository.ts  -  100 LOC
+      // repositories/payment.repository.ts  -  60 LOC
 composition:
   - when_combined_with: nextjs-app-router
     additional_phases:

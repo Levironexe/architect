@@ -287,5 +287,28 @@ anti_patterns:
       // server/api/users.ts
       const config = useRuntimeConfig();
       const dbUrl = config.dbUrl; // typed, validated at startup, overridable
+  - id: alert_for_errors
+    severity: warning
+    description: "Using window.alert() or alert() to display errors to the user. Alert blocks the UI thread, cannot be styled, and is impossible to test. Use toast notifications or inline error messages."
+    bad_example: |
+      // pages/users.vue
+      const handleSubmit = async () => {
+        try { await createUser(data); }
+        catch (e) { alert(e.message); }
+      };
+    good_example: |
+      const handleSubmit = async () => {
+        try { await createUser(data); }
+        catch (e) { error.value = e.message; }
+      };
+  - id: oversized_extraction
+    severity: warning
+    description: "A component was extracted but is still 300+ LOC. Split further into focused sub-components."
+    bad_example: |
+      <!-- components/AdminPanel.vue  -  500 LOC -->
+      <template><!-- tabs, forms, tables all in one --></template>
+    good_example: |
+      <!-- components/admin/AdminPanel.vue  -  80 LOC -->
+      <template><UsersTab /><AuditTab /><SettingsTab /></template>
 
 ---

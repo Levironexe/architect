@@ -2,6 +2,28 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## 0.7.7
+
+### Added
+
+- **31 new anti-patterns across 34 skills** — addresses gaps found during real refactoring audits:
+  - `oversized_extraction` added to all 12 stack skills + 4 data layer patterns — flags extracted modules that are still 300+ LOC (moved the god file, didn't split it)
+  - `alert_for_errors` added to 3 frontend stacks (Next.js, React SPA, Vue/Nuxt) — flags `alert()` usage for error display
+  - `direct_db_in_route` added to Next.js — flags Prisma calls in API route handlers (not just pages)
+  - `notification_in_model` added to Django — flags email/SMS dispatch from model methods
+  - `untested_abstractions` added to Vitest — flags new services/repos created without tests
+  - `auth_logic_in_component` / `auth_check_scattered` added to NextAuth, Clerk, Supabase Auth — flags decentralized auth checks
+  - `oversized_repository` / `oversized_model_file` added to Prisma, Drizzle, Mongoose, Supabase — flags bloated data access files
+
+### Fixed
+
+- **`architect diff` phase sort bug** — `phase-10.json` was sorting before `phase-2.json` alphabetically. Now uses numeric sort. Diff correctly compares baseline with the actual latest phase.
+- **Health score delta color** — `+25` health improvement was showing red (bad). Now correctly shows green for health score increases.
+
+### Improved
+
+- **Practical audit prompt** — `docs/AUDIT_PROMPT.md` replaced score-based audit with 7 practical engineering questions (Organization, Coupling, Consistency, Security, Error Handling, Testability, Modularity) with concrete grep/find commands and evidence-based verdicts.
+
 ## 0.7.6
 
 ### Added

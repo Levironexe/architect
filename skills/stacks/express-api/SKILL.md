@@ -259,5 +259,30 @@ anti_patterns:
       export function createUserService(db: PrismaClient) {
         return { async getUser(id: string) { return db.user.findUnique({ where: { id } }); } };
       }
+  - id: console_only_error_handling
+    severity: warning
+    description: "Using console.log or console.error as the primary error handling strategy. Errors are logged but not propagated with type information. Use domain error types and structured responses."
+    bad_example: |
+      app.post('/users', async (req, res) => {
+        try { await createUser(req.body); }
+        catch (err) { console.error(err); res.status(500).json({ error: 'Internal error' }); }
+      });
+    good_example: |
+      app.post('/users', async (req, res, next) => {
+        try { const user = await createUser(req.body); res.json(user); }
+        catch (err) {
+          if (err instanceof AppError) return res.status(err.statusCode).json({ error: err.code, message: err.message });
+          next(err);
+        }
+      });
+  - id: oversized_extraction
+    severity: warning
+    description: "A module was extracted from a route but is still 300+ LOC. Split into focused domain-specific services."
+    bad_example: |
+      // services/app.service.ts  -  500 LOC  -  handles users, orders, payments, notifications
+    good_example: |
+      // services/user.service.ts  -  80 LOC
+      // services/order.service.ts  -  120 LOC
+      // services/notification.service.ts  -  60 LOC
 
 ---

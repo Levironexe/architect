@@ -20,9 +20,15 @@ export function renderDiffReport(metrics: DiffMetric[], options: { color?: boole
     const afterStr = formatValue(metric.after, metric.unit);
     const deltaStr = formatDelta(metric.delta, metric.unit);
 
-    const coloredDelta = metric.delta < 0
+    const isImprovement = metric.higherIsBetter
+      ? metric.delta > 0
+      : metric.delta < 0;
+    const isRegression = metric.higherIsBetter
+      ? metric.delta < 0
+      : metric.delta > 0;
+    const coloredDelta = isImprovement
       ? chalk.green(deltaStr)
-      : metric.delta > 0
+      : isRegression
         ? chalk.red(deltaStr)
         : chalk.gray(deltaStr);
 

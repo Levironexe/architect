@@ -210,5 +210,13 @@ anti_patterns:
           async with httpx.AsyncClient() as client:
               response = await client.get(f"https://api.weather.com/{city}")
           return response.json()
+  - id: oversized_extraction
+    severity: warning
+    description: "A module was extracted from a router but is still 300+ LOC. Split into focused domain-specific services."
+    bad_example: |
+      # services/user_service.py  -  400 LOC  -  auth, profile, billing, notifications
+    good_example: |
+      # services/user_service.py  -  80 LOC  -  user CRUD only
+      # services/auth_service.py  -  60 LOC  -  authentication only
 
 ---

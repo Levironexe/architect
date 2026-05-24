@@ -293,5 +293,32 @@ anti_patterns:
       # settings.py — reads from environment
       SECRET_KEY = env('DJANGO_SECRET_KEY')  # fails loudly if missing
       DATABASES = { 'default': env.db('DATABASE_URL') }
+  - id: notification_in_model
+    severity: warning
+    description: "Sending emails, SMS, or push notifications from model methods or signal handlers instead of from service functions. Model methods should be pure data operations. Side effects like notifications belong in the service layer where they can be tested, mocked, and controlled."
+    bad_example: |
+      # models.py  -  wrong: email in model method
+      class Appointment(models.Model):
+          def confirm(self):
+              self.status = 'confirmed'
+              self.save()
+              send_mail('Appointment Confirmed', ..., [self.patient.email])
+    good_example: |
+      # services.py  -  correct: service handles side effects
+      def confirm_appointment(*, appointment_id: int) -> Appointment:
+          appointment = Appointment.objects.get(id=appointment_id)
+          appointment.status = 'confirmed'
+          appointment.save(update_fields=['status'])
+          notification_service.send_confirmation(appointment)
+          return appointment
+  - id: oversized_extraction
+    severity: warning
+    description: "A module was extracted from a view or model but is still 300+ LOC. A services.py with 15 functions spanning billing, notifications, and scheduling should be split into domain-specific service modules."
+    bad_example: |
+      # services.py  -  500 LOC  -  handles appointments, billing, notifications, reporting
+    good_example: |
+      # services/appointment.py  -  120 LOC  -  booking lifecycle only
+      # services/billing.py  -  80 LOC  -  invoicing only
+      # services/notification.py  -  60 LOC  -  email/sms dispatch only
 
 ---
