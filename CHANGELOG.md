@@ -2,6 +2,26 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## 0.7.6
+
+### Added
+
+- **`architect scan --summary`** — compact output showing only health score, critical/warning issues, and one-line metrics. Useful for large projects where full scan floods the terminal.
+
+### Fixed
+
+- **Stack detector priority bug** — `react-spa` was incorrectly winning over `nextjs-app-router` despite lower score. Sort now correctly orders: stack → pattern → meta. Projects with `next.config` + `app/` directory now correctly detect as Next.js App Router.
+- **`state.json` health tracking** — refactor skill template now has stronger instructions to read `health_score` from the actual scan file instead of estimating. Includes concrete example and CRITICAL label.
+
+### Improved
+
+- **Refactor skill execution quality** — added 3 new post-phase quality gates:
+  - *Extraction completeness*: greps for extracted functions in original location, deletes if still there
+  - *Abstraction adoption*: verifies new abstractions (NotificationService, PaymentGateway) have at least one caller
+  - *Signal replacement*: verifies signals.py no longer contains business logic after cleanup phase
+- **Anti-regression rules** — refactor skill now refuses to mark steps complete if: original method still exists after extraction, signals still contain business logic, or abstractions are created but unused
+- **Plan-completion audit** — refactor skill re-reads every phase Goal at the end and surfaces any unmet promises as known gaps
+
 ## 0.7.5
 
 ### Fixed

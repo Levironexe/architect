@@ -152,18 +152,35 @@ Also enumerate from the pre-flight checks in step 1:
 ### 4b. Score the architecture
 
 After identifying all problems, write a brief architectural assessment at the top of the plan.
-Rate each dimension 1-5 and give an overall score:
+Rate each of the 9 engineering principles 1-5 and give an overall score:
 
-- **Separation of concerns**: Are responsibilities split correctly across files/layers?
-- **Dependency direction**: Do dependencies flow inward (domain ← app ← infra ← API)?
-- **Abstraction quality**: Are there proper interfaces, repositories, services  -  or is everything
-  concrete and tightly coupled?
-- **Security posture**: Hardcoded secrets, weak crypto, missing auth guards?
-- **Code organization**: God files, flat structure, naming inconsistencies?
+- **Separation of Concerns**: Are responsibilities split correctly? Do views/routes contain only
+  HTTP handling, or do they also have DB queries, email sending, business logic?
+- **SOLID Principles**: Single Responsibility per class? Open-Closed (extend not modify)?
+  Dependency Inversion (depend on abstractions, not concretions)?
+- **Layered Architecture**: Does data flow follow the stack's layer hierarchy (e.g.,
+  Route → Controller → Service → Model)? Are layers skipped? Any reverse-direction imports?
+- **DRY**: Is logic duplicated across files? Are there copy-paste patterns, duplicate utility
+  functions, or contradictory implementations of the same business rule?
+- **Security Patterns**: Secrets from environment only? Auth guards on routes? Input validated?
+  No weak crypto?
+- **Error Handling**: Domain-specific exceptions? No bare except/catch blocks? No swallowed
+  errors? Typed error responses?
+- **API Contracts**: Clean DTOs/serializers for input/output? Typed responses? Consistent
+  error format?
+- **Testability**: Do services accept plain data (not HTTP request objects)? Are layers
+  independently testable? Is dependency injection used?
+- **Config Management**: Centralized config module? Environment validated at startup?
+  No scattered process.env/os.environ reads across app code?
 
 Rate overall architecture 1-10 and explain the single biggest structural risk. This assessment
 helps the developer understand why the refactoring matters  -  especially when the static scan
 score is high but the architecture is poor.
+
+Cross-reference your manual assessment with the static scan dimensions. The scan measures
+separation, layered architecture, error handling, config management, API contracts, and
+testability automatically. If the scan score for a dimension is high but you found problems,
+explain why  -  the scan uses pattern matching and may miss nuanced violations.
 
 ### 5. Write `.architect/plan.md`
 
@@ -208,15 +225,54 @@ Stack: <detected stack id>
   route/controller to a thin HTTP handler that delegates to the service. Follow the data flow
   direction specified above
 - Collect all destructive steps (deleting dead code, removing duplicates, removing deprecated
-  patterns) into a dedicated final phase labeled "Cleanup: Remove Dead Code." Do not embed
-  deletions inside constructive phases  -  deletions produce absence, which is easy for an agent to
-  skip when surrounded by creation steps
+  patterns, deleting superseded directories) into the mandatory cleanup phase at the end.
+  Do not embed deletions inside constructive phases  -  deletions produce absence, which is easy
+  for an agent to skip when surrounded by creation steps
 - **Every file listed in "Largest files" that is OVERSIZED must appear in at least one phase.**
   Do not close the plan while any oversized file from that list is unaddressed. If a file is too
   risky to touch early, schedule it in a later phase — but it must be scheduled.
 - When a phase consolidates types into a single file (e.g., `types/index.ts`), add a follow-up
   step or phase to split it into domain-specific files if it exceeds 200 LOC after consolidation.
   Barrel-export from `index.ts` so consumers need no import changes.
+
+**Principle-driven phases** (mandatory):
+After writing your structural phases, review your 9-principle assessment from step 4b. For each
+principle you rated 3 or below, the plan MUST include a dedicated phase to address it. Use the
+stack skill's guidance as the blueprint for what "good" looks like. Map each weak principle to
+concrete steps:
+
+- **Separation of Concerns ≤ 3**: Create a phase to move DB queries out of views into
+  selectors/repositories, move side effects (email, payment, notifications) into services
+- **SOLID ≤ 3**: Create a phase to split god classes, extract interfaces for external
+  dependencies, replace long if/elif chains with strategy pattern
+- **Layered Architecture ≤ 3**: Create a phase to fix import direction violations  -  views
+  must not import models directly when a service layer exists
+- **DRY ≤ 3**: Create a phase to extract duplicate logic into shared utilities or services.
+  List every duplicate pair with file:line
+- **Security ≤ 3**: Create a phase to externalize secrets, add auth guards, replace weak
+  crypto, add input validation
+- **Error Handling ≤ 3**: Create a phase to add domain exception classes, replace bare
+  except/catch with specific exceptions, add error response formatting
+- **API Contracts ≤ 3**: Create a phase to add input/output serializers or DTOs to every
+  route handler, separate request validation from response shaping
+- **Testability ≤ 3**: Create a phase to remove framework coupling from services  -  services
+  must accept plain data, not request objects. Add dependency injection where needed
+- **Config Management ≤ 3**: Create a phase to centralize all env reads into a config module
+  with validation. Remove scattered process.env/os.environ reads from app code
+
+Do not skip this. If 5 principles score ≤ 3, the plan needs 5 principle phases (plus structural
+phases). The whole point is that the refactored codebase is better across ALL principles, not
+just file organization.
+
+**Cleanup phase** (mandatory, always last):
+The final phase MUST be "Cleanup: Remove Dead Code and Superseded Files." This phase deletes:
+- All files/directories that were replaced by earlier phases (e.g., old `services/` dir after
+  per-app services were created)
+- Unreferenced exports and dead code
+- Deprecated patterns
+Every deletion must be explicit  -  list the file path and confirm it is fully superseded.
+Do not leave old code alongside new code. Duplication from incomplete cleanup is the #1 cause
+of regression in refactoring scores.
 
 **Minimum**: at least 1 phase with at least 1 step. If the project already follows the
 blueprint well, write a single phase with steps for minor cleanup and note "Structure largely

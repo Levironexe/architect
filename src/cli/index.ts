@@ -31,6 +31,7 @@ type ScanCommandOptions = {
   noColor?: boolean;
   json?: boolean;
   verbose?: boolean;
+  summary?: boolean;
   threshold?: string;
   snapshot?: string;
 };
@@ -63,6 +64,7 @@ export function createProgram(
     .option('--no-color', 'Disable ANSI color output')
     .option('--json', 'Emit machine-readable JSON output')
     .option('--verbose', 'Emit detailed scan diagnostics')
+    .option('--summary', 'Emit concise summary: health score, critical issues, and key metrics only')
     .option('--threshold <values>', 'Customize thresholds, for example: loc=300,complexity=15')
     .option('--snapshot <path>', 'Save scan result as JSON snapshot to the given file path')
     .exitOverride()
@@ -218,7 +220,7 @@ export async function executeScan(directory: string | undefined, options: ScanCo
         diagnostics: result.diagnostics ?? []
       }));
     } else {
-      renderScanReport(result, { color: options.color !== false && options.noColor !== true, verbose: options.verbose === true });
+      renderScanReport(result, { color: options.color !== false && options.noColor !== true, verbose: options.verbose === true, summary: options.summary === true });
     }
     return 0;
   } catch (error) {
