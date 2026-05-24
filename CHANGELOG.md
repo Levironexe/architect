@@ -2,6 +2,17 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## 0.7.8
+
+### Added
+
+- **`architect verify` for Python, C#, and Java** — language-specific compilation checks:
+  - Python: `mypy` type check (if installed), falls back to `py_compile` syntax check
+  - C#: `dotnet build` compilation check
+  - Java: auto-detects Maven (`mvn compile`) or Gradle (`gradle compileJava`)
+  - All gracefully skip if the build tool is not installed
+- Broken import detection now correctly limited to JS/TS only (Python relative imports no longer produce false positives)
+
 ## 0.7.7
 
 ### Added
