@@ -97,36 +97,18 @@ After refactoring and writing new code, run:
 
 This re-scans the project and refreshes the skill files so your agent's analysis reflects the current state of the codebase.
 
-## What's New in v0.5.2
+## What's New in v0.7.6
 
-Architect v0.5.2 adds multi-language scanning support:
+- **`architect scan --summary`** — compact output showing only health score, critical/warning issues, and key metrics. No more terminal flooding on large projects.
+- **Stack detector fix** — Next.js App Router projects now correctly detected as primary stack instead of React SPA.
+- **Refactor skill quality gates** — post-phase checks for extraction completeness (no copy-paste extractions), abstraction adoption (unused abstractions flagged), and signal replacement verification.
+- **Plan-completion audit** — refactor skill re-reads every phase Goal at the end and surfaces any unmet promises.
 
-- **Lite scan for Python, C#, and Java** — `architect scan` now produces real metrics for all 4 supported languages: file count, LOC, duplication % (via jscpd), security findings, file-size distribution score, and health score
-- **Full scan for JS/TS unchanged** — complexity, import graph, circular deps, and dead code analysis remain JS/TS-only (AST-dependent)
-- **Language-aware security patterns** — new detections for Python (`hashlib.md5`, `pickle.loads`, `eval`), C# (`MD5.Create`, `SHA1.Create`), and Java (`MessageDigest.getInstance("MD5")`, `Runtime.exec`)
-- **Meaningful health scores** — non-JS/TS projects get real health scores based on file-size distribution (50%) + duplication (50%), instead of a meaningless 100
-- **`architect verify` adapts per language** — skips TypeScript compilation checks for non-JS/TS projects, runs scan delta comparison for all languages
-- **Scan snapshots include tier** — `scan_tier: 'lite' | 'full'` in snapshots so `architect diff` can show which analysis level was used
+### Previous releases
 
-## What's New in v0.5
-
-Architect v0.5 adds multi-language support and expands the skill library:
-
-- **4 languages supported** — JavaScript/TypeScript, Python, C#, and Java projects detected automatically via config files (package.json, pyproject.toml, requirements.txt, .csproj, pom.xml, build.gradle) or file extensions
-- **35 built-in skills** — 12 stack skills + 22 integration skills + 1 meta skill
-- **9 new language-specific integration skills** — Selenium, Playwright, and S3 patterns for Python, C#, and Java with idiomatic code examples
-- **Pattern skills as standalone primary** — test-only projects (Selenium, Playwright) get architectural guidance without needing a web framework stack
-- **Language-aware detection** — skills filtered by detected project language to prevent cross-language mismatches
-
-### What was new in v0.4
-
-- **Before/after scan metrics** — scan snapshots saved as JSON, compared with `architect diff` to prove quantitative improvement
-- **Phase tracking + resume** — `.architect/state.json` tracks which phases are done; `/architect-refactor` can resume after interruption
-- **Post-phase verification** — `architect verify` checks compilation, import resolution, and health score after each phase
-- **Service layer extraction** — plans now include a dedicated phase for extracting business logic from routes into service files
-- **Security anti-pattern flags** — scans detect hardcoded secrets, weak JWT fallbacks, missing auth middleware, and other common mistakes
-- **Dead code detection** — scans identify unreferenced files and exports for cleanup
-- **Integration skill composition** — when multiple skills match (e.g. Next.js + Prisma), composition rules generate integration-specific phases
+- **v0.7.0** — Full scan for Python, C#, and Java via tree-sitter WASM. Import-based dependency graphs and circular dependency detection for all languages.
+- **v0.5** — Multi-language support (JS/TS, Python, C#, Java). 35 built-in skills (12 stacks + 22 integrations + 1 meta). Integration skill composition.
+- **v0.4** — Before/after scan metrics, phase tracking with resume, post-phase verification, service layer extraction, security anti-pattern flags, dead code detection.
 
 ## Next Steps
 

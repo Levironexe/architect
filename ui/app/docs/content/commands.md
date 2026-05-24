@@ -53,6 +53,7 @@ architect scan . --threshold loc=400,complexity=20
 
 | Flag | Type | Description |
 |------|------|-------------|
+| `--summary` | boolean | Compact output: health score, critical/warning issues, and key metrics only |
 | `--json` | boolean | Emit machine-readable JSON instead of the terminal report |
 | `--verbose` | boolean | Include detailed scan diagnostics |
 | `--threshold <values>` | string | Override default thresholds, e.g. `loc=300,complexity=15` |
