@@ -37,6 +37,7 @@ export interface DiffMetric {
   after: number | string;
   delta: number;
   unit?: string;
+  higherIsBetter?: boolean;
 }
 
 export interface VerifyResult {

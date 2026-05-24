@@ -31,6 +31,18 @@ export function ProblemStatement() {
       architect: true
     },
     {
+      feature: "Stack-specific best practices",
+      sonar: false,
+      customRules: false,
+      architect: true
+    },
+    {
+      feature: "Anti-pattern detection with fix examples",
+      sonar: false,
+      customRules: false,
+      architect: true
+    },
+    {
       feature: "Auto-generated assistant instructions",
       sonar: false,
       customRules: false,

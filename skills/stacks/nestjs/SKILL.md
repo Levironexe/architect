@@ -178,5 +178,19 @@ anti_patterns:
         constructor(private config: ConfigService) {}
         private get secret() { return this.config.getOrThrow<string>('JWT_SECRET'); }
       }
+  - id: oversized_extraction
+    severity: warning
+    description: "A service or controller was extracted but is still 300+ LOC. NestJS services should focus on a single domain. Use dependency injection to compose smaller services."
+    bad_example: |
+      @Injectable()
+      export class AppService {
+        // 500 LOC handling users, orders, payments, notifications
+      }
+    good_example: |
+      @Injectable()
+      export class OrderService {
+        constructor(private payment: PaymentService, private notify: NotificationService) {}
+        // 100 LOC  -  order lifecycle only
+      }
 
 ---

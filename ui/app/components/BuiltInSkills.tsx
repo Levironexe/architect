@@ -164,7 +164,7 @@ export function BuiltInSkills() {
         </div>
 
         <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div id="supported-agents" className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <span className="text-xs font-bold uppercase tracking-widest text-muted shrink-0">
               Compatible with
             </span>

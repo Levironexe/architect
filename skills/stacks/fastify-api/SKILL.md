@@ -299,5 +299,13 @@ anti_patterns:
       fastify.get('/users', async () => {
         const db = new Pool({ connectionString: config.DATABASE_URL }); // guaranteed string
       });
+  - id: oversized_extraction
+    severity: warning
+    description: "A module was extracted from a handler but is still 300+ LOC. Split into focused sub-modules by domain."
+    bad_example: |
+      // services/order.service.ts  -  400 LOC  -  orders, payments, inventory, notifications
+    good_example: |
+      // services/order.service.ts  -  100 LOC  -  order lifecycle only
+      // services/payment.service.ts  -  80 LOC
 
 ---

@@ -330,5 +330,13 @@ anti_patterns:
       // tests/unit/services/product.service.test.ts — one module
       // tests/unit/middleware/auth.test.ts — one module
       // tests/unit/utils/date.test.ts — one module
+  - id: untested_abstractions
+    severity: warning
+    description: "New service functions, repositories, or utility modules are created during refactoring but no corresponding test files are added. Every new abstraction should have at least one test verifying its primary behavior."
+    bad_example: |
+      // lib/services/billing.service.ts  -  new file, 15 functions, 0 tests
+    good_example: |
+      // lib/services/billing.service.ts  -  15 functions
+      // __tests__/lib/services/billing.service.test.ts  -  tests for createInvoice, markPaid, calculateFees
 
 ---

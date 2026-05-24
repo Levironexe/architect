@@ -97,19 +97,6 @@ After refactoring and writing new code, run:
 
 This re-scans the project and refreshes the skill files so your agent's analysis reflects the current state of the codebase.
 
-## What's New in v0.7.6
-
-- **`architect scan --summary`** — compact output showing only health score, critical/warning issues, and key metrics. No more terminal flooding on large projects.
-- **Stack detector fix** — Next.js App Router projects now correctly detected as primary stack instead of React SPA.
-- **Refactor skill quality gates** — post-phase checks for extraction completeness (no copy-paste extractions), abstraction adoption (unused abstractions flagged), and signal replacement verification.
-- **Plan-completion audit** — refactor skill re-reads every phase Goal at the end and surfaces any unmet promises.
-
-### Previous releases
-
-- **v0.7.0** — Full scan for Python, C#, and Java via tree-sitter WASM. Import-based dependency graphs and circular dependency detection for all languages.
-- **v0.5** — Multi-language support (JS/TS, Python, C#, Java). 35 built-in skills (12 stacks + 22 integrations + 1 meta). Integration skill composition.
-- **v0.4** — Before/after scan metrics, phase tracking with resume, post-phase verification, service layer extraction, security anti-pattern flags, dead code detection.
-
 ## Next Steps
 
 - [Commands](/docs/commands) — full CLI reference with all flags and examples

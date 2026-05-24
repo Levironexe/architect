@@ -297,5 +297,16 @@ anti_patterns:
         FOR ALL
         USING (auth.uid() = user_id)
         WITH CHECK (auth.uid() = user_id);
+  - id: auth_check_scattered
+    severity: warning
+    description: "Calling supabase.auth.getUser() independently in every server action or API route instead of centralizing in middleware. Leads to inconsistent auth enforcement."
+    bad_example: |
+      // actions/create-post.ts
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      // repeated in every action
+    good_example: |
+      // middleware.ts  -  centralized refresh + redirect
+      // lib/auth.ts  -  shared getAuthUser() helper used by all actions
 
 ---

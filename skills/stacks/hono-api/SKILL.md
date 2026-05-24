@@ -241,5 +241,13 @@ anti_patterns:
       app.get('/health', (c) => {
         return c.json({ db: config.DATABASE_URL ? 'connected' : 'missing' });
       });
+  - id: oversized_extraction
+    severity: warning
+    description: "A module was extracted from a handler but is still 300+ LOC. Split into focused sub-modules."
+    bad_example: |
+      // services/user.service.ts  -  400 LOC  -  auth, profile, billing, notifications
+    good_example: |
+      // services/user.service.ts  -  80 LOC  -  user CRUD only
+      // services/auth.service.ts  -  60 LOC
 
 ---

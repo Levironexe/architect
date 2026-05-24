@@ -307,6 +307,20 @@ anti_patterns:
       adapter: PrismaAdapter(prisma),
       session: { strategy: 'database' },
       //  -  OR  -  remove the adapter entirely for JWT-only sessions (no DB table needed)
+  - id: auth_logic_in_component
+    severity: warning
+    description: "Authentication checks or session access logic scattered across individual components instead of centralized in middleware or a shared auth utility. Each component independently calls getServerSession, leading to inconsistent auth handling."
+    bad_example: |
+      // app/dashboard/page.tsx
+      export default async function Dashboard() {
+        const session = await getServerSession(authOptions);
+        if (!session) redirect('/login');
+        // ... repeated in every protected page
+      }
+    good_example: |
+      // middleware.ts  -  centralized auth
+      export { default } from 'next-auth/middleware';
+      export const config = { matcher: ['/dashboard/:path*', '/admin/:path*'] };
 composition:
   - when_combined_with: nextjs-app-router
     additional_phases:

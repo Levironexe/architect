@@ -263,5 +263,29 @@ anti_patterns:
       // everywhere else:
       import { env } from '@/config/env';
       fetch(`${env.VITE_API_URL}/users`);
+  - id: alert_for_errors
+    severity: warning
+    description: "Using window.alert() or alert() to display errors to the user. Alert blocks the UI thread, cannot be styled, provides no actionable context, and is impossible to test. Use toast notifications or inline error messages instead."
+    bad_example: |
+      const handleSubmit = async () => {
+        const result = await createUser(data);
+        if (!result.success) alert(result.error);
+      };
+    good_example: |
+      const handleSubmit = async () => {
+        const result = await createUser(data);
+        if (!result.success) setError(result.error);
+      };
+  - id: oversized_extraction
+    severity: warning
+    description: "A component or module was extracted but the extracted file is still 300+ LOC. This just moved the god file. After extraction, split further into focused sub-components under 200 LOC each."
+    bad_example: |
+      // components/dashboard.tsx  -  500 LOC  -  just moved from pages/
+      export function Dashboard() { /* 500 lines of everything */ }
+    good_example: |
+      // components/dashboard/index.tsx  -  80 LOC orchestrator
+      export function Dashboard() {
+        return <><StatsCards /><RecentActivity /><Charts /></>;
+      }
 
 ---

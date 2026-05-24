@@ -367,5 +367,13 @@ anti_patterns:
       const EmailSchema = z.string().email();
       const email = EmailSchema.parse(req.query.email); // rejects non-string input
       const user = await User.findOne({ email });
+  - id: oversized_model_file
+    severity: warning
+    description: "A model file contains 300+ LOC mixing schema definition, static methods, instance methods, and query helpers. Split statics and complex queries into a separate service or repository."
+    bad_example: |
+      // models/Order.ts  -  500 LOC  -  schema + 20 static methods + virtual fields + hooks
+    good_example: |
+      // models/Order.ts  -  80 LOC  -  schema, virtuals, hooks only
+      // services/order.service.ts  -  120 LOC  -  business logic and complex queries
 
 ---

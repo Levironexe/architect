@@ -338,5 +338,60 @@ anti_patterns:
       export const serverConfig = serverSchema.parse(process.env);
       // everywhere else:
       import { serverConfig } from '@/lib/config';
+  - id: direct_db_in_route
+    severity: critical
+    description: "Database queries or ORM calls are made directly inside API route handlers (route.ts) instead of delegating to service/lib functions. This scatters data-access logic, makes routes untestable, and duplicates queries across GET/POST/PUT handlers."
+    bad_example: |
+      // app/api/users/route.ts  -  wrong: prisma inside route handler
+      import { prisma } from '@/lib/db';
+      export async function GET() {
+        const users = await prisma.user.findMany({ where: { active: true } });
+        return Response.json(users);
+      }
+    good_example: |
+      // app/api/users/route.ts  -  correct: delegates to lib
+      import { listActiveUsers } from '@/lib/users';
+      export async function GET() {
+        const users = await listActiveUsers();
+        return Response.json(users);
+      }
+  - id: alert_for_errors
+    severity: warning
+    description: "Using window.alert() or alert() to display errors to the user. Alert blocks the UI thread, cannot be styled, provides no actionable context, and is impossible to test. Use toast notifications or inline error messages instead."
+    bad_example: |
+      // components/user-form.tsx
+      const handleSubmit = async () => {
+        const result = await createUser(data);
+        if (!result.success) {
+          alert(result.error);  // blocks UI, not testable, ugly
+        }
+      };
+    good_example: |
+      // components/user-form.tsx
+      const handleSubmit = async () => {
+        const result = await createUser(data);
+        if (!result.success) {
+          setError(result.error);  // inline error state, testable
+          // or: toast.error(result.error);  // non-blocking notification
+        }
+      };
+  - id: oversized_extraction
+    severity: warning
+    description: "A component or module was extracted from a page to a separate file, but the extracted file is still 300+ LOC. This just moved the god file — it did not solve the modularity problem. After extraction, split further into focused sub-components."
+    bad_example: |
+      // components/admin-content.tsx  -  595 LOC  -  just moved from app/admin/page.tsx
+      'use client';
+      export function AdminContent() {
+        // 600 lines of mixed tabs, forms, tables, state management
+      }
+    good_example: |
+      // components/admin/admin-content.tsx  -  80 LOC orchestrator
+      import { UsersTab } from './users-tab';
+      import { AuditTab } from './audit-tab';
+      import { SettingsTab } from './settings-tab';
+      export function AdminContent() {
+        const [tab, setTab] = useState('users');
+        return <Tabs><UsersTab /><AuditTab /><SettingsTab /></Tabs>;
+      }
 
 ---

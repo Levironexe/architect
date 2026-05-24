@@ -332,6 +332,14 @@ anti_patterns:
       const supabase = createClient<Database>(URL, KEY);
       const { data } = await supabase.from('posts').select('id, title, created_at');
       // data: { id: string; title: string; created_at: string }[]  -  fully typed
+  - id: oversized_query_file
+    severity: warning
+    description: "A Supabase query file contains 300+ LOC spanning multiple tables. Split by domain."
+    bad_example: |
+      // lib/supabase-queries.ts  -  400 LOC  -  users, posts, comments, notifications
+    good_example: |
+      // lib/queries/users.ts  -  80 LOC
+      // lib/queries/posts.ts  -  100 LOC
 composition:
   - when_combined_with: nextjs-app-router
     additional_phases:

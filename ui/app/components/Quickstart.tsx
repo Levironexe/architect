@@ -10,7 +10,7 @@ export function Quickstart() {
             <code className="font-mono text-sm">ANTHROPIC_API_KEY</code>, no{" "}
             <code className="font-mono text-sm">OPENAI_API_KEY</code>. Architect runs local static analysis to detect your stack and generates agent-ready skill files. The coding agent you already have IS the intelligence  -  Architect gives it the right knowledge to act on.
           </p>
-          <a href="#" className="inline-flex items-center text-dark font-medium border-b border-dark pb-0.5 hover:text-muted hover:border-muted transition-colors">
+          <a href="#supported-agents" className="inline-flex items-center text-dark font-medium border-b border-dark pb-0.5 hover:text-muted hover:border-muted transition-colors">
             View supported agents
           </a>
         </div>

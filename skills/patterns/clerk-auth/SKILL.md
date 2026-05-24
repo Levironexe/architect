@@ -348,6 +348,20 @@ anti_patterns:
           publicMetadata: { plan: 'enterprise' },
         });
       }
+  - id: auth_check_in_every_page
+    severity: warning
+    description: "Calling auth() or currentUser() independently in every page instead of using middleware for route protection. Leads to inconsistent enforcement and forgotten checks on new routes."
+    bad_example: |
+      // app/dashboard/page.tsx
+      export default async function Dashboard() {
+        const { userId } = auth();
+        if (!userId) redirect('/sign-in');
+        // repeated in every page
+      }
+    good_example: |
+      // middleware.ts  -  one place for route protection
+      export default clerkMiddleware();
+      export const config = { matcher: ['/((?!.*\\..*|_next).*)', '/'] };
 composition:
   - when_combined_with: nextjs-app-router
     additional_phases:

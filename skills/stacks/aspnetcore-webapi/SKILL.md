@@ -260,5 +260,13 @@ anti_patterns:
               Status = OrderStatus.Confirmed;
           }
       }
+  - id: oversized_extraction
+    severity: warning
+    description: "A service was extracted but is still 300+ LOC. Split by domain. Use constructor injection to compose smaller, focused services."
+    bad_example: |
+      // Services/AppService.cs  -  500 LOC
+    good_example: |
+      // Services/OrderService.cs  -  120 LOC
+      // Services/NotificationService.cs  -  60 LOC
 
 ---
