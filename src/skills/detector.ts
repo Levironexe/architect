@@ -91,9 +91,9 @@ export function detectSkills(characteristics: ProjectCharacteristics, skills: Ar
     .map((skill) => scoreSkill(skill, characteristics))
     .filter((match) => match.score > 0 || (match.skill.category === 'meta' && hasLanguageSignal(characteristics)))
     .sort((left, right) => {
-      if (left.skill.category !== right.skill.category) {
-        return left.skill.category === 'meta' ? 1 : -1;
-      }
+      const categoryOrder = (cat: string) => cat === 'stack' ? 0 : cat === 'pattern' ? 1 : 2;
+      const catDiff = categoryOrder(left.skill.category) - categoryOrder(right.skill.category);
+      if (catDiff !== 0) return catDiff;
 
       return right.score - left.score || left.skill.id.localeCompare(right.skill.id);
     });

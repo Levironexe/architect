@@ -142,6 +142,7 @@ Prints a structural health report without writing any files. Includes security f
 
 ```bash
 architect scan .
+architect scan . --summary                          # health score + critical issues only
 architect scan . --json                              # machine-readable output
 architect scan . --verbose                           # include detailed diagnostics
 architect scan . --no-color                          # for CI
