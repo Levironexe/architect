@@ -12,7 +12,7 @@ export function renderVerifyReport(result: VerifyResult, options: { color?: bool
   lines.push(chalk.bold(header));
   lines.push('');
 
-  lines.push(checkLine(chalk, result.tsc_errors === 0, 'TypeScript compilation', `(${result.tsc_errors} errors)`));
+  lines.push(checkLine(chalk, result.compilation_errors === 0, result.compilation_label, `(${result.compilation_errors} errors)`));
   lines.push(checkLine(chalk, result.broken_imports.length === 0, 'Import resolution', `(${result.broken_imports.length} broken imports)`));
   lines.push(checkLine(chalk, result.new_circular_deps <= 0, 'No new circular deps', `(${result.new_circular_deps >= 0 ? '+' : ''}${result.new_circular_deps})`));
 
