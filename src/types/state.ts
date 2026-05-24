@@ -43,7 +43,9 @@ export interface DiffMetric {
 export interface VerifyResult {
   phase?: number;
   phase_name?: string;
-  tsc_errors: number;
+  language: string;
+  compilation_errors: number;
+  compilation_label: string;
   broken_imports: string[];
   new_circular_deps: number;
   duplication_delta: number;

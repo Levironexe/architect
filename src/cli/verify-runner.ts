@@ -19,10 +19,12 @@ export async function executeVerify(directory: string, options: VerifyCommandOpt
   const statePath = join(directory, '.architect', 'state.json');
 
   const detected = await detectLanguage(directory);
-  const isFullScan = detected?.config.supportsScanning === 'full';
-  const tscErrors = isFullScan ? runTscCheck(directory) : 0;
+  const langId = detected?.config.id ?? 'javascript';
+  const isJsTs = langId === 'javascript';
+
+  const { errors: compilationErrors, label: compilationLabel } = runCompilationCheck(directory, langId);
   const scanResult = await runProjectScan(directory);
-  const brokenImports = isFullScan ? findBrokenImports(directory, scanResult.files) : [];
+  const brokenImports = isJsTs ? findBrokenImports(directory, scanResult.files) : [];
   const currentSnapshot = extractSnapshot(scanResult);
 
   let baselineSnapshot: ScanSnapshot | null = null;
@@ -42,7 +44,9 @@ export async function executeVerify(directory: string, options: VerifyCommandOpt
   const result: VerifyResult = {
     phase: options.phase ? parseInt(options.phase, 10) : undefined,
     phase_name: phaseName,
-    tsc_errors: tscErrors,
+    language: langId,
+    compilation_errors: compilationErrors,
+    compilation_label: compilationLabel,
     broken_imports: brokenImports,
     new_circular_deps: baselineSnapshot
       ? currentSnapshot.circular_deps - baselineSnapshot.circular_deps
@@ -53,7 +57,7 @@ export async function executeVerify(directory: string, options: VerifyCommandOpt
     health_delta: baselineSnapshot
       ? currentSnapshot.health_score - baselineSnapshot.health_score
       : 0,
-    passed: tscErrors === 0 && brokenImports.length === 0,
+    passed: compilationErrors === 0 && brokenImports.length === 0,
   };
 
   if (options.phase && currentSnapshot.total_files > 0) {
@@ -75,6 +79,21 @@ export async function executeVerify(directory: string, options: VerifyCommandOpt
   return result.passed ? 0 : 1;
 }
 
+function runCompilationCheck(directory: string, language: string): { errors: number; label: string } {
+  switch (language) {
+    case 'javascript':
+      return { errors: runTscCheck(directory), label: 'TypeScript compilation' };
+    case 'python':
+      return runPythonCheck(directory);
+    case 'csharp':
+      return runDotnetCheck(directory);
+    case 'java':
+      return runJavaCheck(directory);
+    default:
+      return { errors: 0, label: 'Compilation (skipped — unknown language)' };
+  }
+}
+
 function runTscCheck(directory: string): number {
   try {
     execSync('npx tsc --noEmit 2>&1', { cwd: directory, encoding: 'utf-8', stdio: 'pipe' });
@@ -86,5 +105,102 @@ function runTscCheck(directory: string): number {
       return errorLines.length || 1;
     }
     return 1;
+  }
+}
+
+function runPythonCheck(directory: string): { errors: number; label: string } {
+  const python = commandExists('python3', directory) ? 'python3' : 'python';
+  if (commandExists('mypy', directory)) {
+    try {
+      execSync(`${python} -m mypy . --ignore-missing-imports --no-error-summary 2>&1`, { cwd: directory, encoding: 'utf-8', stdio: 'pipe' });
+      return { errors: 0, label: 'mypy type check' };
+    } catch (error) {
+      if (error && typeof error === 'object' && 'stdout' in error) {
+        const output = (error as { stdout: string }).stdout;
+        const errorLines = output.split('\n').filter((line) => /: error:/.test(line));
+        return { errors: errorLines.length || 1, label: 'mypy type check' };
+      }
+      return { errors: 1, label: 'mypy type check' };
+    }
+  }
+
+  try {
+    execSync(`${python} -m py_compile --help 2>&1`, { cwd: directory, encoding: 'utf-8', stdio: 'pipe' });
+    execSync(
+      `find . -name "*.py" -not -path "*/venv/*" -not -path "*/.venv/*" -not -path "*/node_modules/*" -not -path "*/__pycache__/*" -not -path "*/migrations/*" | head -500 | xargs -I{} ${python} -m py_compile {} 2>&1`,
+      { cwd: directory, encoding: 'utf-8', stdio: 'pipe' }
+    );
+    return { errors: 0, label: 'Python syntax check' };
+  } catch (error) {
+    if (error && typeof error === 'object' && 'stdout' in error) {
+      const output = (error as { stdout: string }).stdout + ((error as { stderr?: string }).stderr ?? '');
+      const errorLines = output.split('\n').filter((line) => /SyntaxError|IndentationError|TabError/.test(line));
+      return { errors: errorLines.length || 1, label: 'Python syntax check' };
+    }
+    return { errors: 1, label: 'Python syntax check' };
+  }
+}
+
+function runDotnetCheck(directory: string): { errors: number; label: string } {
+  if (!commandExists('dotnet', directory)) {
+    return { errors: 0, label: 'dotnet build (skipped — dotnet not found)' };
+  }
+  try {
+    execSync('dotnet build --no-restore --nologo -v q 2>&1', { cwd: directory, encoding: 'utf-8', stdio: 'pipe' });
+    return { errors: 0, label: 'dotnet build' };
+  } catch (error) {
+    if (error && typeof error === 'object' && 'stdout' in error) {
+      const output = (error as { stdout: string }).stdout;
+      const errorLines = output.split('\n').filter((line) => /: error CS\d+/.test(line));
+      return { errors: errorLines.length || 1, label: 'dotnet build' };
+    }
+    return { errors: 1, label: 'dotnet build' };
+  }
+}
+
+function runJavaCheck(directory: string): { errors: number; label: string } {
+  if (existsSync(join(directory, 'pom.xml'))) {
+    if (!commandExists('mvn', directory)) {
+      return { errors: 0, label: 'Maven compile (skipped — mvn not found)' };
+    }
+    try {
+      execSync('mvn compile -q 2>&1', { cwd: directory, encoding: 'utf-8', stdio: 'pipe', timeout: 120000 });
+      return { errors: 0, label: 'Maven compile' };
+    } catch (error) {
+      if (error && typeof error === 'object' && 'stdout' in error) {
+        const output = (error as { stdout: string }).stdout;
+        const errorLines = output.split('\n').filter((line) => /error:/.test(line) && !/BUILD/.test(line));
+        return { errors: errorLines.length || 1, label: 'Maven compile' };
+      }
+      return { errors: 1, label: 'Maven compile' };
+    }
+  }
+
+  if (existsSync(join(directory, 'build.gradle')) || existsSync(join(directory, 'build.gradle.kts'))) {
+    if (!commandExists('gradle', directory)) {
+      return { errors: 0, label: 'Gradle compile (skipped — gradle not found)' };
+    }
+    try {
+      execSync('gradle compileJava -q 2>&1', { cwd: directory, encoding: 'utf-8', stdio: 'pipe', timeout: 120000 });
+      return { errors: 0, label: 'Gradle compile' };
+    } catch (error) {
+      if (error && typeof error === 'object' && 'stdout' in error) {
+        const output = (error as { stdout: string }).stdout;
+        const errorLines = output.split('\n').filter((line) => /error:/.test(line));
+        return { errors: errorLines.length || 1, label: 'Gradle compile' };
+      }
+      return { errors: 1, label: 'Gradle compile' };
+    }
+  }
+
+  return { errors: 0, label: 'Java compile (skipped — no build tool found)' };
+}
+
+function commandExists(cmd: string, cwd: string): boolean {
+  try {
+    execSync(`which ${cmd} 2>/dev/null || where ${cmd} 2>nul`, { cwd, encoding: 'utf-8', stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
   }
 }
