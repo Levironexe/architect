@@ -5,9 +5,10 @@ import { analyzeDuplication } from '../analyzers/duplication.js';
 import { analyzeSecurityPatterns } from '../analyzers/security-check.js';
 import { discoverFiles, discoverSkippedInputs } from '../analyzers/file-walker.js';
 import { buildIssues, createReportGuidance } from '../scoring/issue-builder.js';
-import { calculateLiteHealthScore, clampScore } from '../scoring/health-score.js';
+import { calculateLiteHealthScore } from '../scoring/health-score.js';
 import { scoreDuplication } from '../scoring/duplication-score.js';
 import { scoreFileSizeDistribution } from '../scoring/file-size-score.js';
+import { scoreSecurityPatterns } from '../scoring/security-score.js';
 import { collectProjectCharacteristicsFromLanguage, detectSkills } from '../skills/detector.js';
 import { loadSkills } from '../skills/loader.js';
 import { compareStructure } from '../skills/structure-check.js';
@@ -93,9 +94,11 @@ export async function runLiteScan(
 
   const fileSizeScore = scoreFileSizeDistribution(files);
   const duplicationScore = scoreDuplication(duplication);
+  const securityScore = scoreSecurityPatterns(security);
   const scores = calculateLiteHealthScore(fileSizeScore, duplicationScore);
-  if (security.criticalCount > 0) {
-    scores.overall = clampScore(scores.overall - security.criticalCount * 5);
+  scores.security = securityScore;
+  if (securityScore.score < 100) {
+    scores.overall = Math.max(0, Math.min(100, Math.round(scores.overall * 0.75 + securityScore.score * 0.25)));
     scores.label = scores.overall >= 80 ? 'healthy' : scores.overall >= 50 ? 'warning' : 'critical';
   }
   result.scores = scores;

@@ -1,6 +1,6 @@
 export type ScoreLabel = 'healthy' | 'warning' | 'critical';
 export type HealthLabel = ScoreLabel | 'unavailable';
-export type ScoreDimensionId = 'modularity' | 'duplication';
+export type ScoreDimensionId = 'modularity' | 'duplication' | 'security' | 'architecture';
 
 export interface DimensionScore {
   score: number;
@@ -12,6 +12,8 @@ export interface DimensionScore {
 export interface ScoreBreakdown {
   modularity: DimensionScore;
   duplication: DimensionScore;
+  security?: DimensionScore;
+  architecture?: DimensionScore;
   overall: number;
   label: HealthLabel;
   fileSizeDistribution?: DimensionScore;

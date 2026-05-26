@@ -1,10 +1,29 @@
 import type { DimensionScore, HealthLabel, ScoreBreakdown } from '../types/scoring.js';
 
-export function calculateHealthScore(modularity: DimensionScore, duplication: DimensionScore): ScoreBreakdown {
-  const overall = clampScore(modularity.score * 0.65 + duplication.score * 0.35);
+export function calculateHealthScore(
+  modularity: DimensionScore,
+  duplication: DimensionScore,
+  security?: DimensionScore,
+  architecture?: DimensionScore
+): ScoreBreakdown {
+  let overall: number;
+
+  if (security && architecture) {
+    overall = clampScore(
+      modularity.score * 0.35
+      + duplication.score * 0.20
+      + security.score * 0.25
+      + architecture.score * 0.20
+    );
+  } else {
+    overall = clampScore(modularity.score * 0.65 + duplication.score * 0.35);
+  }
+
   return {
     modularity,
     duplication,
+    security,
+    architecture,
     overall,
     label: labelForScore(overall)
   };

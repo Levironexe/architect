@@ -2,6 +2,22 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## 0.7.9
+
+### Added
+
+- **Security and architecture dimensions in health score** — score now includes 4 dimensions:
+  - Modularity (35%): file sizes, function complexity
+  - Duplication (20%): jscpd duplicate detection
+  - Security (25%): hardcoded secrets, missing auth guards, weak crypto
+  - Architecture (20%): circular dependencies, severe hub files, dead code
+- **`architect verify --strict`** — fails verification on circular dep increase, duplication increase >1%, or health regression. Refactor skill template now uses `--strict` by default.
+
+### Fixed
+
+- **Test file false positives** — `password="testpass123"` in test files no longer flagged as CRITICAL. Test files (`tests/`, `__tests__/`, `*.test.*`, `*_test.*`, `conftest.py`, `factories.*`) downgraded to INFO severity for hardcoded credential patterns.
+- **Security penalty removed from ad-hoc calculation** — security now scored as a proper dimension instead of subtracting `criticalCount * 5` from the overall.
+
 ## 0.7.8
 
 ### Added
