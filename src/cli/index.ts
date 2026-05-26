@@ -155,10 +155,11 @@ export async function runCli(argv: string[]): Promise<number> {
     .description('Run post-phase verification (TypeScript check, import resolution, scan delta)')
     .argument('<directory>', 'Project directory to verify')
     .option('--phase <number>', 'Phase number (saves snapshot as phase-N)')
+    .option('--strict', 'Fail on circular dep increase, duplication increase >1%, or health regression')
     .option('--json', 'Emit machine-readable JSON output')
     .option('--no-color', 'Disable ANSI color output')
     .exitOverride()
-    .action(async (directory: string, opts: { phase?: string; json?: boolean; color?: boolean }) => {
+    .action(async (directory: string, opts: { phase?: string; strict?: boolean; json?: boolean; color?: boolean }) => {
       commandExitCode = await executeVerify(directory, opts);
     });
 

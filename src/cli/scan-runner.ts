@@ -7,9 +7,11 @@ import { discoverFiles, discoverSkippedInputs } from '../analyzers/file-walker.j
 import { analyzeFileByLanguage } from '../analyzers/language-analyzer.js';
 import { getParser } from '../analyzers/tree-sitter/init.js';
 import { buildIssues, createReportGuidance } from '../scoring/issue-builder.js';
-import { calculateHealthScore, clampScore } from '../scoring/health-score.js';
+import { calculateHealthScore } from '../scoring/health-score.js';
 import { scoreDuplication } from '../scoring/duplication-score.js';
 import { scoreModularity } from '../scoring/modularity-score.js';
+import { scoreSecurityPatterns } from '../scoring/security-score.js';
+import { scoreArchitecture } from '../scoring/architecture-score.js';
 import { collectProjectCharacteristics, collectProjectCharacteristicsFromLanguage, detectSkills } from '../skills/detector.js';
 import { loadSkills } from '../skills/loader.js';
 import { compareStructure } from '../skills/structure-check.js';
@@ -171,11 +173,10 @@ function readSourceContents(files: FileAnalysis[]): Map<string, string> {
 function attachScoresAndGuidance(result: ScanResult, files: FileAnalysis[], duplication: ScanResult['duplication'], security?: import('../types/security.js').SecuritySummary): void {
   const modularityScore = scoreModularity(files);
   const duplicationScore = scoreDuplication(duplication);
+  const securityScore = scoreSecurityPatterns(security);
+  const architectureScore = scoreArchitecture(result.dependencyGraph, result.deadCode);
 
-  const scores = calculateHealthScore(modularityScore, duplicationScore);
-  if (security && security.criticalCount > 0) {
-    scores.overall = clampScore(scores.overall - security.criticalCount * 5);
-  }
+  const scores = calculateHealthScore(modularityScore, duplicationScore, securityScore, architectureScore);
   result.scores = scores;
   result.issues = buildIssues(result);
   result.guidance = createReportGuidance(result);

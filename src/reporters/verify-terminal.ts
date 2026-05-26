@@ -41,6 +41,13 @@ export function renderVerifyReport(result: VerifyResult, options: { color?: bool
         lines.push(`  ... and ${result.broken_imports.length - 10} more`);
       }
     }
+    if (result.compilation_errors === 0 && result.broken_imports.length === 0) {
+      lines.push('');
+      lines.push('Strict mode failures:');
+      if (result.new_circular_deps > 0) lines.push(`  ${chalk.red('→')} New circular dependencies introduced (+${result.new_circular_deps})`);
+      if (result.duplication_delta > 1) lines.push(`  ${chalk.red('→')} Duplication increased by ${result.duplication_delta}%`);
+      if (result.health_delta < 0) lines.push(`  ${chalk.red('→')} Health score regressed (${result.health_delta})`);
+    }
   }
 
   lines.push('');

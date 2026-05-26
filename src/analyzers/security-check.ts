@@ -33,12 +33,18 @@ export function analyzeSecurityPatterns(files: FileAnalysis[], sourceContents: M
 
     const lines = content.split('\n');
     const isPasswordRelated = /password|credential|auth|hash/i.test(file.relativePath);
+    const isTestFile = /(?:^|\/)(?:tests?|__tests?__|spec|fixtures|factories|conftest|test_|_test\.)/.test(file.relativePath)
+      || /\.(?:test|spec)\.[jt]sx?$/.test(file.relativePath);
 
     scanLines(lines, file.relativePath, HARDCODED_SECRET_PATTERN, findings, {
-      severity: 'critical',
+      severity: isTestFile ? 'info' : 'critical',
       check: 'hardcoded_secret',
-      message: 'Hardcoded secret or API key detected.',
-      suggestion: 'Move to environment variable and read from a centralized config module.'
+      message: isTestFile
+        ? 'Hardcoded credential in test file (acceptable for test fixtures, flag if using real secrets).'
+        : 'Hardcoded secret or API key detected.',
+      suggestion: isTestFile
+        ? 'Verify this is a test-only value, not a real credential.'
+        : 'Move to environment variable and read from a centralized config module.'
     });
 
     scanLines(lines, file.relativePath, WEAK_JWT_FALLBACK_PATTERN, findings, {

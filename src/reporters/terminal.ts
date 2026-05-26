@@ -247,6 +247,12 @@ function renderHealthReport(result: ScanResult): void {
   process.stdout.write(`- Dimensions:\n`);
   process.stdout.write(`  - modularity: ${scores.modularity.score} ${scores.modularity.label} - ${scores.modularity.reasons.join('; ')}\n`);
   process.stdout.write(`  - duplication: ${scores.duplication.score} ${scores.duplication.label} - ${scores.duplication.reasons.join('; ')}\n`);
+  if (scores.security) {
+    process.stdout.write(`  - security: ${scores.security.score} ${scores.security.label} - ${scores.security.reasons.join('; ')}\n`);
+  }
+  if (scores.architecture) {
+    process.stdout.write(`  - architecture: ${scores.architecture.score} ${scores.architecture.label} - ${scores.architecture.reasons.join('; ')}\n`);
+  }
 }
 
 function renderIssues(result: ScanResult): void {

@@ -92,7 +92,7 @@ with the next step.
 
 **MANDATORY**: Run verification after every phase  -  no exceptions. Do not skip this step.
 ```
-architect verify . --phase N
+architect verify . --phase N --strict
 ```
 (Replace N with the current phase number.)
 
@@ -242,7 +242,7 @@ Before declaring the refactoring done, verify these invariants:
 - Do not modify files outside the scope of the current step
 - Do not change business logic while moving files  -  the goal is structural change only
 - Do not proceed to Phase N+1 automatically  -  always wait for the developer's yes/no
-- Do not skip `architect verify . --phase N` after ANY phase  -  this is mandatory, not optional
+- Do not skip `architect verify . --phase N --strict` after ANY phase  -  this is mandatory, not optional
 - Do not create snapshots with custom filenames (e.g., `final.json`, `after.json`)  -  only
   `architect verify --phase N` or `architect verify --phase extra-N` creates snapshots
 - Do not make ANY changes after the final phase without proposing them to the developer first
