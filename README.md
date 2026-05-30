@@ -1,10 +1,10 @@
 <div align="center">
   <h1>🏛️ Architect</h1>
-  <h3><em>Fix vibe-coded projects without breaking them.</em></h3>
+  <h3><em>Know exactly what's wrong with your codebase. Fix it without breaking it.</em></h3>
 </div>
 
 <p align="center">
-  <strong>A CLI tool that scans your codebase, detects its architecture pattern, and installs agent skills that guide your coding agent through a safe, phased refactoring. Supports JavaScript/TypeScript, Python, C#, and Java projects.</strong>
+  <strong>An architectural health scanner for JS/TS, Python, C#, and Java projects. Find god files, hardcoded secrets, circular dependencies, and structural debt — then let your coding agent fix them with a stack-specific refactoring plan.</strong>
 </p>
 
 <p align="center">
@@ -16,71 +16,106 @@
 
 ---
 
-## What problem does it solve?
+## See how your project scores in 5 seconds
 
-Vibe coding is fast. Cleanup is hard.
+```bash
+npx @levironexe/architect scan .
+```
 
-When you ship quickly with an AI agent — or inherit a fast-moving codebase — you often end up with god files, wrong folder structure, and risky refactors where you don't know what moving something will break.
+No install. No config. No API keys. Just a health score across 4 dimensions:
 
-Architect fixes this by giving your coding agent a precise, stack-specific architectural blueprint and a structured way to execute refactors safely. No LLM API keys. No cloud. Just a local CLI that hands off to the agent already open in your editor.
+```
+Health score: 51 warning
+  - modularity:    38 critical  - 6 oversized file(s); 15 oversized function(s)
+  - duplication:    65 warning   - 13.0% duplication
+  - security:       20 critical  - 5 hardcoded secrets; 8 unguarded routes
+  - architecture: 100 healthy   - No circular deps
+```
+
+Want to fix what it found? Keep reading.
 
 ---
 
 ## Quick Start
 
 ```bash
-# 1. Install
-npm install -g @levironexe/architect
+# 1. Scan — see what's wrong (no install needed)
+npx @levironexe/architect scan .
 
-# 2. Scan your project and install agent skills
-cd your-project
+# 2. Install and set up agent skills
+npm install -g @levironexe/architect
 architect init .
 
-# 3. In your agent (Claude Code, Cursor, etc.), generate a plan
+# 3. In your coding agent (Claude Code, Cursor, etc.), generate a refactoring plan
 /architect-plan
 
-# 4. Execute the plan phase by phase
+# 4. Execute the plan phase by phase with verification
 /architect-refactor
 
 # 5. After writing more code, refresh the skills
 /architect-catchup
 ```
 
+**Step 1 works standalone.** You don't need an agent, an install, or any configuration. Use it in CI, in code reviews, or just to understand a new codebase.
+
+**Steps 2-5 are the full workflow.** When you're ready to actually fix the problems, Architect installs stack-specific skills into your coding agent and guides it through a safe, phased refactoring.
+
+---
+
+## What does the scan measure?
+
+| Dimension | Weight | What it catches |
+|-----------|--------|-----------------|
+| **Modularity** | 35% | God files (>300 LOC), oversized functions, high complexity |
+| **Security** | 25% | Hardcoded secrets, missing auth guards, weak crypto |
+| **Duplication** | 20% | Copy-pasted code blocks across files |
+| **Architecture** | 20% | Circular dependencies, severe hub files, dead code |
+
+The scan works for **JavaScript/TypeScript, Python, C#, and Java** projects. JS/TS gets full AST analysis (complexity, imports, circular deps). Python, C#, and Java get tree-sitter-based analysis.
+
+---
+
+## What problem does it solve?
+
+Every prompt your AI agent writes is correct. But after 20 prompts, the project is a mess.
+
+Each prompt was reasonable. Each response was good code. But nobody was watching the architecture. Business logic leaked into pages. The same helper lives in 4 files. A 700-line file holds validation, data fetching, state management, and UI.
+
+**The code works. Nobody wants to touch it.**
+
+Architect fixes this in two ways:
+1. **`architect scan`** — shows you exactly what's wrong, with file paths and line numbers
+2. **`architect init` + agent skills** — gives your coding agent a stack-specific blueprint so it knows where code belongs and how to move it safely
+
 ---
 
 ## How It Works
 
+### 1. Scan (standalone — no agent needed)
+
+```
+architect scan .
+      │
+      ├─ Detects language     → JS/TS, Python, C#, or Java
+      ├─ Analyzes files       → LOC, complexity, imports, duplication, security
+      ├─ Scores 4 dimensions  → modularity, security, duplication, architecture
+      └─ Reports findings     → god files, hardcoded secrets, circular deps, dead code
+```
+
+Use `--summary` for a compact view. Use `--json` for CI integration.
+
+### 2. Init + Agent Workflow (when you want to fix things)
+
 ```
 architect init .
       │
-      ├─ Detects language            → JS/TS, Python, C#, or Java (via config files or extensions)
-      ├─ Scans your project         → LOC, duplication, security (all languages)
-      │                               + complexity, imports, dead code (JS/TS)
-      ├─ Detects your stack         → express-api / django / aspnetcore-webapi / fastapi / …
-      ├─ Detects integration skills → prisma + clerk + selenium-e2e + s3-storage (auto-composed)
-      └─ Writes skill files         → /architect-plan, /architect-refactor, /architect-catchup
+      ├─ Detects your stack         → express-api / django / nextjs-app-router / …
+      ├─ Detects integration skills → prisma + clerk + playwright + s3 (auto-composed)
+      └─ Writes 3 skill files       → /architect-plan, /architect-refactor, /architect-catchup
 
-/architect-plan
-      │
-      ├─ Reads your codebase + fetches the architecture blueprint
-      ├─ Writes .architect/plan.md  → phased roadmap, each step has What / Why / Imports
-      ├─ Saves baseline snapshot    → .architect/scans/baseline.json
-      └─ Creates state tracking     → .architect/state.json (all phases: pending)
-
-/architect-refactor
-      │
-      ├─ Reads state.json to resume where you left off
-      ├─ Executes one phase at a time
-      ├─ Announces every move before touching a file
-      ├─ Runs `architect verify` after each phase (tsc + imports + health delta)
-      ├─ Updates state.json with completion status
-      └─ Pauses after each phase for your approval
-
-/architect-catchup
-      │
-      ├─ Re-scans the project
-      ├─ Overwrites skill files with fresh data
-      └─ Shows before/after scan comparison via `architect diff`
+/architect-plan → reads codebase + blueprint → writes phased roadmap + baseline snapshot
+/architect-refactor → executes plan phase by phase → verifies each phase with `--strict`
+/architect-catchup → re-scans + refreshes skills after new code
 ```
 
 ---
@@ -171,11 +206,17 @@ architect status . --json     # machine-readable output
 
 ### `architect verify <directory>`
 
-Runs post-phase verification: compilation check (JS/TS), broken import detection (JS/TS), and scan delta comparison (all languages). Exit code 0 = passed, 1 = failed.
+Runs post-phase verification with language-aware compilation checks. Exit code 0 = passed, 1 = failed.
+
+- **JS/TS**: TypeScript compilation (`tsc --noEmit`) + import resolution
+- **Python**: `mypy` type check (if installed), falls back to `py_compile` syntax check
+- **C#**: `dotnet build` compilation check
+- **Java**: auto-detects Maven (`mvn compile`) or Gradle (`gradle compileJava`)
 
 ```bash
 architect verify .              # run full verification suite
 architect verify . --phase 3    # verify and save phase-3 snapshot
+architect verify . --strict     # also fail on circular dep increase, duplication >1%, health regression
 architect verify . --json       # machine-readable output
 ```
 
