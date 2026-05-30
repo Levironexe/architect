@@ -284,5 +284,18 @@ anti_patterns:
       // services/user.service.ts  -  80 LOC
       // services/order.service.ts  -  120 LOC
       // services/notification.service.ts  -  60 LOC
+  - id: auth_mechanism_mismatch
+    severity: critical
+    description: "Auth middleware validates tokens from one provider (e.g., JWT with a specific secret) but the login endpoint issues tokens using a different mechanism or secret. Authenticated requests will always fail."
+    bad_example: |
+      // login route: creates custom token
+      const token = jwt.sign(user, 'my-secret');
+      // auth middleware: verifies with different secret from env
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    good_example: |
+      // login + middleware use the same secret from config
+      import { config } from './config';
+      jwt.sign(user, config.jwtSecret);
+      jwt.verify(token, config.jwtSecret);
 
 ---

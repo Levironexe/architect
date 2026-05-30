@@ -137,7 +137,13 @@ Proceed to Phase N+1 (<next phase name>)? **yes / no**
 
 1. **Oversized files**: Read `.architect/scans/phase-N.json`. If `god_files > 0`, list them.
    If any oversized file was supposed to be split in this phase but is still >300 LOC, do NOT
-   mark the phase complete — go back and finish splitting it.
+   mark the phase complete — go back and finish splitting it. Check BOTH directions:
+   - The **source** page/file that was supposed to be split — is it still >300 LOC? If you only
+     moved code to a component without reducing the source, the split didn't happen.
+   - The **extracted** component/module — is it still >300 LOC? If the extracted file is just
+     the same god file in a new location, decompose it further into 3-5 focused sub-components
+     under 200 LOC each.
+   Relocating a 730 LOC file to a 730 LOC component is NOT splitting — it's renaming.
 2. **Duplication**: Compare `duplication_pct` from phase-N scan to baseline. If duplication
    increased by more than 1%, warn the developer and list the new duplicate blocks. Common
    cause: extracting logic to a service but leaving the original copy in the model/view.
@@ -224,7 +230,23 @@ Before declaring the refactoring done, verify these invariants:
 4. **No orphaned old directories**: If the plan created per-app services/selectors, verify the
    old top-level `services/` directory was deleted. `find . -name "*.py" -path "*/services/*"`
    should only return app-level service files, not duplicates.
-5. **Plan-completion audit**: Re-read `.architect/plan.md` from top to bottom. For each phase,
+5. **Dead code sweep**: Search for common dead code left behind during refactoring:
+   - Unused state declarations: `grep -rn "useState.*\[\])\|useState(null)\|useState(false)" src/ --include='*.tsx'`
+     — for each match, verify the state variable is actually read somewhere in the component.
+   - Duplicated utility functions: `grep -rn "function get.*Color\|function get.*Label\|function format" src/app/ --include='*.tsx'`
+     — if the same helper name appears in 2+ page files, extract to a shared utility.
+   - Console.log statements: `grep -rn "console\.log" src/ --include='*.ts' --include='*.tsx'`
+     — remove all except intentional error logging.
+   Propose removal of confirmed dead code as fixes before declaring done.
+6. **Auth consistency check**: If the refactoring added auth guards to API routes (e.g.,
+   `requireAuth`, `getServerSession`, `auth()`), verify that the login flow produces tokens
+   compatible with those guards. Common breakage: login stores a custom localStorage blob
+   but API guards check for Supabase/NextAuth session tokens — the two systems don't connect.
+   If the auth mechanisms are mismatched, flag it:
+   ```
+   ⚠️ Auth mismatch: Login uses <X> but API guards check <Y>. Routes will reject all requests.
+   ```
+7. **Plan-completion audit**: Re-read `.architect/plan.md` from top to bottom. For each phase,
    re-read its **Goal** field and verify the goal was actually achieved in the codebase — not
    just that steps were checked off. Checking a step off means nothing if the underlying code
    change didn't stick. For each unmet goal, output:

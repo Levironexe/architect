@@ -287,5 +287,18 @@ anti_patterns:
       export function Dashboard() {
         return <><StatsCards /><RecentActivity /><Charts /></>;
       }
+  - id: auth_mechanism_mismatch
+    severity: critical
+    description: "Login stores auth state using one mechanism (e.g., custom localStorage JSON) but API calls or route guards check a different one (e.g., httpOnly cookie, JWT from auth provider). The two systems never connect — authenticated requests fail silently."
+    bad_example: |
+      // login: stores custom blob
+      localStorage.setItem('user', JSON.stringify({ email, role }));
+      // api call: sends Authorization header from auth provider (never set!)
+      fetch('/api/data', { headers: { Authorization: `Bearer ${token}` } });
+    good_example: |
+      // login: uses the auth provider
+      const { token } = await authProvider.signIn({ email, password });
+      // api call: uses the same token
+      fetch('/api/data', { headers: { Authorization: `Bearer ${token}` } });
 
 ---

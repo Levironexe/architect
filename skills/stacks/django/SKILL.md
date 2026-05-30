@@ -320,5 +320,17 @@ anti_patterns:
       # services/appointment.py  -  120 LOC  -  booking lifecycle only
       # services/billing.py  -  80 LOC  -  invoicing only
       # services/notification.py  -  60 LOC  -  email/sms dispatch only
+  - id: auth_mechanism_mismatch
+    severity: critical
+    description: "Views check authentication using one mechanism (e.g., session auth) but the API uses a different one (e.g., token auth) without proper configuration. Or custom auth backend is registered but login view uses a different authentication path."
+    bad_example: |
+      # views.py uses TokenAuthentication
+      authentication_classes = [TokenAuthentication]
+      # but login creates session, not token
+      login(request, user)  # session auth — token never issued
+    good_example: |
+      # login issues a token that matches the view's auth class
+      token, _ = Token.objects.get_or_create(user=user)
+      return Response({'token': token.key})
 
 ---
