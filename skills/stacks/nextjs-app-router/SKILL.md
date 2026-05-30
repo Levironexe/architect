@@ -393,5 +393,23 @@ anti_patterns:
         const [tab, setTab] = useState('users');
         return <Tabs><UsersTab /><AuditTab /><SettingsTab /></Tabs>;
       }
+  - id: auth_mechanism_mismatch
+    severity: critical
+    description: "The login flow uses one auth mechanism (e.g., custom localStorage blob, manual JWT) but API route guards check a different one (e.g., Supabase session, NextAuth getServerSession). The two systems never connect — every authenticated API request will be rejected. This creates false security confidence: the guards look correct but block all real users."
+    bad_example: |
+      // login/page.tsx — stores custom blob
+      localStorage.setItem('user', JSON.stringify({ email, role }));
+      
+      // api/route.ts — checks Supabase token (never issued by login!)
+      const { data: { user } } = await supabase.auth.getUser(token);
+      if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    good_example: |
+      // login/page.tsx — uses the same auth system as the guards
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      // session stored automatically in cookie/localStorage by Supabase
+      
+      // api/route.ts — checks the same Supabase session
+      const { data: { user } } = await supabase.auth.getUser(token);
+      // works because login actually created a Supabase session
 
 ---

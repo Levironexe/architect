@@ -231,6 +231,12 @@ Stack: <detected stack id>
 - **Every file listed in "Largest files" that is OVERSIZED must appear in at least one phase.**
   Do not close the plan while any oversized file from that list is unaddressed. If a file is too
   risky to touch early, schedule it in a later phase — but it must be scheduled.
+- **When splitting an oversized file, the step MUST name the sub-components or sub-modules
+  to create**, each with a target LOC estimate. Do NOT write "extract to component" — write
+  "split into `DashboardStats` (~60 LOC), `RecentAssessments` (~80 LOC), `RevenueChart`
+  (~50 LOC), `DashboardFilters` (~40 LOC)". The agent needs concrete targets, not vague
+  instructions. If a step says "move to component" without naming sub-components, the agent
+  will create one monolithic component — which is just the god file in a new location.
 - When a phase consolidates types into a single file (e.g., `types/index.ts`), add a follow-up
   step or phase to split it into domain-specific files if it exceeds 200 LOC after consolidation.
   Barrel-export from `index.ts` so consumers need no import changes.

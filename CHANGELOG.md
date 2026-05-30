@@ -2,6 +2,19 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## 0.7.10
+
+### Added
+
+- **`auth_mechanism_mismatch` anti-pattern** (critical) — detects when login uses one auth mechanism but API guards check a different one. Added to Next.js, React SPA, Express, Django skills.
+
+### Improved
+
+- **Oversized file gate strengthened** — refactor skill now checks BOTH the source page AND the extracted component. Relocating a 730 LOC file to a 730 LOC component is explicitly called out as "renaming, not splitting."
+- **Plan requires named sub-components** — when splitting an oversized file, the plan must list concrete sub-component names with target LOC estimates. No more vague "extract to component" steps.
+- **Dead code sweep in final check** — refactor skill now greps for unused state declarations, duplicated utility functions, and leftover console.log before declaring done.
+- **Auth consistency check in final check** — refactor skill verifies that login flow produces tokens compatible with API auth guards. Flags mismatches that would cause all authenticated requests to fail.
+
 ## 0.7.9
 
 ### Added
