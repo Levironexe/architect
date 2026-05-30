@@ -314,6 +314,24 @@ saved (open `.architect/scans/baseline.json` and use the `health_score` field).
 If the `npx` command fails (e.g. architect not installed), skip this step silently  -  the
 refactor skill falls back to checkbox-based tracking.
 
+### 6b. Create a refactoring branch
+
+Before any code changes happen, create a dedicated branch so the original code stays intact on
+the current branch. This lets the developer compare before/after and revert if needed.
+
+```bash
+git checkout -b refactor/<today's date in YYYY-MM-DD>
+```
+
+If git is not initialized or the working tree is dirty, commit or stash first:
+```bash
+git add -A && git commit -m "chore: snapshot before architect refactoring"
+git checkout -b refactor/<today's date in YYYY-MM-DD>
+```
+
+If branch creation fails (not a git repo, permissions, etc.), skip silently and continue  -
+the refactoring still works without version control, it just loses the safety net.
+
 ### 7. Report to the developer
 
 After writing the plan, summarize in the chat:
