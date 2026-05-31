@@ -1,7 +1,8 @@
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { execSync } from 'node:child_process';
-import type { ArchitectState, ScanSnapshot, VerifyResult } from '../types/state.js';
+import type { ArchitectState, ScanSnapshot, VerifyResult, PlanCheckFailure } from '../types/state.js';
+import { extractVerifyChecks } from '../parsers/plan-parser.js';
 import { runProjectScan } from './scan-runner.js';
 import { extractSnapshot } from '../reporters/snapshot.js';
 import { findBrokenImports } from '../analyzers/dependency-graph.js';
@@ -42,6 +43,8 @@ export async function executeVerify(directory: string, options: VerifyCommandOpt
     if (phase) phaseName = phase.name;
   }
 
+  const planCheckResult = options.phase ? runPlanChecks(directory, parseInt(options.phase, 10)) : { total: 0, failed: [] };
+
   const result: VerifyResult = {
     phase: options.phase ? parseInt(options.phase, 10) : undefined,
     phase_name: phaseName,
@@ -58,8 +61,11 @@ export async function executeVerify(directory: string, options: VerifyCommandOpt
     health_delta: baselineSnapshot
       ? currentSnapshot.health_score - baselineSnapshot.health_score
       : 0,
+    plan_checks_total: planCheckResult.total,
+    plan_checks_failed: planCheckResult.failed,
     passed: compilationErrors === 0
       && brokenImports.length === 0
+      && planCheckResult.failed.length === 0
       && (!options.strict || (
         (baselineSnapshot ? currentSnapshot.circular_deps - baselineSnapshot.circular_deps : 0) <= 0
         && (baselineSnapshot ? Math.round((currentSnapshot.duplication_pct - baselineSnapshot.duplication_pct) * 10) / 10 : 0) <= 1
@@ -89,7 +95,7 @@ export async function executeVerify(directory: string, options: VerifyCommandOpt
 function runCompilationCheck(directory: string, language: string): { errors: number; label: string } {
   switch (language) {
     case 'javascript':
-      return { errors: runTscCheck(directory), label: 'TypeScript compilation' };
+      return runJsBuild(directory);
     case 'python':
       return runPythonCheck(directory);
     case 'csharp':
@@ -101,17 +107,49 @@ function runCompilationCheck(directory: string, language: string): { errors: num
   }
 }
 
+function runJsBuild(directory: string): { errors: number; label: string } {
+  const hasNodeModules = existsSync(join(directory, 'node_modules'));
+  const hasBuild = hasPkgScript(directory, 'build');
+
+  if (hasNodeModules && hasBuild) {
+    try {
+      execSync('npm run build 2>&1', { cwd: directory, encoding: 'utf-8', stdio: 'pipe', timeout: 120000 });
+      return { errors: 0, label: 'Project build (npm run build)' };
+    } catch (error) {
+      if (error && typeof error === 'object' && 'stdout' in error) {
+        const output = (error as { stdout: string }).stdout ?? '';
+        const tsErrors = output.split('\n').filter((line) => /error TS\d+/.test(line));
+        const buildErrors = output.split('\n').filter((line) => /Error:|Failed to compile/.test(line));
+        const errorCount = tsErrors.length + buildErrors.length;
+        return { errors: errorCount || 1, label: 'Project build (npm run build)' };
+      }
+      return { errors: 1, label: 'Project build (npm run build)' };
+    }
+  }
+
+  return { errors: runTscCheck(directory), label: 'TypeScript compilation' };
+}
+
 function runTscCheck(directory: string): number {
   try {
     execSync('npx tsc --noEmit 2>&1', { cwd: directory, encoding: 'utf-8', stdio: 'pipe' });
     return 0;
   } catch (error) {
     if (error && typeof error === 'object' && 'stdout' in error) {
-      const output = (error as { stdout: string }).stdout;
+      const output = (error as { stdout: string }).stdout ?? '';
       const errorLines = output.split('\n').filter((line) => /error TS\d+/.test(line));
       return errorLines.length || 1;
     }
     return 1;
+  }
+}
+
+function hasPkgScript(directory: string, script: string): boolean {
+  try {
+    const pkg = JSON.parse(readFileSync(join(directory, 'package.json'), 'utf-8')) as { scripts?: Record<string, string> };
+    return !!(pkg.scripts && pkg.scripts[script]);
+  } catch {
+    return false;
   }
 }
 
@@ -210,4 +248,37 @@ function commandExists(cmd: string, cwd: string): boolean {
   } catch {
     return false;
   }
+}
+
+function runPlanChecks(directory: string, phase: number): { total: number; failed: PlanCheckFailure[] } {
+  const planPath = join(directory, '.architect', 'plan.md');
+  if (!existsSync(planPath)) {
+    return { total: 0, failed: [] };
+  }
+
+  const planContent = readFileSync(planPath, 'utf-8');
+  const checks = extractVerifyChecks(planContent, phase);
+
+  if (checks.length === 0) {
+    return { total: 0, failed: [] };
+  }
+
+  const failed: PlanCheckFailure[] = [];
+  for (const check of checks) {
+    try {
+      const output = execSync(check.command, { cwd: directory, encoding: 'utf-8', stdio: 'pipe', timeout: 10000 });
+      const trimmed = output.trim();
+      if (trimmed.length > 0) {
+        const firstLines = trimmed.split('\n').slice(0, 3).join('\n');
+        failed.push({ step: check.step, command: check.command, output: firstLines });
+      }
+    } catch (error) {
+      if (error && typeof error === 'object' && 'status' in error && (error as { status: number }).status === 1) {
+        continue;
+      }
+      failed.push({ step: check.step, command: check.command, output: `Command error: ${error instanceof Error ? error.message : 'unknown'}` });
+    }
+  }
+
+  return { total: checks.length, failed };
 }

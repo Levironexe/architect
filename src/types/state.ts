@@ -40,6 +40,12 @@ export interface DiffMetric {
   higherIsBetter?: boolean;
 }
 
+export interface PlanCheckFailure {
+  step: string;
+  command: string;
+  output: string;
+}
+
 export interface VerifyResult {
   phase?: number;
   phase_name?: string;
@@ -50,5 +56,7 @@ export interface VerifyResult {
   new_circular_deps: number;
   duplication_delta: number;
   health_delta: number;
+  plan_checks_total: number;
+  plan_checks_failed: PlanCheckFailure[];
   passed: boolean;
 }
