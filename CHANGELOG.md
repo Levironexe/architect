@@ -2,6 +2,25 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## 0.7.12
+
+### Added
+
+- **Machine-enforced plan verify checks** — `architect verify --phase N` reads `.architect/plan.md`, extracts Verify grep commands for the phase, runs them, fails if patterns still found.
+- **Plan parser** (`src/parsers/plan-parser.ts`) — extracts verify commands from plan.md by phase.
+- **`npm run build` in verify** — JS/TS projects with `node_modules` + build script now get full project build instead of just `tsc --noEmit`. Catches Next.js SSR errors, bundler issues. Falls back to `tsc` when deps not installed.
+- **Refactoring branch** — plan skill creates `refactor/YYYY-MM-DD` branch before code changes.
+
+### Improved
+
+- Plan template requires named sub-components with target LOC when splitting oversized files.
+- Refactor template checks BOTH source and extracted target for oversized files.
+- Dead code sweep + auth consistency check in final integrity step.
+
+### Fixed
+
+- `runTscCheck` crash on undefined stdout.
+
 ## 0.7.10
 
 ### Added

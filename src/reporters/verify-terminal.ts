@@ -24,6 +24,11 @@ export function renderVerifyReport(result: VerifyResult, options: { color?: bool
 
   lines.push(checkLine(chalk, result.health_delta >= 0, 'Health score', `(${result.health_delta >= 0 ? '+' : ''}${result.health_delta})`));
 
+  if (result.plan_checks_total > 0) {
+    const passedCount = result.plan_checks_total - result.plan_checks_failed.length;
+    lines.push(checkLine(chalk, result.plan_checks_failed.length === 0, 'Plan verify checks', `(${passedCount}/${result.plan_checks_total} passed)`));
+  }
+
   lines.push('');
 
   if (result.passed) {
@@ -41,7 +46,20 @@ export function renderVerifyReport(result: VerifyResult, options: { color?: bool
         lines.push(`  ... and ${result.broken_imports.length - 10} more`);
       }
     }
-    if (result.compilation_errors === 0 && result.broken_imports.length === 0) {
+    if (result.plan_checks_failed.length > 0) {
+      lines.push('');
+      lines.push('Failed plan checks:');
+      for (const failure of result.plan_checks_failed.slice(0, 5)) {
+        lines.push(`  ${chalk.red('→')} ${failure.step}: ${failure.command}`);
+        for (const outputLine of failure.output.split('\n')) {
+          lines.push(`    ${outputLine}`);
+        }
+      }
+      if (result.plan_checks_failed.length > 5) {
+        lines.push(`  ... and ${result.plan_checks_failed.length - 5} more`);
+      }
+    }
+    if (result.compilation_errors === 0 && result.broken_imports.length === 0 && result.plan_checks_failed.length === 0) {
       lines.push('');
       lines.push('Strict mode failures:');
       if (result.new_circular_deps > 0) lines.push(`  ${chalk.red('→')} New circular dependencies introduced (+${result.new_circular_deps})`);
