@@ -173,7 +173,7 @@ architect init . --update                  # overwrite existing skill files with
 
 ### `architect scan [directory]`
 
-Prints a structural health report without writing any files. Includes security findings and dead code detection.
+Prints a structural health report without writing any files. Scores 4 dimensions: modularity, security, duplication, and architecture. Includes security findings and dead code detection.
 
 ```bash
 architect scan .
