@@ -1,10 +1,10 @@
 <div align="center">
   <h1>🏛️ Architect</h1>
-  <h3><em>Know exactly what's wrong with your codebase. Fix it without breaking it.</em></h3>
+  <h3><em>Architectural skills for your AI agent. Stack-aware. Anti-pattern-proof.</em></h3>
 </div>
 
 <p align="center">
-  <strong>An architectural health scanner for JS/TS, Python, C#, and Java projects. Find god files, hardcoded secrets, circular dependencies, and structural debt — then let your coding agent fix them with a stack-specific refactoring plan.</strong>
+  <strong>Scan your codebase for structural health, then install agent skills that teach Claude Code, Cursor, or Windsurf how to fix it. Supports JS/TS, Python, C#, and Java.</strong>
 </p>
 
 <p align="center">
