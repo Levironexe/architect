@@ -35,11 +35,9 @@ export function renderScanReport(result: ScanResult, options: { color?: boolean;
   process.stdout.write(`Architect scan: ${result.summary.targetDir}\n\n`);
 
   if (options.summary) {
-    renderHealthReport(result);
-
     const criticalIssues = (result.issues ?? []).filter((issue) => issue.severity === 'critical' || issue.severity === 'warning');
     if (criticalIssues.length > 0) {
-      process.stdout.write(`\nCritical issues:\n`);
+      process.stdout.write(`Critical issues:\n`);
       for (const issue of criticalIssues) {
         const location = issue.location ? ` [${issue.location}]` : '';
         process.stdout.write(`- ${issue.severity.toUpperCase()} ${issue.category}${location}: ${issue.message}\n`);
@@ -49,6 +47,8 @@ export function renderScanReport(result: ScanResult, options: { color?: boolean;
     process.stdout.write(`\nSummary:\n`);
     process.stdout.write(`- Files: ${result.summary.totalFiles} | LOC: ${result.summary.totalLoc} | God files: ${result.summary.flaggedFiles}\n`);
     process.stdout.write(`- Duplication: ${duplication.isPartial ? 'partial' : `${(result.scores?.duplication.reasons[0] ?? '0%')}`} | Circular deps: ${circularDependencies}\n`);
+
+    renderHealthReport(result);
     return;
   }
 
