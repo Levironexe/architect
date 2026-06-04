@@ -6,9 +6,7 @@ export function Quickstart() {
           <h3 className="text-xs font-bold uppercase tracking-widest text-muted mb-4">Quickstart</h3>
           <h2 className="text-4xl font-serif mb-6">Zero API key friction.</h2>
           <p className="text-lg text-muted mb-8 leading-relaxed">
-            No provider setup. No{" "}
-            <code className="font-mono text-sm">ANTHROPIC_API_KEY</code>, no{" "}
-            <code className="font-mono text-sm">OPENAI_API_KEY</code>. Architect runs local static analysis to detect your stack and generates agent-ready skill files. The coding agent you already have IS the intelligence  -  Architect gives it the right knowledge to act on.
+            No provider setup. No ANTHROPIC_API_KEY, no OPENAI_API_KEY. Architect runs local static analysis to detect your stack and generates agent-ready skill files. The coding agent you already have IS the intelligence  -  Architect gives it the right knowledge to act on.
           </p>
           <a href="#supported-agents" className="inline-flex items-center text-dark font-medium border-b border-dark pb-0.5 hover:text-muted hover:border-muted transition-colors">
             View supported agents
