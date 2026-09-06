@@ -12,7 +12,63 @@ All notable changes to Architect CLI are recorded here.
 
 - No security-relevant changes.
 
-## 0.7.12
+## 1.0.0
+
+A deliberate narrowing. Architect is now an architecture linter for Next.js
+App Router projects written in TypeScript, and nothing else. If you relied on
+any removed capability, pin `0.7.13`.
+
+### Added
+
+- `architect check [dir]` — the single entry point, replacing `scan`.
+  Flags: `--json`, `--list-rules`, `--baseline`, `--no-color`.
+- Ten deterministic rules driven by a machine-readable `detect:` block on
+  blueprint anti-patterns: `direct_db_in_page`, `direct_db_in_route`,
+  `leaked_server_secret`, `illegal_import`, `use_client_everywhere`,
+  `client_data_fetching_by_default`, `server_action_throws`,
+  `scattered_process_env`, `alert_for_errors`, `oversized_extraction`,
+  plus `missing_layer` from the blueprint's required directories.
+- `architect verify --strict` now fails when the violation count rises
+  against `.architect/baseline.json`.
+- Documented exit codes: `0` clean, `1` critical violations, `2` config error.
+- A GitHub Action snippet and a Claude Code `Stop` hook in the README.
+- `tests/fixtures/` is tracked in git, so a fresh clone can run the suite.
+
+### Removed
+
+**Breaking.** Every item below is gone, not deprecated:
+
+- Duplicate code detection (use [jscpd](https://github.com/kucherenko/jscpd)).
+- Dead code and unreferenced export detection (use [knip](https://github.com/webpro-nl/knip)).
+- Hardcoded secret and unguarded route scanning (use [gitleaks](https://github.com/gitleaks/gitleaks)).
+- The four-dimension 0–100 health score and every scoring module
+  (use [fallow](https://github.com/fallow-rs/fallow)).
+- Python, C# and Java support, including all tree-sitter extractors.
+- The `lite` scan path and its separate scoring model.
+- Commands `scan`, `context`, `diff`, `status` and `skill list`.
+- Cursor, Windsurf, GitHub Copilot and generic output writers. Claude Code only.
+- 34 of 35 bundled skills. Only `nextjs-app-router` ships.
+- Dependencies `jscpd`, `madge`, and four `tree-sitter` packages.
+
+### Fixed
+
+- The dependency graph resolved no imports at all after `madge` was removed:
+  extensions were passed without their leading dot, so every file was reported
+  unreferenced and no cycle was ever detected.
+- `isPartial` was hardcoded `false` on the import-derived graph, so
+  partial-analysis warnings never fired after a parse error.
+- Member expressions recorded the inner `process.env` node rather than the full
+  access path, so a `NEXT_PUBLIC_` read was reported as a leaked server secret.
+- The parsed-facts cache was module-global and keyed on the repo-relative path,
+  so two projects sharing a filename contaminated each other's results.
+- Violations are deduplicated per `file:line`, so two overlapping rules can no
+  longer report the same line twice.
+
+### Security
+
+- No security-relevant changes. Secret scanning was removed; use gitleaks.
+
+## 0.7.13
 
 ### Added
 
