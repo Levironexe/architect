@@ -44,6 +44,9 @@ export interface DetectSpec {
   requiresDirective?: string;
   requiresCall?: string;
 
+  /** Matched text starting with any of these is not a violation. */
+  notMatching?: string[];
+
   /** kind: metric — a numeric file metric and its ceiling. */
   metric?: 'loc';
   gt?: number;
