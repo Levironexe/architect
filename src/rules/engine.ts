@@ -3,12 +3,15 @@ import { readFileSync } from 'node:fs';
 import type { FileAnalysis } from '../types/analysis.js';
 import type { DetectSpec, RuleViolation } from '../types/rule.js';
 import type { AntiPattern, ArchitectureSkill } from '../types/skill.js';
+import { createAstFactsCache, extractAstFacts, type AstFactsCache } from './ast-facts.js';
 import { matchesAnyGlob, matchesGlob } from './glob.js';
 
 export interface RuleContext {
   files: FileAnalysis[];
   /** Repo-relative path -> source text. Read once, shared by every matcher. */
   sources: Map<string, string>;
+  /** Absolute path -> parsed facts. Scoped to this context, never global. */
+  astCache: AstFactsCache;
 }
 
 export function createRuleContext(files: FileAnalysis[]): RuleContext {
@@ -20,7 +23,7 @@ export function createRuleContext(files: FileAnalysis[]): RuleContext {
       // Unreadable files are skipped; the scan already reported them.
     }
   }
-  return { files, sources };
+  return { files, sources, astCache: createAstFactsCache() };
 }
 
 export function runRules(skill: ArchitectureSkill, context: RuleContext): RuleViolation[] {
@@ -31,7 +34,26 @@ export function runRules(skill: ArchitectureSkill, context: RuleContext): RuleVi
     violations.push(...runRule(antiPattern, antiPattern.detect, context));
   }
 
-  return violations.sort(compareViolations);
+  return dedupe(violations.sort(compareViolations));
+}
+
+/**
+ * Two rules can legitimately overlap on one line (a client component reading a
+ * server secret is both a leak and a scattered env read). Report the most
+ * severe one only — duplicate findings on a single line read as a bug.
+ */
+function dedupe(violations: RuleViolation[]): RuleViolation[] {
+  const seen = new Set<string>();
+  const result: RuleViolation[] = [];
+
+  for (const violation of violations) {
+    const key = `${violation.file}:${violation.line}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(violation);
+  }
+
+  return result;
 }
 
 function runRule(antiPattern: AntiPattern, detect: DetectSpec, context: RuleContext): RuleViolation[] {
@@ -45,9 +67,84 @@ function runRule(antiPattern: AntiPattern, detect: DetectSpec, context: RuleCont
       return matchImport(antiPattern, detect, scoped);
     case 'import_direction':
       return matchImportDirection(antiPattern, detect, context);
+    case 'metric':
+      return matchMetric(antiPattern, detect, scoped);
+    case 'directive':
+    case 'call':
+    case 'member':
+    case 'throw':
+      return matchAst(antiPattern, detect, scoped, context);
     default:
       return [];
   }
+}
+
+/** A numeric file metric exceeding its ceiling. */
+function matchMetric(antiPattern: AntiPattern, detect: DetectSpec, files: FileAnalysis[]): RuleViolation[] {
+  if (detect.metric !== 'loc' || typeof detect.gt !== 'number') return [];
+
+  return files
+    .filter((file) => file.loc > detect.gt!)
+    .map((file) => violation(antiPattern, detect, file.relativePath, 1));
+}
+
+/** Directive, call, member and throw matchers, all driven off a real parse. */
+function matchAst(
+  antiPattern: AntiPattern,
+  detect: DetectSpec,
+  files: FileAnalysis[],
+  context: RuleContext
+): RuleViolation[] {
+  const violations: RuleViolation[] = [];
+
+  for (const file of files) {
+    const source = context.sources.get(file.relativePath);
+    if (source === undefined) continue;
+
+    const facts = extractAstFacts(file.path, source, context.astCache);
+
+    if (detect.requiresDirective && !facts.directives.includes(detect.requiresDirective)) continue;
+    if (detect.requiresCall && !facts.calls.some((call) => call.name === detect.requiresCall)) continue;
+
+    if (detect.kind === 'directive') {
+      if (detect.value && facts.directives.includes(detect.value)) {
+        violations.push(violation(antiPattern, detect, file.relativePath, 1));
+      }
+      continue;
+    }
+
+    if (detect.kind === 'call') {
+      const names = detect.callee ?? [];
+      for (const call of facts.calls) {
+        if (!names.includes(call.name)) continue;
+        violations.push(violation(antiPattern, detect, file.relativePath, call.line));
+      }
+      continue;
+    }
+
+    if (detect.kind === 'member') {
+      for (const member of facts.members) {
+        if (detect.object && member.object !== detect.object) continue;
+        if (detect.property && member.property !== detect.property) continue;
+        if (isExcluded(member.text, detect.notMatching)) continue;
+        violations.push(violation(antiPattern, detect, file.relativePath, member.line));
+      }
+      continue;
+    }
+
+    if (detect.kind === 'throw') {
+      for (const thrown of facts.throws) {
+        violations.push(violation(antiPattern, detect, file.relativePath, thrown.line));
+      }
+    }
+  }
+
+  return violations;
+}
+
+function isExcluded(text: string, notMatching: string[] | undefined): boolean {
+  if (!notMatching || notMatching.length === 0) return false;
+  return notMatching.some((prefix) => text.startsWith(prefix));
 }
 
 /** A bare module specifier that must not be imported inside `paths`. */
