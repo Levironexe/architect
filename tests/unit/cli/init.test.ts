@@ -25,7 +25,7 @@ describe('init command', () => {
     mkdirSync(path.join(tempDir, '.claude'), { recursive: true });
 
     const output = await captureOutput(async () => {
-      const exitCode = await runCli(['init', tempDir, '--integration', 'claude', '--update']);
+      const exitCode = await runCli(['init', tempDir, '--update']);
       expect(exitCode).toBe(0);
     });
 
@@ -44,7 +44,7 @@ describe('init command', () => {
 
   it('supports explicit skill override', async () => {
     const output = await captureOutput(async () => {
-      const exitCode = await runCli(['init', tempDir, '--skill', 'nextjs-app-router', '--integration', 'claude', '--update']);
+      const exitCode = await runCli(['init', tempDir, '--skill', 'nextjs-app-router', '--update']);
       expect(exitCode).toBe(0);
     });
 
@@ -63,7 +63,7 @@ describe('init command', () => {
     try {
       const output = await captureOutput(async () => {
         const exitCode = await runCli(['init', emptyDir]);
-        expect(exitCode).toBe(3);
+        expect(exitCode).toBe(2);
       });
 
       expect(output.stdout).toBe('');
@@ -88,7 +88,7 @@ describe('init command', () => {
     });
 
     const declined = await captureOutput(async () => {
-      const exitCode = await runCli(['init', tempDir, '--integration', 'claude']);
+      const exitCode = await runCli(['init', tempDir]);
       expect(exitCode).toBe(0);
     });
 
@@ -96,7 +96,7 @@ describe('init command', () => {
     expect(readFileSync(existingPath, 'utf8')).toBe('existing plan');
 
     const updated = await captureOutput(async () => {
-      const exitCode = await runCli(['init', tempDir, '--integration', 'claude', '--update']);
+      const exitCode = await runCli(['init', tempDir, '--update']);
       expect(exitCode).toBe(0);
     });
 

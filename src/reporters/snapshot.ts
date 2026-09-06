@@ -1,20 +1,23 @@
-import type { ScanResult } from '../types/analysis.js';
+import {
+  countFlaggedFiles,
+  countFlaggedFunctions,
+  totalLoc,
+  type ProjectAnalysis
+} from '../analyzers/project.js';
 import type { ScanSnapshot } from '../types/state.js';
 
-export function extractSnapshot(result: ScanResult): ScanSnapshot {
-  const totalLoc = result.summary.totalLoc;
-  const totalFiles = result.summary.totalFiles;
-  const avgFileLoc = totalFiles > 0 ? Math.round(totalLoc / totalFiles) : 0;
-  const godFiles = result.files.filter((f) => f.loc > 300).length;
+export function extractSnapshot(analysis: ProjectAnalysis): ScanSnapshot {
+  const loc = totalLoc(analysis);
+  const totalFiles = analysis.files.length;
 
   return {
     timestamp: new Date().toISOString(),
-    flagged_files: result.summary.flaggedFiles,
-    flagged_functions: result.summary.flaggedFunctions,
-    circular_deps: result.summary.circularDependencies,
+    flagged_files: countFlaggedFiles(analysis),
+    flagged_functions: countFlaggedFunctions(analysis),
+    circular_deps: analysis.dependencyGraph.circularDependencies.length,
     total_files: totalFiles,
-    total_loc: totalLoc,
-    avg_file_loc: avgFileLoc,
-    god_files: godFiles,
+    total_loc: loc,
+    avg_file_loc: totalFiles > 0 ? Math.round(loc / totalFiles) : 0,
+    god_files: analysis.files.filter((file) => file.loc > 300).length
   };
 }

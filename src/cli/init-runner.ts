@@ -5,7 +5,7 @@ import type { AgentType } from '../utils/agent-detector.js';
 import { confirm, select } from '@inquirer/prompts';
 import ora, { type Ora } from 'ora';
 
-import { runProjectScan, type ProjectScanOptions } from './scan-runner.js';
+import { analyzeProject, type ProjectAnalysis } from '../analyzers/project.js';
 import { buildClaudeWriterTargets } from '../generators/claudeWriter.js';
 import { buildTemplateContext, renderBundledTemplates, resolveSkillByReference } from '../generators/template-context.js';
 import {
@@ -21,7 +21,7 @@ import { ensureDirectoryPath } from '../utils/path.js';
 import { detectLanguage } from '../languages/registry.js';
 import { collectProjectCharacteristicsFromLanguage, detectSkills } from '../skills/detector.js';
 
-export interface InitCommandOptions extends ProjectScanOptions {
+export interface InitCommandOptions {
   skill?: string;
   integration?: AgentType;
   update?: boolean;
@@ -33,7 +33,7 @@ interface InitRunnerDependencies {
   promptAgent?: (detected: AgentType) => Promise<AgentType>;
   interactiveCheck?: () => boolean;
   loadSkills?: typeof loadSkills;
-  runProjectScan?: typeof runProjectScan;
+  analyzeProject?: typeof analyzeProject;
   renderBundledTemplates?: typeof renderBundledTemplates;
   writers?: Record<AgentType, IntegrationWriter>;
   createSpinner?: (text: string) => Pick<Ora, 'start' | 'stop'>;
@@ -49,7 +49,7 @@ export async function runInitCommand(
   dependencies: InitRunnerDependencies = {}
 ): Promise<InitSummary> {
   const targetDirectory = ensureDirectoryPath(directory);
-  const scanRunner = dependencies.runProjectScan ?? runProjectScan;
+  const scanRunner = dependencies.analyzeProject ?? analyzeProject;
   const skillLoader = dependencies.loadSkills ?? loadSkills;
   const renderTemplates = dependencies.renderBundledTemplates ?? renderBundledTemplates;
   const detectAgentForDirectory = dependencies.detectAgent ?? detectAgent;
@@ -70,19 +70,19 @@ export async function runInitCommand(
 
   const { skills } = await skillLoader();
   let selectedSkill: Awaited<ReturnType<typeof loadSkills>>['skills'][number] | undefined;
-  let result: Awaited<ReturnType<typeof runProjectScan>> | undefined;
+  let result: ProjectAnalysis | undefined;
 
   if (detected.config.supportsScanning) {
     const fileCount = estimateFileCount(targetDirectory);
     const spinner = fileCount > 500 ? createSpinner(`Scanning ${fileCount}+ files…`).start() : null;
 
     try {
-      result = await scanRunner(targetDirectory, options);
+      result = await scanRunner(targetDirectory);
     } finally {
       spinner?.stop();
     }
 
-    if (result.summary.totalFiles === 0) {
+    if (result.files.length === 0) {
       throw new Error(`No source files found. Point architect at a ${detected.config.name} project root.`);
     }
 
@@ -173,14 +173,14 @@ export async function runInitCommand(
 
 function resolveSelectedSkill(
   override: string | undefined,
-  result: Awaited<ReturnType<typeof runProjectScan>>,
+  result: ProjectAnalysis,
   skills: Awaited<ReturnType<typeof loadSkills>>['skills']
 ) {
   if (override) {
     return resolveSkillByReference(override, skills);
   }
 
-  return result.matchedSkills?.find((match) => match.primary)?.skill;
+  return result.matchedSkills.find((match) => match.primary)?.skill;
 }
 
 async function defaultConfirmOverwrite(message: string): Promise<boolean> {

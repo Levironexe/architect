@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { render } from './templateRenderer.js';
-import type { ScanResult } from '../types/analysis.js';
+import type { ProjectAnalysis } from '../analyzers/project.js';
 import type { RenderedSkillFile, TemplateContext } from '../types/generation.js';
 import type { ArchitectureSkill, CompositionPhase, SkillMatch, StructureEntry } from '../types/skill.js';
 import { collectComposedPhases } from '../skills/detector.js';
@@ -30,7 +30,7 @@ export async function loadBundledTemplate(name: TemplateName): Promise<string> {
   return fs.readFile(resolveTemplatePath(name), 'utf8');
 }
 
-export function buildTemplateContext(skill: ArchitectureSkill, result: ScanResult | undefined, allMatched?: SkillMatch[]): TemplateContext {
+export function buildTemplateContext(skill: ArchitectureSkill, result: ProjectAnalysis | undefined, allMatched?: SkillMatch[]): TemplateContext {
   const largestFiles = result
     ? [...result.files]
         .sort((left, right) => right.loc - left.loc || left.relativePath.localeCompare(right.relativePath))
