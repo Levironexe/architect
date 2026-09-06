@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { render } from './templateRenderer.js';
 import type { ProjectAnalysis } from '../analyzers/project.js';
 import type { RenderedSkillFile, TemplateContext } from '../types/generation.js';
-import type { ArchitectureSkill, CompositionPhase, SkillMatch, StructureEntry } from '../types/skill.js';
+import type { ArchitectureSkill, SkillMatch, StructureEntry } from '../types/skill.js';
 import { collectComposedPhases } from '../skills/detector.js';
 
 const TEMPLATE_NAMES = ['architect-plan', 'architect-refactor', 'architect-catchup'] as const;

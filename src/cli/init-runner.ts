@@ -1,8 +1,8 @@
-import { existsSync, readdirSync, type Dirent } from 'node:fs';
+import { readdirSync, type Dirent } from 'node:fs';
 import { join } from 'node:path';
 
 import type { AgentType } from '../utils/agent-detector.js';
-import { confirm, select } from '@inquirer/prompts';
+import { confirm } from '@inquirer/prompts';
 import ora, { type Ora } from 'ora';
 
 import { analyzeProject, type ProjectAnalysis } from '../analyzers/project.js';
@@ -57,7 +57,6 @@ export async function runInitCommand(
   const isInteractive = dependencies.interactiveCheck ?? (() => isInteractiveTerminal());
   const writers = dependencies.writers ?? WRITERS;
   const createSpinner = dependencies.createSpinner ?? ((text: string) => ora(text));
-  const promptAgent = dependencies.promptAgent ?? defaultPromptAgent;
   const warnings: string[] = [];
 
   const detected = await detectLanguage(targetDirectory);
@@ -188,10 +187,6 @@ async function defaultConfirmOverwrite(message: string): Promise<boolean> {
     message,
     default: false
   });
-}
-
-async function defaultPromptAgent(detected: AgentType = 'claude'): Promise<AgentType> {
-  return detected;
 }
 
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.next', 'coverage', '.turbo']);
