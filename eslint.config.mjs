@@ -10,9 +10,9 @@ export default tseslint.config(
       'node_modules/',
       'coverage/',
       '*.log',
-      // Build output, not source.
-      'ui/.next/',
-      'ui/out/',
+      // The site has its own eslint config and toolchain; linting it from
+      // the CLI root pulls plugins out of its pnpm store.
+      'ui/',
       // Fixtures are deliberately wrong code — that is the point of them.
       'tests/fixtures/'
     ]
