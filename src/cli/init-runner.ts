@@ -7,11 +7,7 @@ import ora, { type Ora } from 'ora';
 
 import { runProjectScan, type ProjectScanOptions } from './scan-runner.js';
 import { buildClaudeWriterTargets } from '../generators/claudeWriter.js';
-import { buildCopilotWriterTargets } from '../generators/copilotWriter.js';
-import { buildGenericWriterTargets } from '../generators/genericWriter.js';
 import { buildTemplateContext, renderBundledTemplates, resolveSkillByReference } from '../generators/template-context.js';
-import { buildWindsurfWriterTargets } from '../generators/windsurfWriter.js';
-import { buildCursorWriterTargets } from '../generators/cursorWriter.js';
 import {
   findExistingWriterTargets,
   writeWriterTargets,
@@ -22,7 +18,7 @@ import { loadSkills } from '../skills/loader.js';
 import { detectAgent } from '../utils/agent-detector.js';
 import { isInteractiveTerminal } from '../utils/interactive.js';
 import { ensureDirectoryPath } from '../utils/path.js';
-import { detectLanguage, type DetectedLanguage } from '../languages/registry.js';
+import { detectLanguage } from '../languages/registry.js';
 import { collectProjectCharacteristicsFromLanguage, detectSkills } from '../skills/detector.js';
 
 export interface InitCommandOptions extends ProjectScanOptions {
@@ -44,11 +40,7 @@ interface InitRunnerDependencies {
 }
 
 const WRITERS: Record<AgentType, IntegrationWriter> = {
-  claude: buildClaudeWriterTargets,
-  cursor: buildCursorWriterTargets,
-  windsurf: buildWindsurfWriterTargets,
-  copilot: buildCopilotWriterTargets,
-  generic: buildGenericWriterTargets
+  claude: buildClaudeWriterTargets
 };
 
 export async function runInitCommand(
@@ -134,13 +126,8 @@ export async function runInitCommand(
   let integration: AgentType;
   if (options.integration) {
     integration = options.integration;
-  } else if (isInteractive()) {
-    integration = await promptAgent(detectedIntegration);
   } else {
     integration = detectedIntegration;
-    if (integration === 'generic') {
-      warnings.push('No known agent integration detected; using generic output.');
-    }
   }
 
   const context = result
@@ -203,18 +190,8 @@ async function defaultConfirmOverwrite(message: string): Promise<boolean> {
   });
 }
 
-async function defaultPromptAgent(detected: AgentType = 'generic'): Promise<AgentType> {
-  return select<AgentType>({
-    message: 'Which coding agent are you using?',
-    default: detected,
-    choices: [
-      { name: 'Claude Code  → .claude/skills/', value: 'claude' },
-      { name: 'Cursor       → .cursor/rules/', value: 'cursor' },
-      { name: 'Windsurf     → .windsurf/rules/', value: 'windsurf' },
-      { name: 'GitHub Copilot → .github/copilot-instructions.md', value: 'copilot' },
-      { name: 'Other / plain Markdown → .architect/skills/', value: 'generic' }
-    ]
-  });
+async function defaultPromptAgent(detected: AgentType = 'claude'): Promise<AgentType> {
+  return detected;
 }
 
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.next', 'coverage', '.turbo']);

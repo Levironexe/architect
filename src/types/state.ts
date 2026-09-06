@@ -19,16 +19,13 @@ export interface ArchitectState {
 
 export interface ScanSnapshot {
   timestamp: string;
-  health_score: number;
   flagged_files: number;
   flagged_functions: number;
   circular_deps: number;
-  duplication_pct: number;
   total_files: number;
   total_loc: number;
   avg_file_loc: number;
   god_files: number;
-  scan_tier?: 'lite' | 'full';
 }
 
 export interface DiffMetric {
@@ -54,8 +51,6 @@ export interface VerifyResult {
   compilation_label: string;
   broken_imports: string[];
   new_circular_deps: number;
-  duplication_delta: number;
-  health_delta: number;
   plan_checks_total: number;
   plan_checks_failed: PlanCheckFailure[];
   passed: boolean;

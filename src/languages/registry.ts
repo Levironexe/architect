@@ -14,7 +14,7 @@ export interface LanguageConfig {
   extensions: string[];
   configFiles: string[];
   readDependencies: (rootDir: string) => Promise<string[]>;
-  supportsScanning: false | 'lite' | 'full';
+  supportsScanning: false | 'full';
   commentSyntax: CommentSyntax;
 }
 
@@ -25,16 +25,8 @@ export interface DetectedLanguage {
 }
 
 import { JAVASCRIPT_CONFIG } from './javascript.js';
-import { PYTHON_CONFIG } from './python.js';
-import { CSHARP_CONFIG } from './csharp.js';
-import { JAVA_CONFIG } from './java.js';
 
-export const LANGUAGE_REGISTRY: LanguageConfig[] = [
-  JAVASCRIPT_CONFIG,
-  PYTHON_CONFIG,
-  CSHARP_CONFIG,
-  JAVA_CONFIG
-];
+export const LANGUAGE_REGISTRY: LanguageConfig[] = [JAVASCRIPT_CONFIG];
 
 export async function detectLanguage(rootDir: string): Promise<DetectedLanguage | null> {
   const all = await detectAllLanguages(rootDir);

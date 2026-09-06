@@ -33,8 +33,6 @@ what the target architecture looks like.
 **Hub files** (imported by many others  -  high-impact, higher risk to touch):
 {{analysis.hubFiles}}
 
-**Code duplication**: {{analysis.duplicationPercent}} of lines are duplicated
-
 **Missing required directories** (the blueprint expects these but they don't exist yet):
 {{analysis.missingDirs}}
 
@@ -47,19 +45,12 @@ what the target architecture looks like.
 **Service layer pattern** (if applicable):
 {{skill.separation.service_layer}}
 
-**Security findings** (from static analysis):
-{{analysis.securityFindings}}
-
 **Anti-patterns to look for** (specific to this stack  -  check every file for these):
 {{skill.anti_patterns}}
 
 **Integration-specific phases** (generated from skill composition rules):
 {{analysis.composedPhases}}
 
-**Scan tier**: {{analysis.scanTier}} | **Static health score**: {{analysis.healthScore}}
-
-If the scan tier is "lite", the static health score only measures file sizes and duplication  -  it
-cannot detect architectural problems like mixed concerns, layer violations, or missing abstractions.
 Your job is to read the code and assess these yourself. Do not trust a high static score as evidence
 that the architecture is sound.
 

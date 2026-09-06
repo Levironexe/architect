@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import { Chalk } from 'chalk';
 
-import { createEmptyDependencyGraphSummary, createEmptyDuplicationSummary, type DuplicationFinding, type FileAnalysis, type FunctionInfo, type ScanResult } from '../types/analysis.js';
+import { createEmptyDependencyGraphSummary, type FileAnalysis, type FunctionInfo, type ScanResult } from '../types/analysis.js';
 import type { ScanDiagnostic } from '../types/scan-output.js';
 
 export function renderDiscoveryReport(targetDirectory: string, files: string[]): void {
@@ -21,11 +21,8 @@ export function renderDiscoveryReport(targetDirectory: string, files: string[]):
 export function renderScanReport(result: ScanResult, options: { color?: boolean; verbose?: boolean; summary?: boolean } = {}): void {
   const chalk = new Chalk({ level: options.color === false ? 0 : 1 });
   const dependencyGraph = result.dependencyGraph ?? createEmptyDependencyGraphSummary(false);
-  const duplication = result.duplication ?? createEmptyDuplicationSummary(false);
   const dependencyHotspots = result.summary.dependencyHotspots ?? 0;
   const circularDependencies = result.summary.circularDependencies ?? 0;
-  const duplicateFindings = result.summary.duplicateFindings ?? 0;
-  const duplicatedLines = result.summary.duplicatedLines ?? 0;
 
   if (result.files.length === 0 && result.parseErrors.length === 0) {
     process.stdout.write(`No supported source files found in ${result.summary.targetDir}\n`);
@@ -46,9 +43,7 @@ export function renderScanReport(result: ScanResult, options: { color?: boolean;
 
     process.stdout.write(`\nSummary:\n`);
     process.stdout.write(`- Files: ${result.summary.totalFiles} | LOC: ${result.summary.totalLoc} | God files: ${result.summary.flaggedFiles}\n`);
-    process.stdout.write(`- Duplication: ${duplication.isPartial ? 'partial' : `${(result.scores?.duplication.reasons[0] ?? '0%')}`} | Circular deps: ${circularDependencies}\n`);
-
-    renderHealthReport(result);
+    process.stdout.write(`- Circular deps: ${circularDependencies}\n`);
     return;
   }
 
@@ -114,15 +109,7 @@ export function renderScanReport(result: ScanResult, options: { color?: boolean;
 
   process.stdout.write(`\nDuplication findings:\n`);
 
-  if (duplication.findings.length > 0) {
-    for (const finding of duplication.findings) {
-      process.stdout.write(`- ${formatDuplicationFinding(finding)}\n`);
-    }
-  } else {
-    process.stdout.write(`- No significant duplication findings detected\n`);
-  }
 
-  renderHealthReport(result);
   renderIssues(result);
   renderGuidance(result);
   if (options.verbose) {
@@ -136,8 +123,6 @@ export function renderScanReport(result: ScanResult, options: { color?: boolean;
   process.stdout.write(`- Flagged functions: ${result.summary.flaggedFunctions}\n`);
   process.stdout.write(`- Dependency hotspots: ${dependencyHotspots}\n`);
   process.stdout.write(`- Circular dependencies: ${circularDependencies}\n`);
-  process.stdout.write(`- Duplicate findings: ${duplicateFindings}\n`);
-  process.stdout.write(`- Duplicated lines: ${duplicatedLines}\n`);
   process.stdout.write(`- Skipped files: ${result.summary.skippedFiles}\n`);
 
   if (
@@ -145,7 +130,6 @@ export function renderScanReport(result: ScanResult, options: { color?: boolean;
     && result.summary.flaggedFunctions === 0
     && dependencyHotspots === 0
     && circularDependencies === 0
-    && duplicateFindings === 0
   ) {
     process.stdout.write(`- No critical findings detected\n`);
   }
@@ -163,9 +147,9 @@ export function renderScanReport(result: ScanResult, options: { color?: boolean;
     process.stderr.write(`WARN  Ignored invalid architecture skill ${warning.file}: ${warning.message}\n`);
   }
 
-  if ((dependencyGraph.isPartial || duplication.isPartial) && result.summary.skippedFiles > 0) {
+  if (dependencyGraph.isPartial && result.summary.skippedFiles > 0) {
     const noun = result.summary.skippedFiles === 1 ? 'file was' : 'files were';
-    process.stderr.write(`WARN  Dependency and duplication findings may be partial because ${result.summary.skippedFiles} ${noun} skipped\n`);
+    process.stderr.write(`WARN  Dependency findings may be partial because ${result.summary.skippedFiles} ${noun} skipped\n`);
   }
 }
 
@@ -233,27 +217,6 @@ function renderStructureComparison(result: ScanResult): void {
 }
 
 
-function renderHealthReport(result: ScanResult): void {
-  process.stdout.write(`\nHealth report:\n`);
-
-  const scores = result.scores;
-
-  if (!scores) {
-    process.stdout.write(`- Unavailable\n`);
-    return;
-  }
-
-  process.stdout.write(`- Overall score: ${scores.overall} ${scores.label}\n`);
-  process.stdout.write(`- Dimensions:\n`);
-  process.stdout.write(`  - modularity: ${scores.modularity.score} ${scores.modularity.label} - ${scores.modularity.reasons.join('; ')}\n`);
-  process.stdout.write(`  - duplication: ${scores.duplication.score} ${scores.duplication.label} - ${scores.duplication.reasons.join('; ')}\n`);
-  if (scores.security) {
-    process.stdout.write(`  - security: ${scores.security.score} ${scores.security.label} - ${scores.security.reasons.join('; ')}\n`);
-  }
-  if (scores.architecture) {
-    process.stdout.write(`  - architecture: ${scores.architecture.score} ${scores.architecture.label} - ${scores.architecture.reasons.join('; ')}\n`);
-  }
-}
 
 function renderIssues(result: ScanResult): void {
   const issues = result.issues ?? [];
@@ -289,10 +252,6 @@ function renderGuidance(result: ScanResult): void {
 }
 
 
-function formatDuplicationFinding(finding: DuplicationFinding): string {
-  const [left, right] = finding.occurrences;
-  return `Duplicate block (${finding.duplicatedLines} lines): ${left?.relativePath}:${left?.startLine}-${left?.endLine} <-> ${right?.relativePath}:${right?.startLine}-${right?.endLine}`;
-}
 
 function formatStatus(file: FileAnalysis, chalk: { red: (value: string) => string; yellow: (value: string) => string; green: (value: string) => string }): string {
   if (file.isOversized) {
