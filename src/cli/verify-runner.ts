@@ -55,22 +55,13 @@ export async function executeVerify(directory: string, options: VerifyCommandOpt
     new_circular_deps: baselineSnapshot
       ? currentSnapshot.circular_deps - baselineSnapshot.circular_deps
       : currentSnapshot.circular_deps,
-    duplication_delta: baselineSnapshot
-      ? Math.round((currentSnapshot.duplication_pct - baselineSnapshot.duplication_pct) * 10) / 10
-      : 0,
-    health_delta: baselineSnapshot
-      ? currentSnapshot.health_score - baselineSnapshot.health_score
-      : 0,
     plan_checks_total: planCheckResult.total,
     plan_checks_failed: planCheckResult.failed,
     passed: compilationErrors === 0
       && brokenImports.length === 0
       && planCheckResult.failed.length === 0
-      && (!options.strict || (
-        (baselineSnapshot ? currentSnapshot.circular_deps - baselineSnapshot.circular_deps : 0) <= 0
-        && (baselineSnapshot ? Math.round((currentSnapshot.duplication_pct - baselineSnapshot.duplication_pct) * 10) / 10 : 0) <= 1
-        && (baselineSnapshot ? currentSnapshot.health_score - baselineSnapshot.health_score : 0) >= 0
-      )),
+      && (!options.strict
+        || (baselineSnapshot ? currentSnapshot.circular_deps - baselineSnapshot.circular_deps : 0) <= 0),
   };
 
   if (options.phase && currentSnapshot.total_files > 0) {

@@ -93,19 +93,6 @@ export interface DuplicationOccurrence {
   endLine: number;
 }
 
-export interface DuplicationFinding {
-  occurrences: DuplicationOccurrence[];
-  duplicatedLines: number;
-  similarity: number | null;
-}
-
-export interface DuplicationSummary {
-  findings: DuplicationFinding[];
-  duplicatedLines: number;
-  duplicationPercentage: number;
-  isPartial: boolean;
-}
-
 export interface ScanSummary {
   targetDir: string;
   totalFiles: number;
@@ -116,42 +103,26 @@ export interface ScanSummary {
   flaggedFunctions: number;
   dependencyHotspots: number;
   circularDependencies: number;
-  duplicateFindings: number;
-  duplicatedLines: number;
   scanDurationMs: number;
 }
 
-import type { ScoreBreakdown } from './scoring.js';
 import type { SkillMatch, SkillWarning, StructureComparison } from './skill.js';
 import type { ReportGuidance, ReportIssue } from './issue.js';
-import type { SecuritySummary } from './security.js';
 import type { ScanDiagnostic, ScanWarning, SkippedInput } from './scan-output.js';
-
-export interface DeadCodeFinding {
-  file: string;
-  export?: string;
-  type: 'unreferenced_file' | 'unreferenced_export';
-  confidence: 'high' | 'medium';
-}
 
 export interface ScanResult {
   summary: ScanSummary;
   files: FileAnalysis[];
   parseErrors: ParseError[];
   dependencyGraph: DependencyGraphSummary;
-  duplication: DuplicationSummary;
   skillLoadWarnings?: SkillWarning[];
   matchedSkills?: SkillMatch[];
   structureComparison?: StructureComparison | null;
-  scores?: ScoreBreakdown;
   issues?: ReportIssue[];
   guidance?: ReportGuidance;
-  security?: SecuritySummary;
-  deadCode?: DeadCodeFinding[];
   warnings?: ScanWarning[];
   diagnostics?: ScanDiagnostic[];
   skippedInputs?: SkippedInput[];
-  scanTier?: 'lite' | 'full';
 }
 
 export interface ScanOptions {
@@ -172,9 +143,7 @@ export function createEmptySummary(targetDir: string): ScanSummary {
     flaggedFunctions: 0,
     dependencyHotspots: 0,
     circularDependencies: 0,
-    duplicateFindings: 0,
-    duplicatedLines: 0,
-    scanDurationMs: 0
+        scanDurationMs: 0
   };
 }
 
@@ -189,14 +158,6 @@ export function createEmptyDependencyGraphSummary(isPartial = false): Dependency
   };
 }
 
-export function createEmptyDuplicationSummary(isPartial = false): DuplicationSummary {
-  return {
-    findings: [],
-    duplicatedLines: 0,
-    duplicationPercentage: 0,
-    isPartial
-  };
-}
 
 export function isSupportedExtension(filePath: string): boolean {
   return SUPPORTED_EXTENSIONS.some((extension) => filePath.endsWith(extension));

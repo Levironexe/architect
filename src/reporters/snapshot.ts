@@ -9,15 +9,12 @@ export function extractSnapshot(result: ScanResult): ScanSnapshot {
 
   return {
     timestamp: new Date().toISOString(),
-    health_score: result.scores?.overall ?? 0,
     flagged_files: result.summary.flaggedFiles,
     flagged_functions: result.summary.flaggedFunctions,
     circular_deps: result.summary.circularDependencies,
-    duplication_pct: result.duplication.duplicationPercentage,
     total_files: totalFiles,
     total_loc: totalLoc,
     avg_file_loc: avgFileLoc,
     god_files: godFiles,
-    scan_tier: result.scanTier,
   };
 }
