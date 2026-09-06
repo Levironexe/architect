@@ -1,127 +1,108 @@
-# Contributing Skills
+# Contributing
 
-Skills are the knowledge base behind Architect. Each skill is a SKILL.md file with YAML frontmatter that encodes architectural best practices for one tech stack or integration. If you know a stack well, you can write a skill and submit it as a PR.
+Architect is an architecture linter for Next.js App Router projects written in
+TypeScript. Contributions that widen that scope will be declined — see the
+Non-goals section of the README. Contributions that add **rules** are the ones
+this project wants.
 
-## Prerequisites
+## Local Setup
 
 ```bash
-# Clone the repo
-git clone https://github.com/Levironexe/architect
+git clone https://github.com/Levironexe/architect.git
 cd architect/architect-cli
-
-# Install dependencies
 npm install
-
-# Build
 npm run build
-
-# Run tests
+npm run lint
 npm test
 ```
 
-## File Location
+`tests/fixtures/` is tracked in git, so the suite runs on a fresh clone with no
+extra setup.
 
-Skills live in:
+## Adding a rule
 
-```
-architect-cli/skills/
-├── stacks/          ← one SKILL.md per framework (express, nextjs, react, etc.)
-├── meta/            ← language-level conventions (general-js)
-└── patterns/        ← integration libraries (prisma, supabase, clerk, etc.)
-```
+Rules live in the blueprint, not in TypeScript. You add YAML.
 
-Create a new file: `architect-cli/skills/stacks/<your-stack>/SKILL.md`
+### 1. Write the `detect:` block
 
-Use an existing skill as your starting point — `express-api/SKILL.md` is a good template.
-
-## Required Fields
-
-Every skill is a `SKILL.md` file with YAML frontmatter. The frontmatter must include:
-
-| Field | Required | Notes |
-|-------|----------|-------|
-| `schema_version` | Yes | Always `"2.0.0"` |
-| `id` | Yes | kebab-case, unique across all skills |
-| `name` | Yes | Human-readable display name |
-| `version` | Yes | Semver, start at `"1.0.0"` |
-| `description` | Yes | One sentence summary |
-| `category` | Yes | `stack`, `meta`, or `integration` |
-| `language` | Yes | `javascript`, `python`, `csharp`, etc. |
-| `frameworks` | Yes | Array; empty `[]` for meta skills |
-| `detection` | Yes | At least one detection signal |
-| `structure.required_dirs` | Yes | The directories this stack must have |
-| `separation.rules` | Yes | At least two rules with `rule_text` and `example` |
-| `anti_patterns` | Yes | At least one with `bad_example` and `good_example` |
-
-The markdown body (after the `---` closing the frontmatter) can include additional sections:
-
-| Section | Optional | Notes |
-|---------|----------|-------|
-| Service Layer | Yes | Pattern, location, and naming for service files. Triggers service extraction phase in plans. |
-| Composition | Yes | Rules for when this skill is combined with others (integration skills only). |
-
-## Detection Rules
-
-Detection rules must be specific enough that the skill doesn't match the wrong project. Check for collisions with existing skills:
+In `skills/stacks/nextjs-app-router/SKILL.md`, find or add an anti-pattern and
+give it a `detect:` block:
 
 ```yaml
-detection:
-  dependencies:
-    any:
-      - your-framework    # matched against package.json dependencies
-    none:
-      - conflicting-pkg   # exclude if this dep exists (prevents false matches)
-  files:
-    - config-file.js      # matched against project root files
-  source_indicators:
-    - "framework.init("   # matched against source file content
+- id: direct_db_in_page
+  severity: critical            # critical | warning | info
+  detect:
+    kind: import
+    paths: ["app/**/page.tsx", "app/**/layout.tsx"]
+    modules: ["@prisma/client", drizzle-orm, mongoose]
+    message: "Database client imported directly in a page or layout component."
+    fix: "Move the query into lib/ and call that function from the page."
+  description: "..."            # read by the coding agent, not by check
+  bad_example: |  ...
+  good_example: |  ...
 ```
 
-Run `architect skill list` in a fixture project to verify your skill activates correctly and doesn't false-positive on other stacks.
+An anti-pattern **without** a `detect:` block is agent-only guidance: it stays in
+the blueprint for a coding agent to read and is never reported by `check`. That is
+the right home for anything requiring real semantic judgement.
 
-## Writing Good Examples
+### 2. Pick a matcher kind
 
-Every separation rule and anti-pattern needs real, runnable code examples — not pseudocode.
+| `kind` | Fires when | Key fields |
+|--------|-----------|------------|
+| `import` | A module is imported inside `paths` | `modules` |
+| `import_direction` | A file under `from` imports one under `to` | `from`, `to` |
+| `directive` | A file carries a directive prologue | `value` |
+| `call` | A named function is called | `callee` |
+| `member` | A member expression appears | `object`, `property` |
+| `throw` | A `throw` statement appears | — |
+| `metric` | A file metric exceeds a ceiling | `metric`, `gt` |
 
-```yaml
-anti_patterns:
-  - id: god_file
-    severity: critical     # critical | warning | info
-    description: "One sentence: what the problem is."
-    bad_example: |
-      # The actual bad code, exactly as a developer would write it
-    good_example: |
-      # The corrected version with a comment explaining the structure
+Shared fields: `paths` and `not_paths` scope the rule; `requires_directive` and
+`requires_call` add guards; `not_matching` excludes matched text by prefix.
+
+Paths are globs anchored at a **segment boundary**, not the repo root, so
+`app/**/page.tsx` matches `app/users/page.tsx` and `src/app/users/page.tsx` but
+not `src/myapp/users/page.tsx`.
+
+### 3. Write both fixtures — this is not optional
+
+Every rule needs two things, and a pull request with only the first will not be
+merged:
+
+1. **A violation fixture** in `tests/fixtures/messy-nextjs/` that the rule catches.
+2. **A clean fixture** in `tests/fixtures/clean-nextjs/` proving the rule stays
+   silent on correct code.
+
+A rule with no false-positive test does not count as done. A linter that flags
+correct code is worse than no linter — people turn it off and never come back.
+Both of the false-positive bugs found while writing the original ten rules were
+caught by the clean fixture, not by the violation fixture.
+
+Then add the rule to the table in `tests/unit/rules/engine.test.ts`, which asserts
+both halves for every rule automatically.
+
+### 4. Verify
+
+```bash
+npm run build && npm test
+npx architect check tests/fixtures/messy-nextjs   # your rule should appear
+npx architect check tests/fixtures/clean-nextjs   # must stay silent
 ```
 
-## Testing Your Skill
+Update the rule table in `README.md` and in [Rules](/docs/skills).
 
-1. Build the CLI: `npm run build`
-2. Check the skill loads: `node dist/cli/index.js skill list`
-3. See the rendered blueprint:
-   ```bash
-   node dist/cli/index.js context --techstack your-skill-id
-   ```
-4. Run `architect init` against a fixture or real project:
-   ```bash
-   node dist/cli/index.js init ./tests/fixtures/your-fixture --integration claude
-   ```
-5. Open the generated SKILL.md and verify it reads clearly
-6. If your skill includes a Service Layer section, verify that `architect context` includes it in the output
-7. If your skill includes Composition rules, test with a fixture that has both skills active
+## Pull Requests
 
-## PR Checklist
+- One rule, or one fix, per pull request.
+- `npm run build`, `npm run lint` and `npm test` must all pass.
+- Say which fixtures you added, and paste the `check` output for both.
+- If you found a false positive, add the failing case to `clean-nextjs` in the
+  same PR as the fix.
 
-Before submitting:
+## What will be declined
 
-- [ ] `SKILL.md` file is in the correct directory (`stacks/`, `meta/`, or `patterns/`)
-- [ ] YAML frontmatter contains all required fields
-- [ ] `detection` rules are specific — no false positives on existing stacks
-- [ ] `structure.required_dirs` has `purpose` filled in for every entry
-- [ ] Every `separation.rules` entry has a `rule_text` and a working `example`
-- [ ] Every `anti_patterns` entry has both `bad_example` and `good_example`
-- [ ] `architect context --techstack <your-id>` produces clean output
-- [ ] `architect init` against a real or fixture project writes a valid SKILL.md
-- [ ] If Service Layer section included: pattern, location, and naming are defined
-- [ ] If Composition section included: combined-with targets reference existing skills
-- [ ] No existing tests broken (`npm test`)
+- Another language or framework. One stack, done properly.
+- Re-adding duplication, dead-code, secret scanning or a health score.
+- Auto-fixing. The fix text tells a human or an agent what to do; the tool does
+  not rewrite code.

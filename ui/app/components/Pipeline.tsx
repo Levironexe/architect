@@ -4,7 +4,7 @@ export function Pipeline() {
       <div className="text-center mb-16">
         <h2 className="text-4xl font-serif mb-4">How Architect Builds Context</h2>
         <p className="text-muted max-w-2xl mx-auto">
-          When your agent asks for context (usually via <code className="font-mono text-sm">architect context</code>), Architect picks the right stack blueprint and returns clear guidance for how your project should be organized.
+          Architect matches your project to its stack blueprint, then evaluates that blueprint's rules against every file. The blueprint is data, so adding a rule means writing YAML, not TypeScript.
         </p>
       </div>
       <div className="bg-surface rounded-4xl p-12 flex flex-col md:flex-row items-center justify-center gap-8 border border-gray-200">

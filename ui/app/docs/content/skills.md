@@ -1,207 +1,106 @@
-# Skill System
+# Rules
 
-## What is a skill?
+Architect ships **one** stack blueprint: `nextjs-app-router`. It carries eleven
+anti-patterns. Ten are checked deterministically; one is guidance for a coding
+agent to read.
 
-A skill is a folder containing a `SKILL.md` file that encodes the architectural best practices for a specific tech stack. Architect skills follow the [Agent Skills open standard](https://agentskills.io), making them compatible with Claude Code, Cursor, GitHub Copilot, and 30+ other agents.
+Run `architect check --list-rules` to print the current list straight from the
+blueprint — that output is generated from the source, so it cannot drift from
+this page.
 
-Each `SKILL.md` contains YAML frontmatter (machine-readable metadata and rules) plus an optional markdown body (human-readable context):
+## The ten checked rules
 
-- **Target folder structure** — required and recommended directories with their purpose
-- **Separation rules** — what code belongs where, with prose explanations and code examples
-- **Data flow direction** — e.g. `Route → Controller → Service → Model`
-- **Naming conventions** — file naming patterns per layer
-- **Anti-patterns** — common mistakes with bad/good examples
+| Rule | Severity | Fires when |
+|------|----------|-----------|
+| `direct_db_in_page` | critical | A database client is imported in `page.tsx` or `layout.tsx` |
+| `direct_db_in_route` | critical | A database client is imported in `route.ts` |
+| `leaked_server_secret` | critical | A `'use client'` file reads a non-`NEXT_PUBLIC_` env var |
+| `illegal_import` | critical | `components/` imports from `app/` |
+| `use_client_everywhere` | warning | `'use client'` sits on a layout |
+| `client_data_fetching_by_default` | warning | A client component fetches in `useEffect` |
+| `server_action_throws` | warning | A Server Action throws instead of returning a result |
+| `scattered_process_env` | warning | `process.env` is read outside `lib/config.ts` |
+| `alert_for_errors` | warning | `alert()` is used to show an error |
+| `oversized_extraction` | warning | A file exceeds 300 LOC |
+| `missing_layer` | warning | A required directory from the blueprint does not exist |
 
-When you run `architect init`, the matched skill is rendered into a `SKILL.md` file that your coding agent reads as a slash command. When the agent runs `/architect-plan`, it calls `architect context` to load the full blueprint fresh from the skill knowledge base.
+`missing_layer` is derived from the blueprint's `structure.required_dirs` rather
+than from a `detect:` block.
 
-## Skill Categories
+### Agent-only
 
-| Category | Description | Always applied? |
-|----------|-------------|----------------|
-| **Stack** | Core structure for a framework (Express, Next.js, React, etc.) | No — matched from project |
-| **Meta** | Language-level conventions (naming, imports, error handling) | Yes — `general-js` always included with any JS/TS stack |
-| **Integration** | Patterns for libraries layered onto a stack (Prisma, Supabase, etc.) | No — matched from dependencies |
+| Rule | Why it is not checked |
+|------|----------------------|
+| `auth_mechanism_mismatch` | Requires cross-file semantic judgement — the login flow issuing one token type while an API route validates another. A static matcher would produce false positives, so it stays as guidance in the blueprint. |
 
-## Built-in Skills
+## The `detect:` schema
 
-### Stack Skills
+Rules are data, not code. An anti-pattern becomes checkable by gaining a
+`detect:` block:
 
-| ID | Name | Language |
-|----|------|----------|
-| `express-api` | Express.js REST API | JavaScript/TypeScript |
-| `nextjs-app-router` | Next.js App Router | JavaScript/TypeScript |
-| `react-spa` | React Single Page Application | JavaScript/TypeScript |
-| `nestjs` | NestJS | TypeScript |
-| `fastify-api` | Fastify API | JavaScript/TypeScript |
-| `hono-api` | Hono API | JavaScript/TypeScript |
-| `django` | Django | Python |
-| `fastapi` | FastAPI | Python |
-| `flask` | Flask | Python |
-| `aspnetcore-webapi` | ASP.NET Core Web API | C# |
-| `aspnetcore-mvc` | ASP.NET Core MVC | C# |
-| `vue-nuxt` | Vue + Nuxt | JavaScript/TypeScript |
-
-### Meta Skills
-
-| ID | Name | Description |
-|----|------|-------------|
-| `general-js` | General JavaScript/TypeScript | Naming, imports, error handling, env vars |
-
-### Integration Skills
-
-| ID | Name | Language |
-|----|------|----------|
-| `prisma` | Prisma ORM | JS/TS |
-| `drizzle` | Drizzle ORM | JS/TS |
-| `mongoose` | Mongoose (MongoDB) | JS/TS |
-| `supabase` | Supabase | JS/TS |
-| `supabase-auth` | Supabase Auth | JS/TS |
-| `clerk-auth` | Clerk Auth | JS/TS |
-| `nextauth` | NextAuth.js | JS/TS |
-| `vitest-testing` | Vitest | JS/TS |
-| `playwright-e2e` | Playwright E2E | JS/TS |
-| `playwright-csharp` | Playwright E2E | C# |
-| `playwright-python` | Playwright E2E | Python |
-| `playwright-java` | Playwright E2E | Java |
-| `selenium-e2e` | Selenium E2E | JS/TS |
-| `selenium-csharp` | Selenium E2E | C# |
-| `selenium-python` | Selenium E2E | Python |
-| `selenium-java` | Selenium E2E | Java |
-| `s3-storage` | AWS S3 | JS/TS |
-| `s3-python` | AWS S3 | Python |
-| `s3-csharp` | AWS S3 | C# |
-| `s3-java` | AWS S3 | Java |
-| `docker-deploy` | Docker | Any |
-| `vercel-deploy` | Vercel | JS/TS |
-
-## Auto-Detection
-
-When `architect init` runs, it detects your project in two stages:
-
-**Stage 1 — Language detection:**
-
-1. Checks for config files: `package.json` (JS/TS), `pyproject.toml`/`requirements.txt` (Python), `*.csproj` (C#), `pom.xml`/`build.gradle` (Java)
-2. Falls back to counting file extensions (`.js`, `.py`, `.cs`, `.java`) if no config file found
-
-**Stage 2 — Framework/skill matching:**
-
-1. Reads dependencies from the detected config file (npm deps, pip packages, NuGet packages, Maven/Gradle deps)
-2. Scores each skill's detection rules against the dependency list and file patterns
-3. Selects the highest-scoring stack skill as primary; if no stack matches, promotes the highest-scoring integration skill
-4. Only skills matching the detected language are considered (prevents cross-language mismatches)
-
-For JS/TS projects, a full structural scan (LOC, complexity, imports, circular deps, dead code) runs. For Python, C#, and Java projects, a lite scan (LOC, duplication, security, file-size health) runs — full scan (complexity, imports, circular deps, dead code) remains JS/TS only.
-
-The `general-js` meta skill is always applied for JavaScript/TypeScript projects. Integration skills (Prisma, Supabase, Selenium, etc.) are applied when their dependencies appear in the project config.
-
-If detection picks the wrong skill, override it:
-
-```bash
-architect init . --skill nextjs-app-router
+```yaml
+- id: direct_db_in_page
+  severity: critical
+  detect:
+    kind: import
+    paths: ["app/**/page.tsx", "app/**/layout.tsx"]
+    modules: ["@prisma/client", drizzle-orm, mongoose]
+    message: "Database client imported directly in a page or layout component."
+    fix: "Move the query into lib/ and call that function from the page."
+  description: "..."     # read by the coding agent, never by check
+  bad_example: |  ...
+  good_example: |  ...
 ```
 
-Run `architect skill list` to see which skill is currently active in a directory.
+An anti-pattern **without** `detect:` is agent-only guidance and is never
+reported.
 
-## Skill Schema
+### Matcher kinds
 
-Every skill is a `SKILL.md` file — a Markdown document with YAML frontmatter for machine-readable metadata and a markdown body for human-readable context. The frontmatter defines detection rules, structure requirements, separation rules, and anti-patterns. The markdown body can include additional prose, examples, and guidance.
+| `kind` | Fires when | Key fields |
+|--------|-----------|------------|
+| `import` | A module is imported inside `paths` | `modules` |
+| `import_direction` | A file under `from` imports one under `to` | `from`, `to` |
+| `directive` | A file carries a directive prologue | `value` |
+| `call` | A named function is called | `callee` |
+| `member` | A member expression appears | `object`, `property` |
+| `throw` | A `throw` statement appears | — |
+| `metric` | A file metric exceeds a ceiling | `metric`, `gt` |
 
-Here is an abbreviated `express-api` example:
+### Shared fields
 
-```markdown
----
-schema_version: "2.0.0"
-id: express-api
-name: "Express.js REST API"
-version: "1.1.0"
-description: "Layered Express REST API with routing, request handling, business logic, and data access separated."
-category: stack          # stack | meta | integration
-language: javascript
-frameworks:
-  - express
+| Field | Effect |
+|-------|--------|
+| `paths` | Globs the rule applies to. Omitted means every file. |
+| `not_paths` | Globs excluded, applied after `paths` |
+| `requires_directive` | The file must also carry this directive, e.g. `use client` |
+| `requires_call` | The file must also contain this call, e.g. `useEffect` |
+| `not_matching` | Matched text starting with any of these is not a violation |
+| `message` | What is wrong. Shown to the user. |
+| `fix` | What to do about it. States the move, not the diagnosis. |
 
-detection:
-  dependencies:
-    any:
-      - express          # matches if any of these appear in package.json
-  source_indicators:
-    - "express()"        # matched against source file content
-    - "app.listen"
+### Path matching
 
-structure:
-  required_dirs:
-    - path: src/routes
-      purpose: "Route definitions organized by resource."
-    - path: src/controllers
-      purpose: "Request handlers that receive HTTP input, call services, and return responses."
-    - path: src/services
-      purpose: "Business logic with no HTTP awareness."
-    - path: src/models
-      purpose: "Data models and database interactions."
-  recommended_dirs:
-    - path: src/config
-      purpose: "Environment and application configuration."
+Globs are anchored at a **segment boundary**, not the repository root, because
+projects put the App Router in either `app/` or `src/app/`:
 
-separation:
-  rules:
-    - concern: routing
-      belongs_in: src/routes
-      rule_text: "Route files define HTTP endpoints and delegate to controllers. No business logic."
-      example: |
-        router.get('/users', UserController.list);
-        router.post('/users', UserController.create);
-    - concern: business_logic
-      belongs_in: src/services
-      rule_text: "Services contain business rules. Accept plain data, return plain data. No req/res."
-      example: |
-        export async function createUser(input) {
-          await validateUser(input);
-          return userModel.create(input);
-        }
+| Pattern | Path | Match |
+|---------|------|-------|
+| `app/**/page.tsx` | `app/users/page.tsx` | ✅ |
+| `app/**/page.tsx` | `src/app/users/page.tsx` | ✅ |
+| `app/**/page.tsx` | `src/app/(dashboard)/team/page.tsx` | ✅ |
+| `app/**/page.tsx` | `src/myapp/users/page.tsx` | ❌ |
+| `app/*.tsx` | `src/app/users/page.tsx` | ❌ (one segment only) |
 
-patterns:
-  data_flow:
-    direction: "Route -> Controller -> Service -> Model"
-  naming:
-    files: "kebab-case, suffixed by layer: users.route.ts, users.service.ts"
+## Matching is AST-based
 
-anti_patterns:
-  - id: god_file
-    severity: critical          # critical | warning | info
-    description: "Single file mixes routes, data access, and business logic."
-    bad_example: |
-      app.post('/users', async (req, res) => {
-        const hash = await bcrypt.hash(req.body.password, 10);
-        const user = await db.query('INSERT INTO users ...');
-        res.json(user);
-      });
-    good_example: |
-      router.post('/users', UserController.create);
----
+Every matcher runs against a real parse, not a text scan. A commented-out
+`alert()` and a string that merely mentions `process.env` are not violations.
 
-## Service Layer
+Two violations never share a `file:line` — where rules legitimately overlap, only
+the most severe is reported.
 
-**Pattern:** service-per-resource
-**Location:** `src/services/`
-**Naming:** `{resource}.service.ts`
+## Adding a rule
 
-Routes become thin HTTP handlers that delegate to services for business logic.
-```
-
-## v0.4 Skill Capabilities
-
-### Service Layer Sections
-
-Stack skills can include a **Service Layer** section in the markdown body that defines the pattern, location, and naming convention for service files. When present, `/architect-plan` generates a dedicated "Service Layer Extraction" phase that moves business logic from routes into service files.
-
-### Security Anti-Pattern Detection
-
-Scans now detect common security mistakes in your codebase: hardcoded secrets, weak JWT fallbacks, missing auth middleware, MD5/SHA1 for passwords, tokens in query params, and non-singleton database clients. Security findings appear in scan output and influence the health score.
-
-### Dead Code Detection
-
-Scans identify unreferenced files (zero inbound imports) and unreferenced exports (named exports with no external references). Dead code findings feed directly into the plan as a cleanup phase.
-
-### Integration Composition
-
-When multiple skills match a project (e.g. `nextjs-app-router` + `prisma`), composition rules in integration skills generate additional phases specific to the combination. For example, Prisma + Next.js generates phases for singleton setup and server action data layer migration.
+See [Contributing](/docs/contributing). Every rule needs a violation fixture
+**and** a clean fixture proving it stays silent on correct code.

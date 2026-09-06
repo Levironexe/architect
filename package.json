@@ -7,22 +7,24 @@
     "architect": "dist/cli/index.js"
   },
   "files": [
-    "dist",
-    "skills",
-    "templates",
-    "README.md",
     "CHANGELOG.md",
-    "CONTRIBUTING.md"
+    "CONTRIBUTING.md",
+    "README.md",
+    "dist",
+    "scripts",
+    "skills",
+    "templates"
   ],
   "engines": {
     "node": ">=20.0.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/generate-llms-txt.mjs",
     "dev": "tsx src/cli/index.ts",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "generate:llms": "node scripts/generate-llms-txt.mjs"
   },
   "keywords": [
     "architecture",
