@@ -1,7 +1,7 @@
 {
   "name": "@levironexe/architect",
-  "version": "0.7.13",
-  "description": "Structural health scanner and refactoring planner for JavaScript/TypeScript, Python, C#, and Java projects.",
+  "version": "1.0.0",
+  "description": "Architecture linter for Next.js App Router projects written in TypeScript.",
   "type": "module",
   "bin": {
     "architect": "dist/cli/index.js"
@@ -26,13 +26,14 @@
   },
   "keywords": [
     "architecture",
-    "code-quality",
-    "refactoring",
-    "cli",
-    "vibe-coding",
-    "vibe-coded",
+    "linter",
+    "nextjs",
+    "app-router",
     "typescript",
-    "static-analysis"
+    "code-quality",
+    "cli",
+    "ci",
+    "claude-code"
   ],
   "license": "MIT",
   "dependencies": {

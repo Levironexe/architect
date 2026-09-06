@@ -12,14 +12,25 @@ describe('public documentation readiness', () => {
     const readme = readProjectFile('README.md');
 
     expect(readme).toContain('npm install -g @levironexe/architect');
-    expect(readme).toContain('architect init .');
+    expect(readme).toContain('architect init');
     expect(readme).toContain('/architect-plan');
     expect(readme).toContain('/architect-refactor');
     expect(readme).toContain('Quick Start');
     expect(readme).toContain('Command Reference');
     expect(readme).toContain('--json');
-    expect(readme).toContain('--verbose');
+    expect(readme).toContain('--list-rules');
+    expect(readme).toContain('--baseline');
     expect(readme).toContain('--no-color');
+    expect(readme).toContain('## Non-goals');
+    // 1.0 is Next.js/TypeScript only. These may appear under Non-goals,
+    // but must never be presented as features.
+    expect(readme).not.toContain('Health score:');
+    expect(readme).not.toContain('4 dimensions');
+    expect(readme).not.toMatch(/scan(s)? (Python|C#|Java)/);
+    expect(readme).toContain('[fallow]');
+    expect(readme).toContain('[knip]');
+    expect(readme).toContain('[gitleaks]');
+    expect(readme).toContain('[jscpd]');
     expect(readme).toContain('License');
     // v2: no LLM provider content
     expect(readme).not.toContain('LLM Provider');
