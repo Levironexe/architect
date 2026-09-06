@@ -1,3 +1,5 @@
+import type { DetectSpec } from './rule.js';
+
 export const SUPPORTED_SKILL_SCHEMA_VERSION = '2.0.0';
 
 export type SkillCategory = 'stack' | 'pattern' | 'meta';
@@ -72,6 +74,8 @@ export interface AntiPattern {
   description: string;
   badExample: string;
   goodExample: string;
+  /** Optional machine-readable matcher. Without it the rule is agent-only guidance. */
+  detect?: DetectSpec;
 }
 
 export interface CompositionPhase {

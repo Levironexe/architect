@@ -272,6 +272,24 @@ anti_patterns:
       }
   - id: direct_db_in_page
     severity: critical
+    detect:
+      kind: import
+      paths:
+        - "app/**/page.tsx"
+        - "app/**/layout.tsx"
+        - "app/page.tsx"
+        - "app/layout.tsx"
+      modules:
+        - "@prisma/client"
+        - prisma
+        - drizzle-orm
+        - mongoose
+        - "@supabase/supabase-js"
+        - pg
+        - mysql2
+        - better-sqlite3
+      message: "Database client imported directly in a page or layout component."
+      fix: "Move the query into lib/ and call that function from the page."
     description: "Database queries or external API calls are made directly inside page.tsx or layout.tsx files instead of being encapsulated in lib/. This scatters data-access logic across the route tree, makes it impossible to reuse queries in Server Actions or Route Handlers, and prevents centralized error handling and logging."
     bad_example: |
       // app/users/page.tsx  -  wrong: database logic inside the page
@@ -340,6 +358,22 @@ anti_patterns:
       import { serverConfig } from '@/lib/config';
   - id: direct_db_in_route
     severity: critical
+    detect:
+      kind: import
+      paths:
+        - "app/**/route.ts"
+        - "app/**/route.tsx"
+      modules:
+        - "@prisma/client"
+        - prisma
+        - drizzle-orm
+        - mongoose
+        - "@supabase/supabase-js"
+        - pg
+        - mysql2
+        - better-sqlite3
+      message: "Database client imported directly in an API route handler."
+      fix: "Move the query into lib/ and call that function from the handler."
     description: "Database queries or ORM calls are made directly inside API route handlers (route.ts) instead of delegating to service/lib functions. This scatters data-access logic, makes routes untestable, and duplicates queries across GET/POST/PUT handlers."
     bad_example: |
       // app/api/users/route.ts  -  wrong: prisma inside route handler

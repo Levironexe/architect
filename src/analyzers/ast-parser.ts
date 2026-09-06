@@ -16,7 +16,7 @@ import {
 import type { ScanThresholds } from '../types/scan-output.js';
 
 const builtinModuleSet = new Set(builtinModules);
-type AstNode = Record<string, unknown> & { type?: string };
+type AstNode = Record<string, unknown> & { type?: string; loc?: { start: { line: number } } };
 
 export async function analyzeFile(filePath: string, rootDirectory: string, thresholds: ScanThresholds = {
   locThreshold: DEFAULT_LOC_THRESHOLD,
@@ -66,6 +66,7 @@ export async function analyzeFile(filePath: string, rootDirectory: string, thres
 
         imports.push({
           source: sourceValue,
+          line: node.loc?.start?.line ?? 0,
           isRelative: sourceValue.startsWith('.'),
           isBuiltin: builtinModuleSet.has(sourceValue) || builtinModuleSet.has(sourceValue.replace(/^node:/, '')),
           specifiers: getArray(node.specifiers).map((specifier) => getIdentifierName((specifier as AstNode).local) ?? 'unknown')
