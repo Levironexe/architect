@@ -1,0 +1,137 @@
+import { readFileSync } from 'node:fs';
+
+import type { FileAnalysis } from '../types/analysis.js';
+import type { DetectSpec, RuleViolation } from '../types/rule.js';
+import type { AntiPattern, ArchitectureSkill } from '../types/skill.js';
+import { matchesAnyGlob, matchesGlob } from './glob.js';
+
+export interface RuleContext {
+  files: FileAnalysis[];
+  /** Repo-relative path -> source text. Read once, shared by every matcher. */
+  sources: Map<string, string>;
+}
+
+export function createRuleContext(files: FileAnalysis[]): RuleContext {
+  const sources = new Map<string, string>();
+  for (const file of files) {
+    try {
+      sources.set(file.relativePath, readFileSync(file.path, 'utf8'));
+    } catch {
+      // Unreadable files are skipped; the scan already reported them.
+    }
+  }
+  return { files, sources };
+}
+
+export function runRules(skill: ArchitectureSkill, context: RuleContext): RuleViolation[] {
+  const violations: RuleViolation[] = [];
+
+  for (const antiPattern of skill.antiPatterns) {
+    if (!antiPattern.detect) continue;
+    violations.push(...runRule(antiPattern, antiPattern.detect, context));
+  }
+
+  return violations.sort(compareViolations);
+}
+
+function runRule(antiPattern: AntiPattern, detect: DetectSpec, context: RuleContext): RuleViolation[] {
+  const scoped = context.files.filter(
+    (file) => matchesAnyGlob(file.relativePath, detect.paths)
+      && !(detect.notPaths ?? []).some((pattern) => matchesGlob(file.relativePath, pattern))
+  );
+
+  switch (detect.kind) {
+    case 'import':
+      return matchImport(antiPattern, detect, scoped);
+    case 'import_direction':
+      return matchImportDirection(antiPattern, detect, context);
+    default:
+      return [];
+  }
+}
+
+/** A bare module specifier that must not be imported inside `paths`. */
+function matchImport(antiPattern: AntiPattern, detect: DetectSpec, files: FileAnalysis[]): RuleViolation[] {
+  const modules = detect.modules ?? [];
+  const violations: RuleViolation[] = [];
+
+  for (const file of files) {
+    for (const imported of file.imports) {
+      if (!modules.some((module) => moduleMatches(imported.source, module))) continue;
+      violations.push(violation(antiPattern, detect, file.relativePath, imported.line));
+    }
+  }
+
+  return violations;
+}
+
+/** Files under `from` may not import files under `to`. */
+function matchImportDirection(antiPattern: AntiPattern, detect: DetectSpec, context: RuleContext): RuleViolation[] {
+  if (!detect.from || !detect.to) return [];
+  const violations: RuleViolation[] = [];
+
+  for (const file of context.files) {
+    if (!matchesGlob(file.relativePath, detect.from)) continue;
+
+    for (const imported of file.imports) {
+      const target = resolveImportTarget(file.relativePath, imported.source);
+      if (!target || !matchesGlob(target, detect.to)) continue;
+      violations.push(violation(antiPattern, detect, file.relativePath, imported.line));
+    }
+  }
+
+  return violations;
+}
+
+/**
+ * Resolve an import to a repo-relative path for direction checks.
+ * Handles relative specifiers and the `@/` alias convention; anything else
+ * (a bare package) is not a project file and is ignored.
+ */
+function resolveImportTarget(fromFile: string, source: string): string | null {
+  if (source.startsWith('@/')) {
+    return source.slice(2);
+  }
+
+  if (!source.startsWith('.')) {
+    return null;
+  }
+
+  const segments = fromFile.split('/').slice(0, -1);
+  for (const part of source.split('/')) {
+    if (part === '.' || part === '') continue;
+    if (part === '..') segments.pop();
+    else segments.push(part);
+  }
+
+  return segments.join('/');
+}
+
+/** `prisma` matches `prisma` and `@prisma/client`; `pg` does not match `pg-format`. */
+function moduleMatches(source: string, module: string): boolean {
+  if (source === module) return true;
+  if (source.startsWith(`${module}/`)) return true;
+  return false;
+}
+
+function violation(antiPattern: AntiPattern, detect: DetectSpec, file: string, line: number): RuleViolation {
+  return {
+    rule: antiPattern.id,
+    severity: antiPattern.severity,
+    file,
+    line,
+    message: detect.message,
+    fix: detect.fix
+  };
+}
+
+const SEVERITY_ORDER: Record<RuleViolation['severity'], number> = { critical: 0, warning: 1, info: 2 };
+
+function compareViolations(left: RuleViolation, right: RuleViolation): number {
+  return (
+    SEVERITY_ORDER[left.severity] - SEVERITY_ORDER[right.severity]
+    || left.file.localeCompare(right.file)
+    || left.line - right.line
+    || left.rule.localeCompare(right.rule)
+  );
+}

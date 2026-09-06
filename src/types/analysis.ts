@@ -25,6 +25,7 @@ export interface ClassInfo {
 
 export interface ImportInfo {
   source: string;
+  line: number;
   isRelative: boolean;
   isBuiltin: boolean;
   specifiers: string[];

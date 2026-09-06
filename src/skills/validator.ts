@@ -1,3 +1,4 @@
+import type { DetectSpec } from '../types/rule.js';
 import { SUPPORTED_SKILL_SCHEMA_VERSION, type ArchitectureSkill, type AntiPattern, type CompositionRule, type DetectionRules, type PatternRules, type SeparationRule, type SkillCategory, type SkillWarning, type StructureEntry } from '../types/skill.js';
 
 const ALLOWED_TOP_LEVEL_FIELDS = new Set([
@@ -256,12 +257,18 @@ function parseAntiPatterns(value: unknown): AntiPattern[] | null {
       return null;
     }
 
+    const detect = parseDetect(item.detect);
+    if (detect === null && item.detect !== undefined) {
+      return null;
+    }
+
     antiPatterns.push({
       id,
       severity: severity as AntiPattern['severity'],
       description,
       badExample,
-      goodExample
+      goodExample,
+      ...(detect ? { detect } : {})
     });
   }
 
@@ -321,4 +328,58 @@ function invalid(file: string, message: string): SkillValidationResult {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+const DETECT_KINDS = new Set(['import', 'import_direction', 'directive', 'call', 'member', 'throw', 'metric']);
+
+function parseDetect(value: unknown): DetectSpec | null {
+  if (value === undefined) return null;
+  if (!isRecord(value)) return null;
+
+  const kind = readString(value, 'kind');
+  const message = readString(value, 'message');
+  const fix = readString(value, 'fix');
+
+  if (!kind || !DETECT_KINDS.has(kind) || !message || !fix) {
+    return null;
+  }
+
+  const spec: DetectSpec = { kind: kind as DetectSpec['kind'], message, fix };
+
+  const stringArrays = [
+    ['paths', 'paths'],
+    ['not_paths', 'notPaths'],
+    ['modules', 'modules'],
+    ['callee', 'callee']
+  ] as const;
+  for (const [yamlKey, specKey] of stringArrays) {
+    const raw = value[yamlKey];
+    if (raw === undefined) continue;
+    if (!Array.isArray(raw) || raw.some((entry) => typeof entry !== 'string')) return null;
+    (spec[specKey] as string[]) = raw as string[];
+  }
+
+  const strings = [
+    ['from', 'from'],
+    ['to', 'to'],
+    ['value', 'value'],
+    ['object', 'object'],
+    ['property', 'property'],
+    ['requires_directive', 'requiresDirective'],
+    ['requires_call', 'requiresCall'],
+    ['metric', 'metric']
+  ] as const;
+  for (const [yamlKey, specKey] of strings) {
+    const raw = value[yamlKey];
+    if (raw === undefined) continue;
+    if (typeof raw !== 'string') return null;
+    (spec[specKey] as string) = raw;
+  }
+
+  if (value.gt !== undefined) {
+    if (typeof value.gt !== 'number' || !Number.isFinite(value.gt)) return null;
+    spec.gt = value.gt;
+  }
+
+  return spec;
 }
