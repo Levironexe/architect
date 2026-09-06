@@ -51,6 +51,9 @@ export interface VerifyResult {
   compilation_label: string;
   broken_imports: string[];
   new_circular_deps: number;
+  violations: number;
+  baseline_violations: number | null;
+  new_violations: number;
   plan_checks_total: number;
   plan_checks_failed: PlanCheckFailure[];
   passed: boolean;

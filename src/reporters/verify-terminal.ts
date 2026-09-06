@@ -16,6 +16,18 @@ export function renderVerifyReport(result: VerifyResult, options: { color?: bool
   lines.push(checkLine(chalk, result.broken_imports.length === 0, 'Import resolution', `(${result.broken_imports.length} broken imports)`));
   lines.push(checkLine(chalk, result.new_circular_deps <= 0, 'No new circular deps', `(${result.new_circular_deps >= 0 ? '+' : ''}${result.new_circular_deps})`));
 
+  if (result.baseline_violations === null) {
+    lines.push(`  ${chalk.dim('·')} Violations              ${chalk.dim(`(${result.violations}, no baseline recorded)`)}`);
+  } else {
+    const delta = result.new_violations >= 0 ? `+${result.new_violations}` : `${result.new_violations}`;
+    lines.push(checkLine(
+      chalk,
+      result.new_violations <= 0,
+      'Violations vs baseline',
+      `(${result.violations} now, ${result.baseline_violations} at baseline, ${delta})`
+    ));
+  }
+
 
 
   if (result.plan_checks_total > 0) {
@@ -30,6 +42,10 @@ export function renderVerifyReport(result: VerifyResult, options: { color?: bool
     lines.push(chalk.green(`${phaseLabel}: PASSED`));
   } else {
     lines.push(chalk.red(`Verification: FAILED`));
+    if (result.new_violations > 0) {
+      lines.push('');
+      lines.push(`${result.new_violations} new architectural violation(s) since the baseline. Run architect check for detail.`);
+    }
     if (result.broken_imports.length > 0) {
       lines.push('');
       lines.push('Broken imports:');

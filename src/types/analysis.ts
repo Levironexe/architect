@@ -94,59 +94,7 @@ export interface DuplicationOccurrence {
   endLine: number;
 }
 
-export interface ScanSummary {
-  targetDir: string;
-  totalFiles: number;
-  skippedFiles: number;
-  totalLoc: number;
-  totalLines: number;
-  flaggedFiles: number;
-  flaggedFunctions: number;
-  dependencyHotspots: number;
-  circularDependencies: number;
-  scanDurationMs: number;
-}
 
-import type { SkillMatch, SkillWarning, StructureComparison } from './skill.js';
-import type { ReportGuidance, ReportIssue } from './issue.js';
-import type { ScanDiagnostic, ScanWarning, SkippedInput } from './scan-output.js';
-
-export interface ScanResult {
-  summary: ScanSummary;
-  files: FileAnalysis[];
-  parseErrors: ParseError[];
-  dependencyGraph: DependencyGraphSummary;
-  skillLoadWarnings?: SkillWarning[];
-  matchedSkills?: SkillMatch[];
-  structureComparison?: StructureComparison | null;
-  issues?: ReportIssue[];
-  guidance?: ReportGuidance;
-  warnings?: ScanWarning[];
-  diagnostics?: ScanDiagnostic[];
-  skippedInputs?: SkippedInput[];
-}
-
-export interface ScanOptions {
-  cwd?: string;
-  color?: boolean;
-  locThreshold?: number;
-  complexityThreshold?: number;
-}
-
-export function createEmptySummary(targetDir: string): ScanSummary {
-  return {
-    targetDir,
-    totalFiles: 0,
-    skippedFiles: 0,
-    totalLoc: 0,
-    totalLines: 0,
-    flaggedFiles: 0,
-    flaggedFunctions: 0,
-    dependencyHotspots: 0,
-    circularDependencies: 0,
-        scanDurationMs: 0
-  };
-}
 
 export function createEmptyDependencyGraphSummary(isPartial = false): DependencyGraphSummary {
   return {
