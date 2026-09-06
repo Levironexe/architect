@@ -6,10 +6,10 @@ import { analyzeFile } from '../../../src/analyzers/ast-parser';
 
 describe('analyzeFile', () => {
   it('extracts functions and critical-complexity flags from the messy fixture', async () => {
-    const filePath = path.resolve('tests/fixtures/messy-express/src/services/health.service.ts');
-    const analysis = await analyzeFile(filePath, path.resolve('tests/fixtures/messy-express'));
+    const filePath = path.resolve('tests/fixtures/messy-nextjs/src/lib/health.ts');
+    const analysis = await analyzeFile(filePath, path.resolve('tests/fixtures/messy-nextjs'));
 
-    expect(analysis.relativePath).toBe('src/services/health.service.ts');
+    expect(analysis.relativePath).toBe('src/lib/health.ts');
     expect(analysis.loc).toBeGreaterThan(0);
     expect(analysis.hasCriticalComplexity).toBe(true);
 

@@ -230,6 +230,14 @@ patterns:
 anti_patterns:
   - id: use_client_everywhere
     severity: warning
+    detect:
+      kind: directive
+      value: "use client"
+      paths:
+        - "app/**/layout.tsx"
+        - "app/layout.tsx"
+      message: "'use client' on a layout turns the whole subtree into a client bundle."
+      fix: "Remove the directive here and mark only the interactive leaf component."
     description: "The 'use client' directive is placed at the top of layout, page, or large wrapper components rather than pushed down to only the leaf components that actually need browser interactivity. This unnecessarily turns large component subtrees into client bundles, increasing JavaScript shipped to the browser."
     bad_example: |
       // app/dashboard/layout.tsx  -  wrong: entire layout becomes a client bundle
@@ -250,6 +258,13 @@ anti_patterns:
       export function DashboardNav() { /* toggle state, event handlers */ }
   - id: client_data_fetching_by_default
     severity: warning
+    detect:
+      kind: call
+      callee: [fetch]
+      requires_directive: "use client"
+      requires_call: useEffect
+      message: "Client component fetches its own data in useEffect."
+      fix: "Fetch in a server component and pass the result down as props."
     description: "Data fetching is moved to client components using useEffect/useState without a user interaction requirement. This delays the first meaningful paint, exposes API endpoints unnecessarily, and forfeits React Server Component streaming and caching benefits."
     bad_example: |
       'use client';
@@ -272,6 +287,24 @@ anti_patterns:
       }
   - id: direct_db_in_page
     severity: critical
+    detect:
+      kind: import
+      paths:
+        - "app/**/page.tsx"
+        - "app/**/layout.tsx"
+        - "app/page.tsx"
+        - "app/layout.tsx"
+      modules:
+        - "@prisma/client"
+        - prisma
+        - drizzle-orm
+        - mongoose
+        - "@supabase/supabase-js"
+        - pg
+        - mysql2
+        - better-sqlite3
+      message: "Database client imported directly in a page or layout component."
+      fix: "Move the query into lib/ and call that function from the page."
     description: "Database queries or external API calls are made directly inside page.tsx or layout.tsx files instead of being encapsulated in lib/. This scatters data-access logic across the route tree, makes it impossible to reuse queries in Server Actions or Route Handlers, and prevents centralized error handling and logging."
     bad_example: |
       // app/users/page.tsx  -  wrong: database logic inside the page
@@ -296,6 +329,14 @@ anti_patterns:
       }
   - id: server_action_throws
     severity: warning
+    detect:
+      kind: throw
+      paths:
+        - "actions/**/*.ts"
+        - "app/**/actions.ts"
+      requires_directive: "use server"
+      message: "Server Action throws instead of returning a result object."
+      fix: "Return { ok: false, error } so the client can handle it."
     description: "Server Actions throw errors instead of returning typed result objects. When a Server Action throws, Next.js shows a generic error boundary or the error is lost — the client component cannot distinguish between error types or show specific messages."
     bad_example: |
       // actions/user-actions.ts — throws to client
@@ -317,6 +358,17 @@ anti_patterns:
       }
   - id: leaked_server_secret
     severity: critical
+    detect:
+      kind: member
+      object: process
+      property: env
+      requires_directive: "use client"
+      not_matching:
+        - process.env.NEXT_PUBLIC_
+        - process.env.NODE_ENV
+        - process.env.NEXT_RUNTIME
+      message: "Client component reads a server-only environment variable."
+      fix: "Read it in a server component, or prefix it NEXT_PUBLIC_ if it is safe to expose."
     description: "Importing a module that reads process.env secrets (database URL, API keys) inside a Client Component or a file without 'server-only' guard. Next.js may bundle the secret into client JavaScript, exposing it to anyone who inspects the page source."
     bad_example: |
       // components/dashboard.tsx
@@ -329,6 +381,30 @@ anti_patterns:
       // Client Components that try to import this will get a build error
   - id: scattered_process_env
     severity: warning
+    detect:
+      kind: member
+      object: process
+      property: env
+      not_paths:
+        - "lib/config.ts"
+        - "lib/config.tsx"
+        - "*.config.ts"
+        - "*.config.js"
+        - "*.config.mjs"
+        - "*.config.mts"
+        - "*.test.ts"
+        - "*.test.tsx"
+        - "*.spec.ts"
+        - "*.spec.tsx"
+        - "tests/**"
+        - "__tests__/**"
+        - "e2e/**"
+        - "scripts/**"
+      not_matching:
+        - process.env.NODE_ENV
+        - process.env.NEXT_RUNTIME
+      message: "process.env read outside the centralized config module."
+      fix: "Read and validate it in lib/config.ts and import from there."
     description: "process.env.NEXT_PUBLIC_* and process.env.DATABASE_URL read directly in lib/ functions, Server Actions, and components. No validation, no typing, no single source of truth. If a variable name changes, every file must be updated."
     bad_example: |
       // scattered across lib/db.ts, lib/auth.ts, actions/user.ts
@@ -340,6 +416,22 @@ anti_patterns:
       import { serverConfig } from '@/lib/config';
   - id: direct_db_in_route
     severity: critical
+    detect:
+      kind: import
+      paths:
+        - "app/**/route.ts"
+        - "app/**/route.tsx"
+      modules:
+        - "@prisma/client"
+        - prisma
+        - drizzle-orm
+        - mongoose
+        - "@supabase/supabase-js"
+        - pg
+        - mysql2
+        - better-sqlite3
+      message: "Database client imported directly in an API route handler."
+      fix: "Move the query into lib/ and call that function from the handler."
     description: "Database queries or ORM calls are made directly inside API route handlers (route.ts) instead of delegating to service/lib functions. This scatters data-access logic, makes routes untestable, and duplicates queries across GET/POST/PUT handlers."
     bad_example: |
       // app/api/users/route.ts  -  wrong: prisma inside route handler
@@ -357,6 +449,11 @@ anti_patterns:
       }
   - id: alert_for_errors
     severity: warning
+    detect:
+      kind: call
+      callee: [alert]
+      message: "alert() used to surface an error to the user."
+      fix: "Render the error in the UI, or use a toast component."
     description: "Using window.alert() or alert() to display errors to the user. Alert blocks the UI thread, cannot be styled, provides no actionable context, and is impossible to test. Use toast notifications or inline error messages instead."
     bad_example: |
       // components/user-form.tsx
@@ -377,6 +474,12 @@ anti_patterns:
       };
   - id: oversized_extraction
     severity: warning
+    detect:
+      kind: metric
+      metric: loc
+      gt: 300
+      message: "File exceeds 300 LOC and is doing too many jobs."
+      fix: "Extract data access into lib/ and presentation into components/."
     description: "A component or module was extracted from a page to a separate file, but the extracted file is still 300+ LOC. This just moved the god file — it did not solve the modularity problem. After extraction, split further into focused sub-components."
     bad_example: |
       // components/admin-content.tsx  -  595 LOC  -  just moved from app/admin/page.tsx
@@ -412,4 +515,40 @@ anti_patterns:
       const { data: { user } } = await supabase.auth.getUser(token);
       // works because login actually created a Supabase session
 
+  - id: illegal_import
+    severity: critical
+    detect:
+      kind: import_direction
+      from: "components/**"
+      to: "app/**"
+      not_to:
+        - "**/components/**"
+        - "**/lib/**"
+        - "**/hooks/**"
+        - "**/actions/**"
+        - "**/ui/**"
+        - "**/utils/**"
+        - "**/types/**"
+      message: "components/ imports from app/, which inverts the dependency direction."
+      fix: "Pass the value in as a prop, or move the shared code to lib/."
+    description: "A file in components/ imports from app/. Components are shared leaves: routes depend on them, never the other way round. This coupling makes the component unusable from another route and creates import cycles between the route tree and the component library."
+    bad_example: |
+      // components/TaskCard.tsx  -  wrong: reaches back into a route
+      import { formatTitle } from '../app/page-helpers';
+
+      export function TaskCard({ title }: { title: string }) {
+        return <span>{formatTitle(title)}</span>;
+      }
+    good_example: |
+      // lib/format.ts  -  shared helpers live in lib/
+      export function formatTitle(value: string): string {
+        return value.trim().toUpperCase();
+      }
+
+      // components/TaskCard.tsx  -  depends only on lib/
+      import { formatTitle } from '../lib/format';
+
+      export function TaskCard({ title }: { title: string }) {
+        return <span>{formatTitle(title)}</span>;
+      }
 ---

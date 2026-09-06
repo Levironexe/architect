@@ -4,10 +4,29 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist/', 'build/', 'node_modules/', 'coverage/', '*.log', 'tests/fixtures/broken-project/**', 'tests/fixtures/no-package-json/**']
+    ignores: [
+      'dist/',
+      'build/',
+      'node_modules/',
+      'coverage/',
+      '*.log',
+      // Build output, not source.
+      'ui/.next/',
+      'ui/out/',
+      // Fixtures are deliberately wrong code — that is the point of them.
+      'tests/fixtures/'
+    ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: { ...globals.node }
+    }
+  },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {

@@ -1,120 +1,94 @@
-# Agent Integrations
+# Integrations
 
-`architect init` writes skill files into the correct directory for your coding agent. After installation, open your agent and run `/architect-plan` to get started.
+Architect 1.0 targets **Claude Code**. Cursor, Windsurf and GitHub Copilot output
+writers were removed — if you need them, pin `0.7.13`.
 
-Detect the agent automatically:
+## GitHub Actions
 
-```bash
-architect init .
-# Checks for .claude/, .cursor/, .windsurf/ directories
+Six lines. Fails the build on any critical violation, because `check` exits `1`.
+
+```yaml
+name: architecture
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npx @levironexe/architect check .
 ```
 
-Or specify explicitly:
+### Ratcheting an existing project
+
+A codebase with existing violations should not go red on day one. Commit a
+baseline, then fail only on regressions:
+
+```yaml
+      - run: npx @levironexe/architect verify . --strict
+```
+
+Generate the baseline once and commit it:
 
 ```bash
-architect init . --integration claude
-architect init . --integration cursor
-architect init . --integration windsurf
-architect init . --integration copilot
+npx @levironexe/architect check . --baseline
+git add .architect/baseline.json
 ```
 
 ## Claude Code
 
-**Files written:**
+### The Stop hook
 
-```
-.claude/
-└── skills/
-    ├── architect-plan/
-    │   └── SKILL.md
-    ├── architect-refactor/
-    │   └── SKILL.md
-    └── architect-catchup/
-        └── SKILL.md
-```
+This is the piece worth setting up. It runs `check` after every agent turn, so
+the agent sees what it broke before you do.
 
-**How to use:**
+In `.claude/settings.json`:
 
-1. Run `architect init . --integration claude` in your project directory
-2. Open Claude Code in that directory
-3. Type `/architect-plan` — the agent reads the skill and generates `.architect/plan.md`
-4. Type `/architect-refactor` — the agent executes the plan phase by phase, verifying each phase
-5. Type `/architect-catchup` — re-scans and refreshes skills after writing new code
-
-Claude Code discovers skills in `.claude/skills/<name>/SKILL.md` automatically. No additional configuration needed.
-
-## Cursor
-
-**Files written:**
-
-```
-.cursor/
-└── rules/
-    └── architect.mdc
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @levironexe/architect check . --json"
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
-**How to use:**
+The JSON lands back in the session, so the agent can read the `file`, `line` and
+`fix` fields and correct itself without you having to notice first.
 
-1. Run `architect init . --integration cursor`
-2. Open Cursor in the project directory
-3. In the chat panel, type `/architect-plan`
-4. Type `/architect-refactor` after reviewing the plan
-5. Type `/architect-catchup` after writing new code to refresh skills
+### The skills
 
-All three skills are bundled into a single `.mdc` file in Cursor's rules format.
-
-## Windsurf
-
-**Files written:**
-
-```
-.windsurf/
-└── rules/
-    └── architect.md
+```bash
+npx @levironexe/architect init .
 ```
 
-**How to use:**
+Installs three skills into `.claude/skills/`:
 
-1. Run `architect init . --integration windsurf`
-2. Open Windsurf (Cascade) in the project directory
-3. In the Cascade panel, type `/architect-plan`
-4. Type `/architect-refactor` after reviewing the plan
-5. Type `/architect-catchup` after writing new code to refresh skills
+| Skill | What it does |
+|-------|--------------|
+| `/architect-plan` | Reads the codebase and the blueprint, writes a phased roadmap to `.architect/plan.md` |
+| `/architect-refactor` | Executes the plan phase by phase, running `verify` after each one |
+| `/architect-catchup` | Refreshes the skills after new code lands |
 
-All three skills are bundled into a single markdown file in Windsurf's rules format.
+The skills read the blueprint's `description`, `bad_example` and `good_example`
+fields — including for `auth_mechanism_mismatch`, which `check` never reports.
+The agent gets more guidance than the linter enforces, by design.
 
-## GitHub Copilot
+## Any other agent
 
-**Files written:**
+There is no dedicated writer, but `check --json` is a stable contract. Any tool
+that can run a command and read JSON can consume it:
 
+```bash
+npx @levironexe/architect check . --json | jq '.violations[] | "\(.file):\(.line) \(.fix)"'
 ```
-.github/
-└── copilot-instructions.md  (Architect section appended)
-```
-
-**How to use:**
-
-1. Run `architect init . --integration copilot`
-2. Open VS Code with GitHub Copilot Chat enabled
-3. In the chat panel, type `/architect-plan`
-4. Type `/architect-refactor` after reviewing the plan
-5. Type `/architect-catchup` after writing new code to refresh skills
-
-If `.github/copilot-instructions.md` already exists, Architect appends the skill section rather than overwriting it. Use `--update` to replace the existing section.
-
-## Generic Fallback
-
-If no agent is detected and no `--integration` flag is passed, Architect writes to a generic location:
-
-```
-.architect/
-└── skills/
-    ├── architect-plan/
-    │   └── SKILL.md
-    ├── architect-refactor/
-    │   └── SKILL.md
-    └── architect-catchup/
-        └── SKILL.md
-```
-
-Copy the contents of these files into your agent's context or rules directory manually.

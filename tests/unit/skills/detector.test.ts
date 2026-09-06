@@ -18,25 +18,24 @@ async function detectFixture(fixture: string) {
 }
 
 describe('detectSkills', () => {
-  it('detects Express API as primary and General JS as secondary for the messy Express fixture', async () => {
-    const matches = await detectFixture('messy-express');
+  it('detects Next.js App Router as the primary stack for a messy Next.js project', async () => {
+    const matches = await detectFixture('messy-nextjs');
 
-    expect(matches[0]?.skill.id).toBe('express-api');
+    expect(matches[0]?.skill.id).toBe('nextjs-app-router');
     expect(matches[0]?.primary).toBe(true);
-    expect(matches.map((match) => match.skill.id)).toContain('general-js');
-  });
-
-  it('detects React SPA as primary for the React fixture', async () => {
-    const matches = await detectFixture('decent-react');
-
-    expect(matches[0]?.skill.id).toBe('react-spa');
     expect(matches[0]?.confidence).toBe('high');
   });
 
-  it('returns no confident stack match for a clean utility-only project', async () => {
+  it('detects Next.js App Router for a clean Next.js project', async () => {
+    const matches = await detectFixture('clean-nextjs');
+
+    expect(matches[0]?.skill.id).toBe('nextjs-app-router');
+    expect(matches[0]?.primary).toBe(true);
+  });
+
+  it('returns no confident stack match for a plain utility project', async () => {
     const matches = await detectFixture('clean-project');
 
     expect(matches.some((match) => match.primary)).toBe(false);
-    expect(matches.map((match) => match.skill.id)).toContain('general-js');
   });
 });

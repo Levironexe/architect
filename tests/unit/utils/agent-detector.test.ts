@@ -23,27 +23,11 @@ describe('detectAgent', () => {
     expect(detectAgent(tempDir)).toBe('claude');
   });
 
-  it('returns "cursor" when .cursor/ directory is present', () => {
-    mkdirSync(join(tempDir, '.cursor'));
-    expect(detectAgent(tempDir)).toBe('cursor');
+  it('returns "claude" even when no agent directory is present', () => {
+    expect(detectAgent(tempDir)).toBe('claude');
   });
 
-  it('returns "windsurf" when .windsurf/ directory is present', () => {
-    mkdirSync(join(tempDir, '.windsurf'));
-    expect(detectAgent(tempDir)).toBe('windsurf');
-  });
-
-  it('returns "copilot" when .github/ directory is present', () => {
-    mkdirSync(join(tempDir, '.github'));
-    expect(detectAgent(tempDir)).toBe('copilot');
-  });
-
-  it('returns "generic" when no agent directories are present', () => {
-    expect(detectAgent(tempDir)).toBe('generic');
-  });
-
-  it('respects priority order when multiple agent directories exist', () => {
-    mkdirSync(join(tempDir, '.claude'));
+  it('returns "claude" when unrelated agent directories exist', () => {
     mkdirSync(join(tempDir, '.cursor'));
     mkdirSync(join(tempDir, '.github'));
     expect(detectAgent(tempDir)).toBe('claude');

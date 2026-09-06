@@ -3,11 +3,11 @@ import { join, dirname } from 'node:path';
 import { execSync } from 'node:child_process';
 import type { ArchitectState, ScanSnapshot, VerifyResult, PlanCheckFailure } from '../types/state.js';
 import { extractVerifyChecks } from '../parsers/plan-parser.js';
-import { runProjectScan } from './scan-runner.js';
+import { analyzeProject } from '../analyzers/project.js';
+import { readBaseline, runCheck } from './check-runner.js';
 import { extractSnapshot } from '../reporters/snapshot.js';
 import { findBrokenImports } from '../analyzers/dependency-graph.js';
 import { renderVerifyReport } from '../reporters/verify-terminal.js';
-import { detectLanguage } from '../languages/registry.js';
 
 export interface VerifyCommandOptions {
   phase?: string;
@@ -20,14 +20,16 @@ export async function executeVerify(directory: string, options: VerifyCommandOpt
   const scansDir = join(directory, '.architect', 'scans');
   const statePath = join(directory, '.architect', 'state.json');
 
-  const detected = await detectLanguage(directory);
-  const langId = detected?.config.id ?? 'javascript';
-  const isJsTs = langId === 'javascript';
+  const langId = 'javascript';
 
   const { errors: compilationErrors, label: compilationLabel } = runCompilationCheck(directory, langId);
-  const scanResult = await runProjectScan(directory);
-  const brokenImports = isJsTs ? findBrokenImports(directory, scanResult.files) : [];
-  const currentSnapshot = extractSnapshot(scanResult);
+  const analysis = await analyzeProject(directory);
+  const brokenImports = findBrokenImports(directory, analysis.files);
+  const currentSnapshot = extractSnapshot(analysis);
+
+  const check = await runCheck(directory);
+  const violationBaseline = readBaseline(directory);
+  const newViolations = violationBaseline ? check.violations.length - violationBaseline.violations : 0;
 
   let baselineSnapshot: ScanSnapshot | null = null;
   const baselinePath = join(scansDir, 'baseline.json');
@@ -55,12 +57,9 @@ export async function executeVerify(directory: string, options: VerifyCommandOpt
     new_circular_deps: baselineSnapshot
       ? currentSnapshot.circular_deps - baselineSnapshot.circular_deps
       : currentSnapshot.circular_deps,
-    duplication_delta: baselineSnapshot
-      ? Math.round((currentSnapshot.duplication_pct - baselineSnapshot.duplication_pct) * 10) / 10
-      : 0,
-    health_delta: baselineSnapshot
-      ? currentSnapshot.health_score - baselineSnapshot.health_score
-      : 0,
+    violations: check.violations.length,
+    baseline_violations: violationBaseline?.violations ?? null,
+    new_violations: newViolations,
     plan_checks_total: planCheckResult.total,
     plan_checks_failed: planCheckResult.failed,
     passed: compilationErrors === 0
@@ -68,8 +67,7 @@ export async function executeVerify(directory: string, options: VerifyCommandOpt
       && planCheckResult.failed.length === 0
       && (!options.strict || (
         (baselineSnapshot ? currentSnapshot.circular_deps - baselineSnapshot.circular_deps : 0) <= 0
-        && (baselineSnapshot ? Math.round((currentSnapshot.duplication_pct - baselineSnapshot.duplication_pct) * 10) / 10 : 0) <= 1
-        && (baselineSnapshot ? currentSnapshot.health_score - baselineSnapshot.health_score : 0) >= 0
+        && newViolations <= 0
       )),
   };
 

@@ -50,8 +50,8 @@ describe('package readiness', () => {
     expect(packageJson.engines.node).toBe('>=20.0.0');
     expect(packageJson.files).toEqual(expect.arrayContaining(['dist', 'skills', 'templates', 'README.md', 'CHANGELOG.md', 'CONTRIBUTING.md']));
     expect(packageJson.license).toBe('MIT');
-    expect(packageJson.description).toContain('Structural health scanner');
-    expect(packageJson.keywords).toEqual(expect.arrayContaining(['architecture', 'code-quality', 'refactoring', 'cli', 'vibe-coding', 'vibe-coded']));
+    expect(packageJson.description).toContain('Architecture linter');
+    expect(packageJson.keywords).toEqual(expect.arrayContaining(['architecture', 'linter', 'nextjs', 'app-router', 'typescript', 'cli']));
   });
 
   it('keeps generated package artifacts and development files out of npm output', () => {
