@@ -10,3 +10,5 @@ coverage/
 *.swp
 vitest-report/
 
+# ui/ is a pnpm workspace — pnpm-lock.yaml is the source of truth.
+ui/package-lock.json
