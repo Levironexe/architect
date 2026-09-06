@@ -14,10 +14,11 @@ const EXPORT_HUB_THRESHOLD = 20;
 
 export function buildDependencyGraphFromImports(
   files: FileAnalysis[],
-  extensions: string[]
+  extensions: string[],
+  isPartial = false
 ): DependencyGraphSummary {
   if (files.length === 0) {
-    return createEmptyDependencyGraphSummary(false);
+    return createEmptyDependencyGraphSummary(isPartial);
   }
 
   const knownPaths = new Set(files.map((f) => f.relativePath));
@@ -79,7 +80,7 @@ export function buildDependencyGraphFromImports(
     hotspots,
     exportHubs,
     unreferencedFiles,
-    isPartial: false,
+    isPartial,
   };
 }
 

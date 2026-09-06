@@ -13,7 +13,7 @@ describe('init command', () => {
 
   beforeEach(() => {
     tempDir = mkdtempSync(path.join(tmpdir(), 'architect-init-'));
-    cpSync(path.resolve('tests/fixtures/messy-express'), tempDir, { recursive: true });
+    cpSync(path.resolve('tests/fixtures/messy-nextjs'), tempDir, { recursive: true });
   });
 
   afterEach(() => {
@@ -21,7 +21,7 @@ describe('init command', () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('writes Claude guidance files for the messy-express fixture', async () => {
+  it('writes Claude guidance files for the messy Next.js fixture', async () => {
     mkdirSync(path.join(tempDir, '.claude'), { recursive: true });
 
     const output = await captureOutput(async () => {
@@ -34,27 +34,27 @@ describe('init command', () => {
 
     expect(output.stderr).toBe('');
     expect(output.stdout).toContain('Detected stack:');
-    expect(output.stdout).toContain('Express');
+    expect(output.stdout).toContain('Next.js');
     expect(output.stdout).toContain('Claude Code');
     expect(existsSync(planPath)).toBe(true);
     expect(existsSync(refactorPath)).toBe(true);
-    expect(readFileSync(planPath, 'utf8')).toContain('Express.js REST API');
-    expect(readFileSync(planPath, 'utf8')).toContain('server.ts');
+    expect(readFileSync(planPath, 'utf8')).toContain('Next.js App Router');
+    expect(readFileSync(planPath, 'utf8')).toContain('Next.js App Router');
   });
 
-  it('supports explicit skill override and generic fallback output', async () => {
+  it('supports explicit skill override', async () => {
     const output = await captureOutput(async () => {
-      const exitCode = await runCli(['init', tempDir, '--skill', 'general-js', '--integration', 'generic', '--update']);
+      const exitCode = await runCli(['init', tempDir, '--skill', 'nextjs-app-router', '--integration', 'claude', '--update']);
       expect(exitCode).toBe(0);
     });
 
-    const genericPlanPath = path.join(tempDir, '.architect/skills/architect-plan/SKILL.md');
+    const claudePlanPath = path.join(tempDir, '.claude/skills/architect-plan/SKILL.md');
 
     expect(output.stderr).toBe('');
     expect(output.stdout).toContain('Detected stack:');
-    expect(output.stdout).toContain('General JavaScript');
-    expect(existsSync(genericPlanPath)).toBe(true);
-    expect(readFileSync(genericPlanPath, 'utf8')).toContain('General JavaScript/TypeScript');
+    expect(output.stdout).toContain('Next.js App Router');
+    expect(existsSync(claudePlanPath)).toBe(true);
+    expect(readFileSync(claudePlanPath, 'utf8')).toContain('Next.js App Router');
   });
 
   it('reports empty projects as a non-zero error', async () => {

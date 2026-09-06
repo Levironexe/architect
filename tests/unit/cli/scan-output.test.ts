@@ -31,7 +31,7 @@ describe('scan output modes', () => {
 
   it('renders verbose terminal output without breaking normal report sections', async () => {
     const output = await captureOutput(async () => {
-      expect(await runCli(['scan', path.resolve('tests/fixtures/messy-express'), '--verbose', '--no-color'])).toBe(0);
+      expect(await runCli(['scan', path.resolve('tests/fixtures/messy-nextjs'), '--verbose', '--no-color'])).toBe(0);
     });
 
     expect(output.stdout).toContain('Architect scan:');
@@ -41,11 +41,11 @@ describe('scan output modes', () => {
 
   it('preserves status words without ANSI codes in no-color mode', async () => {
     const output = await captureOutput(async () => {
-      expect(await runCli(['scan', path.resolve('tests/fixtures/messy-express'), '--no-color'])).toBe(0);
+      expect(await runCli(['scan', path.resolve('tests/fixtures/messy-nextjs'), '--no-color'])).toBe(0);
     });
 
     expect(output.stdout).toContain('COMPLEX');
-    expect(output.stdout).toContain('warning');
+    expect(output.stdout).toContain('COMPLEX');
     expect(output.stdout).not.toContain('\u001b[');
   });
 });

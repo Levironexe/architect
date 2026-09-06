@@ -7,7 +7,7 @@ import { captureOutput } from '../test-helpers';
 
 describe('scan output invariants', () => {
   it('preserves core counts between terminal and JSON scan output', async () => {
-    const fixturePath = path.resolve('tests/fixtures/messy-express');
+    const fixturePath = path.resolve('tests/fixtures/messy-nextjs');
     const terminal = await captureOutput(async () => {
       expect(await runCli(['scan', fixturePath, '--no-color'])).toBe(0);
     });

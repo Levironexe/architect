@@ -7,7 +7,7 @@ import type { ScanDiagnostic } from '../types/scan-output.js';
 
 export function renderDiscoveryReport(targetDirectory: string, files: string[]): void {
   if (files.length === 0) {
-    process.stdout.write(`No supported source files found in ${targetDirectory}\n`);
+    process.stdout.write(`No supported JS/TS files found in ${targetDirectory}\n`);
     return;
   }
 
@@ -25,7 +25,7 @@ export function renderScanReport(result: ScanResult, options: { color?: boolean;
   const circularDependencies = result.summary.circularDependencies ?? 0;
 
   if (result.files.length === 0 && result.parseErrors.length === 0) {
-    process.stdout.write(`No supported source files found in ${result.summary.targetDir}\n`);
+    process.stdout.write(`No supported JS/TS files found in ${result.summary.targetDir}\n`);
     return;
   }
 

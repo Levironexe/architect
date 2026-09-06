@@ -38,7 +38,8 @@ export async function runProjectScan(directory: string, options: ProjectScanOpti
 
   const dependencyGraph = buildDependencyGraphFromImports(
     analysis.files,
-    SUPPORTED_EXTENSIONS.map((extension) => extension.slice(1))
+    [...SUPPORTED_EXTENSIONS],
+    analysis.parseErrors.length > 0
   );
   const result = buildScanResult(targetDirectory, analysis.files, analysis.parseErrors, dependencyGraph, Date.now() - startedAt);
 

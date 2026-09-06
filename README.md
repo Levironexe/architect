@@ -158,7 +158,7 @@ Refreshes your skill files after you've refactored or written new code.
 
 ---
 
-## CLI Reference
+## Command Reference
 
 ### `architect init <directory>`
 

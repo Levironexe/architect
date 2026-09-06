@@ -17,7 +17,7 @@ describe('scan progress diagnostics', () => {
 
   it('keeps JSON output parseable without spinner text', async () => {
     const output = await captureOutput(async () => {
-      expect(await runCli(['scan', path.resolve('tests/fixtures/messy-express'), '--json', '--verbose'])).toBe(0);
+      expect(await runCli(['scan', path.resolve('tests/fixtures/messy-nextjs'), '--json', '--verbose'])).toBe(0);
     });
 
     expect(() => JSON.parse(output.stdout)).not.toThrow();
