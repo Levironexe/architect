@@ -365,6 +365,8 @@ anti_patterns:
       requires_directive: "use client"
       not_matching:
         - process.env.NEXT_PUBLIC_
+        - process.env.NODE_ENV
+        - process.env.NEXT_RUNTIME
       message: "Client component reads a server-only environment variable."
       fix: "Read it in a server component, or prefix it NEXT_PUBLIC_ if it is safe to expose."
     description: "Importing a module that reads process.env secrets (database URL, API keys) inside a Client Component or a file without 'server-only' guard. Next.js may bundle the secret into client JavaScript, exposing it to anyone who inspects the page source."
@@ -386,9 +388,21 @@ anti_patterns:
       not_paths:
         - "lib/config.ts"
         - "lib/config.tsx"
-        - "next.config.ts"
-        - "next.config.js"
-        - "next.config.mjs"
+        - "*.config.ts"
+        - "*.config.js"
+        - "*.config.mjs"
+        - "*.config.mts"
+        - "*.test.ts"
+        - "*.test.tsx"
+        - "*.spec.ts"
+        - "*.spec.tsx"
+        - "tests/**"
+        - "__tests__/**"
+        - "e2e/**"
+        - "scripts/**"
+      not_matching:
+        - process.env.NODE_ENV
+        - process.env.NEXT_RUNTIME
       message: "process.env read outside the centralized config module."
       fix: "Read and validate it in lib/config.ts and import from there."
     description: "process.env.NEXT_PUBLIC_* and process.env.DATABASE_URL read directly in lib/ functions, Server Actions, and components. No validation, no typing, no single source of truth. If a variable name changes, every file must be updated."
@@ -507,6 +521,14 @@ anti_patterns:
       kind: import_direction
       from: "components/**"
       to: "app/**"
+      not_to:
+        - "**/components/**"
+        - "**/lib/**"
+        - "**/hooks/**"
+        - "**/actions/**"
+        - "**/ui/**"
+        - "**/utils/**"
+        - "**/types/**"
       message: "components/ imports from app/, which inverts the dependency direction."
       fix: "Pass the value in as a prop, or move the shared code to lib/."
     description: "A file in components/ imports from app/. Components are shared leaves: routes depend on them, never the other way round. This coupling makes the component unusable from another route and creates import cycles between the route tree and the component library."

@@ -173,6 +173,10 @@ function matchImportDirection(antiPattern: AntiPattern, detect: DetectSpec, cont
     for (const imported of file.imports) {
       const target = resolveImportTarget(file.relativePath, imported.source);
       if (!target || !matchesGlob(target, detect.to)) continue;
+      // A project may nest components/ and lib/ inside app/. Importing a
+      // sibling layer is not a direction violation — only reaching into a
+      // route segment is.
+      if ((detect.notTo ?? []).some((pattern) => matchesGlob(target, pattern))) continue;
       violations.push(violation(antiPattern, detect, file.relativePath, imported.line));
     }
   }
