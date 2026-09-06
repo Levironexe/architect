@@ -54,8 +54,9 @@ describe('public documentation readiness', () => {
   it('provides issue templates and nested CLI CI workflow', () => {
     const bugTemplate = readProjectFile('.github/ISSUE_TEMPLATE/bug_report.md');
     const featureTemplate = readProjectFile('.github/ISSUE_TEMPLATE/feature_request.md');
-    const workflowPath = path.resolve('../.github/workflows/architect-cli-ci.yml');
+    const workflowPath = path.resolve('.github/workflows/ci.yml');
     const workflow = readFileSync(workflowPath, 'utf8');
+    const dependabot = readProjectFile('.github/dependabot.yml');
 
     expect(bugTemplate).toContain('## Command or Workflow');
     expect(bugTemplate).toContain('## Reproduction Steps');
@@ -65,10 +66,13 @@ describe('public documentation readiness', () => {
     expect(featureTemplate).toContain('## Desired Behavior');
     expect(featureTemplate).toContain('## Impact or Priority');
     expect(existsSync(workflowPath)).toBe(true);
-    expect(workflow).toContain('working-directory: architect-cli');
     expect(workflow).toContain('npm run build');
     expect(workflow).toContain('npm run lint');
     expect(workflow).toContain('npm test');
     expect(workflow).toContain('npm audit --audit-level=high');
+    // the fixtures are the end-to-end gate: messy must exit 1, clean must exit 0
+    expect(workflow).toContain('tests/fixtures/messy-nextjs');
+    expect(workflow).toContain('tests/fixtures/clean-nextjs');
+    expect(dependabot).toContain('package-ecosystem: npm');
   });
 });

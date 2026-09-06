@@ -106,7 +106,7 @@ export function Hero() {
           previousIndex = parsed;
         }
       }
-    } catch (e) {
+    } catch {
       // Ignore storage read failures.
     }
 
@@ -119,7 +119,7 @@ export function Hero() {
 
     try {
       window.localStorage.setItem(HERO_STYLE_STORAGE_KEY, String(nextStyleIndex));
-    } catch (e) {
+    } catch {
       // Ignore storage write failures.
     }
   }, []);

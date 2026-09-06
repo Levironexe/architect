@@ -6,8 +6,6 @@ import {
   type DependencyNode,
   type ExportHub,
   type FileAnalysis,
-  type ParseError,
-  SUPPORTED_EXTENSIONS
 } from '../types/analysis.js';
 
 const EXPORT_HUB_THRESHOLD = 20;
@@ -168,8 +166,4 @@ function matchesWithExtensions(resolved: string, knownPaths: Set<string>): boole
   }
   if (knownPaths.has(resolved)) return true;
   return false;
-}
-
-function normalizeToRelativePath(value: string): string {
-  return path.normalize(value).split(path.sep).join('/');
 }
