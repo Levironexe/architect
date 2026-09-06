@@ -18,13 +18,9 @@ export interface TemplateContext {
   analysis: {
     largestFiles: string;
     hubFiles: string;
-    duplicationPercent: string;
-    missingDirs: string;
+      missingDirs: string;
     composedPhases: string;
-    securityFindings: string;
-    scanTier: string;
-    healthScore: string;
-  };
+        };
 }
 
 export interface RenderedSkillFile {

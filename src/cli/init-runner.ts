@@ -1,17 +1,13 @@
-import { existsSync, readdirSync, type Dirent } from 'node:fs';
+import { readdirSync, type Dirent } from 'node:fs';
 import { join } from 'node:path';
 
 import type { AgentType } from '../utils/agent-detector.js';
-import { confirm, select } from '@inquirer/prompts';
+import { confirm } from '@inquirer/prompts';
 import ora, { type Ora } from 'ora';
 
-import { runProjectScan, type ProjectScanOptions } from './scan-runner.js';
+import { analyzeProject, type ProjectAnalysis } from '../analyzers/project.js';
 import { buildClaudeWriterTargets } from '../generators/claudeWriter.js';
-import { buildCopilotWriterTargets } from '../generators/copilotWriter.js';
-import { buildGenericWriterTargets } from '../generators/genericWriter.js';
 import { buildTemplateContext, renderBundledTemplates, resolveSkillByReference } from '../generators/template-context.js';
-import { buildWindsurfWriterTargets } from '../generators/windsurfWriter.js';
-import { buildCursorWriterTargets } from '../generators/cursorWriter.js';
 import {
   findExistingWriterTargets,
   writeWriterTargets,
@@ -22,10 +18,10 @@ import { loadSkills } from '../skills/loader.js';
 import { detectAgent } from '../utils/agent-detector.js';
 import { isInteractiveTerminal } from '../utils/interactive.js';
 import { ensureDirectoryPath } from '../utils/path.js';
-import { detectLanguage, type DetectedLanguage } from '../languages/registry.js';
+import { detectLanguage } from '../languages/registry.js';
 import { collectProjectCharacteristicsFromLanguage, detectSkills } from '../skills/detector.js';
 
-export interface InitCommandOptions extends ProjectScanOptions {
+export interface InitCommandOptions {
   skill?: string;
   integration?: AgentType;
   update?: boolean;
@@ -37,18 +33,14 @@ interface InitRunnerDependencies {
   promptAgent?: (detected: AgentType) => Promise<AgentType>;
   interactiveCheck?: () => boolean;
   loadSkills?: typeof loadSkills;
-  runProjectScan?: typeof runProjectScan;
+  analyzeProject?: typeof analyzeProject;
   renderBundledTemplates?: typeof renderBundledTemplates;
   writers?: Record<AgentType, IntegrationWriter>;
   createSpinner?: (text: string) => Pick<Ora, 'start' | 'stop'>;
 }
 
 const WRITERS: Record<AgentType, IntegrationWriter> = {
-  claude: buildClaudeWriterTargets,
-  cursor: buildCursorWriterTargets,
-  windsurf: buildWindsurfWriterTargets,
-  copilot: buildCopilotWriterTargets,
-  generic: buildGenericWriterTargets
+  claude: buildClaudeWriterTargets
 };
 
 export async function runInitCommand(
@@ -57,7 +49,7 @@ export async function runInitCommand(
   dependencies: InitRunnerDependencies = {}
 ): Promise<InitSummary> {
   const targetDirectory = ensureDirectoryPath(directory);
-  const scanRunner = dependencies.runProjectScan ?? runProjectScan;
+  const scanRunner = dependencies.analyzeProject ?? analyzeProject;
   const skillLoader = dependencies.loadSkills ?? loadSkills;
   const renderTemplates = dependencies.renderBundledTemplates ?? renderBundledTemplates;
   const detectAgentForDirectory = dependencies.detectAgent ?? detectAgent;
@@ -65,7 +57,6 @@ export async function runInitCommand(
   const isInteractive = dependencies.interactiveCheck ?? (() => isInteractiveTerminal());
   const writers = dependencies.writers ?? WRITERS;
   const createSpinner = dependencies.createSpinner ?? ((text: string) => ora(text));
-  const promptAgent = dependencies.promptAgent ?? defaultPromptAgent;
   const warnings: string[] = [];
 
   const detected = await detectLanguage(targetDirectory);
@@ -78,19 +69,19 @@ export async function runInitCommand(
 
   const { skills } = await skillLoader();
   let selectedSkill: Awaited<ReturnType<typeof loadSkills>>['skills'][number] | undefined;
-  let result: Awaited<ReturnType<typeof runProjectScan>> | undefined;
+  let result: ProjectAnalysis | undefined;
 
   if (detected.config.supportsScanning) {
     const fileCount = estimateFileCount(targetDirectory);
     const spinner = fileCount > 500 ? createSpinner(`Scanning ${fileCount}+ files…`).start() : null;
 
     try {
-      result = await scanRunner(targetDirectory, options);
+      result = await scanRunner(targetDirectory);
     } finally {
       spinner?.stop();
     }
 
-    if (result.summary.totalFiles === 0) {
+    if (result.files.length === 0) {
       throw new Error(`No source files found. Point architect at a ${detected.config.name} project root.`);
     }
 
@@ -134,13 +125,8 @@ export async function runInitCommand(
   let integration: AgentType;
   if (options.integration) {
     integration = options.integration;
-  } else if (isInteractive()) {
-    integration = await promptAgent(detectedIntegration);
   } else {
     integration = detectedIntegration;
-    if (integration === 'generic') {
-      warnings.push('No known agent integration detected; using generic output.');
-    }
   }
 
   const context = result
@@ -186,34 +172,20 @@ export async function runInitCommand(
 
 function resolveSelectedSkill(
   override: string | undefined,
-  result: Awaited<ReturnType<typeof runProjectScan>>,
+  result: ProjectAnalysis,
   skills: Awaited<ReturnType<typeof loadSkills>>['skills']
 ) {
   if (override) {
     return resolveSkillByReference(override, skills);
   }
 
-  return result.matchedSkills?.find((match) => match.primary)?.skill;
+  return result.matchedSkills.find((match) => match.primary)?.skill;
 }
 
 async function defaultConfirmOverwrite(message: string): Promise<boolean> {
   return confirm({
     message,
     default: false
-  });
-}
-
-async function defaultPromptAgent(detected: AgentType = 'generic'): Promise<AgentType> {
-  return select<AgentType>({
-    message: 'Which coding agent are you using?',
-    default: detected,
-    choices: [
-      { name: 'Claude Code  → .claude/skills/', value: 'claude' },
-      { name: 'Cursor       → .cursor/rules/', value: 'cursor' },
-      { name: 'Windsurf     → .windsurf/rules/', value: 'windsurf' },
-      { name: 'GitHub Copilot → .github/copilot-instructions.md', value: 'copilot' },
-      { name: 'Other / plain Markdown → .architect/skills/', value: 'generic' }
-    ]
   });
 }
 

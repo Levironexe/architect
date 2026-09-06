@@ -1,18 +1,18 @@
 const STEPS = [
   {
     n: "1",
-    title: "Initialize",
-    body: "Walks the project directory, respecting .gitignore. Runs local static analysis  -  file sizes, import graphs, circular deps, duplication  -  without uploading your code.",
+    title: "Detect",
+    body: "Walks the project directory, respecting .gitignore, and detects the stack from package.json and file conventions. Nothing leaves your machine.",
   },
   {
     n: "2",
-    title: "Analyze",
-    body: "Detects your tech stack from package.json and file patterns, matching it to a community-defined skill (e.g., Express API, Next.js App Router). Override with --skill if needed.",
+    title: "Check",
+    body: "Parses every TypeScript file and evaluates the blueprint's ten rules against it - imports, directives, calls and layer boundaries. Deterministic, no model call.",
   },
   {
     n: "3",
-    title: "Install Skills",
-    body: "Renders three slash command files with the matched blueprint and static analysis context embedded, writing them directly to your agent's config directory.",
+    title: "Report",
+    body: "Prints each violation with its file, line, rule id and the move that fixes it. Exits 1 on anything critical, so it fails CI as-is.",
   },
 ];
 

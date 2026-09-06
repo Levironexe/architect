@@ -3,10 +3,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { render } from './templateRenderer.js';
-import type { ScanResult } from '../types/analysis.js';
+import type { ProjectAnalysis } from '../analyzers/project.js';
 import type { RenderedSkillFile, TemplateContext } from '../types/generation.js';
-import type { ArchitectureSkill, CompositionPhase, SkillMatch, StructureEntry } from '../types/skill.js';
-import type { SecuritySummary } from '../types/security.js';
+import type { ArchitectureSkill, SkillMatch, StructureEntry } from '../types/skill.js';
 import { collectComposedPhases } from '../skills/detector.js';
 
 const TEMPLATE_NAMES = ['architect-plan', 'architect-refactor', 'architect-catchup'] as const;
@@ -31,7 +30,7 @@ export async function loadBundledTemplate(name: TemplateName): Promise<string> {
   return fs.readFile(resolveTemplatePath(name), 'utf8');
 }
 
-export function buildTemplateContext(skill: ArchitectureSkill, result: ScanResult | undefined, allMatched?: SkillMatch[]): TemplateContext {
+export function buildTemplateContext(skill: ArchitectureSkill, result: ProjectAnalysis | undefined, allMatched?: SkillMatch[]): TemplateContext {
   const largestFiles = result
     ? [...result.files]
         .sort((left, right) => right.loc - left.loc || left.relativePath.localeCompare(right.relativePath))
@@ -72,12 +71,8 @@ export function buildTemplateContext(skill: ArchitectureSkill, result: ScanResul
     analysis: {
       largestFiles: largestFiles.join('\n'),
       hubFiles: hubFiles.join('\n'),
-      duplicationPercent: result ? `${result.duplication.duplicationPercentage.toFixed(1)}%` : 'N/A',
       missingDirs: missingDirs.join('\n'),
-      composedPhases: formatComposedPhases(allMatched ?? []),
-      securityFindings: result?.security ? formatSecurityFindings(result.security) : '',
-      scanTier: result?.scanTier ?? 'unknown',
-      healthScore: result?.scores ? `${result.scores.overall}/100 (${result.scores.label})` : 'N/A'
+      composedPhases: formatComposedPhases(allMatched ?? [])
     }
   };
 }
@@ -198,14 +193,6 @@ export function formatServiceLayerRules(skill: ArchitectureSkill): string {
 
 function resolveTemplatePath(name: TemplateName): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), `../../templates/${name}.md`);
-}
-
-function formatSecurityFindings(security: SecuritySummary): string {
-  if (security.findings.length === 0) return 'No security issues detected.';
-
-  return security.findings
-    .map((f) => `- [${f.severity}] ${f.file}${f.line ? `:${f.line}` : ''}: ${f.message}`)
-    .join('\n');
 }
 
 function indentBlock(value: string): string {

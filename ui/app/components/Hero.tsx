@@ -106,7 +106,7 @@ export function Hero() {
           previousIndex = parsed;
         }
       }
-    } catch (e) {
+    } catch {
       // Ignore storage read failures.
     }
 
@@ -119,7 +119,7 @@ export function Hero() {
 
     try {
       window.localStorage.setItem(HERO_STYLE_STORAGE_KEY, String(nextStyleIndex));
-    } catch (e) {
+    } catch {
       // Ignore storage write failures.
     }
   }, []);
@@ -159,10 +159,10 @@ export function Hero() {
         })}
       </h1>
       <h2 className="text-3xl md:text-5xl font-serif text-dark mb-8 leading-tight">
-        Architectural skills for your AI agent.<br />Stack-aware. Anti-pattern-proof.
+        Your code compiles.<br />Is it in the right place?
       </h2>
       <p className="text-lg md:text-xl text-muted max-w-2xl mx-auto mb-10 font-normal leading-relaxed">
-        One command scans your project and installs agent skills that teach Claude Code, Cursor, or Windsurf the best practices, separation rules, and anti-patterns for your exact stack.
+        An architecture linter for Next.js App Router projects written in TypeScript. Ten deterministic rules, no model call, exit 1 on a violation.
       </p>
       <div className="flex justify-center mb-8">
         <InstallCommand />

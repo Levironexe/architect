@@ -16,13 +16,19 @@ export function renderVerifyReport(result: VerifyResult, options: { color?: bool
   lines.push(checkLine(chalk, result.broken_imports.length === 0, 'Import resolution', `(${result.broken_imports.length} broken imports)`));
   lines.push(checkLine(chalk, result.new_circular_deps <= 0, 'No new circular deps', `(${result.new_circular_deps >= 0 ? '+' : ''}${result.new_circular_deps})`));
 
-  if (result.duplication_delta > 1) {
-    lines.push(`  ${chalk.yellow('⚠')} Duplication increased     (+${result.duplication_delta}%)`);
+  if (result.baseline_violations === null) {
+    lines.push(`  ${chalk.dim('·')} Violations              ${chalk.dim(`(${result.violations}, no baseline recorded)`)}`);
   } else {
-    lines.push(checkLine(chalk, true, 'Duplication stable', `(${result.duplication_delta >= 0 ? '+' : ''}${result.duplication_delta}%)`));
+    const delta = result.new_violations >= 0 ? `+${result.new_violations}` : `${result.new_violations}`;
+    lines.push(checkLine(
+      chalk,
+      result.new_violations <= 0,
+      'Violations vs baseline',
+      `(${result.violations} now, ${result.baseline_violations} at baseline, ${delta})`
+    ));
   }
 
-  lines.push(checkLine(chalk, result.health_delta >= 0, 'Health score', `(${result.health_delta >= 0 ? '+' : ''}${result.health_delta})`));
+
 
   if (result.plan_checks_total > 0) {
     const passedCount = result.plan_checks_total - result.plan_checks_failed.length;
@@ -36,6 +42,10 @@ export function renderVerifyReport(result: VerifyResult, options: { color?: bool
     lines.push(chalk.green(`${phaseLabel}: PASSED`));
   } else {
     lines.push(chalk.red(`Verification: FAILED`));
+    if (result.new_violations > 0) {
+      lines.push('');
+      lines.push(`${result.new_violations} new architectural violation(s) since the baseline. Run architect check for detail.`);
+    }
     if (result.broken_imports.length > 0) {
       lines.push('');
       lines.push('Broken imports:');
@@ -63,8 +73,6 @@ export function renderVerifyReport(result: VerifyResult, options: { color?: bool
       lines.push('');
       lines.push('Strict mode failures:');
       if (result.new_circular_deps > 0) lines.push(`  ${chalk.red('→')} New circular dependencies introduced (+${result.new_circular_deps})`);
-      if (result.duplication_delta > 1) lines.push(`  ${chalk.red('→')} Duplication increased by ${result.duplication_delta}%`);
-      if (result.health_delta < 0) lines.push(`  ${chalk.red('→')} Health score regressed (${result.health_delta})`);
     }
   }
 

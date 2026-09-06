@@ -22,14 +22,19 @@ describe('init-runner: language detection without package.json', () => {
 
   it('detects JS via extension fallback and still runs scan without package.json', async () => {
     const mockScanRunner = vi.fn().mockResolvedValue({
-      summary: { totalFiles: 1 },
-      matchedSkills: []
+      files: [{ relativePath: 'index.js', loc: 1, functions: [], imports: [], exports: [] }],
+      parseErrors: [],
+      dependencyGraph: { nodes: [], circularDependencies: [], hotspots: [], exportHubs: [], unreferencedFiles: [], isPartial: false },
+      matchedSkills: [],
+      primarySkill: null,
+      structureComparison: null,
+      skillLoadWarnings: []
     });
     const mockSkillLoader = vi.fn().mockResolvedValue({ skills: [] });
 
     await captureOutput(async () => {
       await runInitCommand(tempDir, {}, {
-        runProjectScan: mockScanRunner as never,
+        analyzeProject: mockScanRunner as never,
         loadSkills: mockSkillLoader as never
       }).catch(() => {});
     });
@@ -41,14 +46,19 @@ describe('init-runner: language detection without package.json', () => {
     writeFileSync(path.join(tempDir, 'package.json'), '{"name":"test"}', 'utf8');
 
     const mockScanRunner = vi.fn().mockResolvedValue({
-      summary: { totalFiles: 1 },
-      matchedSkills: []
+      files: [{ relativePath: 'index.js', loc: 1, functions: [], imports: [], exports: [] }],
+      parseErrors: [],
+      dependencyGraph: { nodes: [], circularDependencies: [], hotspots: [], exportHubs: [], unreferencedFiles: [], isPartial: false },
+      matchedSkills: [],
+      primarySkill: null,
+      structureComparison: null,
+      skillLoadWarnings: []
     });
     const mockSkillLoader = vi.fn().mockResolvedValue({ skills: [] });
 
     await captureOutput(async () => {
       await runInitCommand(tempDir, {}, {
-        runProjectScan: mockScanRunner as never,
+        analyzeProject: mockScanRunner as never,
         loadSkills: mockSkillLoader as never
       }).catch(() => {});
     });
@@ -93,7 +103,7 @@ describe('init-runner: large-project spinner', () => {
 
     await captureOutput(async () => {
       await runInitCommand(tempDir, {}, {
-        runProjectScan: mockScanRunner as never,
+        analyzeProject: mockScanRunner as never,
         loadSkills: mockSkillLoader as never,
         createSpinner: mockSpinnerFactory
       }).catch(() => {});
@@ -115,7 +125,7 @@ describe('init-runner: large-project spinner', () => {
 
     await captureOutput(async () => {
       await runInitCommand(tempDir, {}, {
-        runProjectScan: mockScanRunner as never,
+        analyzeProject: mockScanRunner as never,
         loadSkills: mockSkillLoader as never,
         createSpinner: mockSpinnerFactory
       }).catch(() => {});

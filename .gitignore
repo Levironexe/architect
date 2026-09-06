@@ -10,5 +10,3 @@ coverage/
 *.swp
 vitest-report/
 
-# Test fixtures
-tests/fixtures/

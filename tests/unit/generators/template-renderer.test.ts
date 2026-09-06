@@ -19,7 +19,6 @@ const templateContext: TemplateContext = {
   analysis: {
     largestFiles: '- server.ts (420 LOC)',
     hubFiles: '- src/shared/db.ts (depended on by 4 files)',
-    duplicationPercent: '18.2%',
     missingDirs: '- src/routes\n- src/services'
   }
 };
@@ -27,13 +26,13 @@ const templateContext: TemplateContext = {
 describe('render', () => {
   it('replaces nested template tokens with context values', () => {
     const result = render(
-      'Stack: {{skill.name}}\nFlow: {{skill.separation.data_flow}}\nDuplication: {{analysis.duplicationPercent}}',
+      'Stack: {{skill.name}}\nFlow: {{skill.separation.data_flow}}\nMissing: {{analysis.missingDirs}}',
       templateContext
     );
 
     expect(result).toContain('Stack: Express.js REST API');
     expect(result).toContain('Flow: Route -> Controller -> Service -> Model');
-    expect(result).toContain('Duplication: 18.2%');
+    expect(result).toContain('Missing: - src/routes');
   });
 
   it('renders missing values as empty strings instead of throwing', () => {
