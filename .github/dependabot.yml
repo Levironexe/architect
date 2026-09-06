@@ -8,6 +8,8 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+  # ui/ resolves through pnpm-lock.yaml, which is what Vercel installs from.
+  # Dependabot's npm ecosystem handles pnpm lockfiles.
   - package-ecosystem: npm
     directory: /ui
     schedule:
