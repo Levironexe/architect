@@ -9,15 +9,13 @@ export function extractVerifyChecks(planContent: string, phase: number): PlanVer
   const checks: PlanVerifyCheck[] = [];
   const lines = planContent.split('\n');
 
-  let currentPhase = -1;
   let currentStep = '';
   let inTargetPhase = false;
 
   for (const line of lines) {
     const phaseMatch = line.match(/^## Phase (\d+):/);
     if (phaseMatch) {
-      currentPhase = parseInt(phaseMatch[1]!, 10);
-      inTargetPhase = currentPhase === phase;
+      inTargetPhase = parseInt(phaseMatch[1]!, 10) === phase;
       continue;
     }
 
