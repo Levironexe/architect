@@ -26,16 +26,10 @@ export async function analyzeFile(filePath: string, rootDirectory: string, thres
   const parsed = parse(source, {
     sourceType: 'unambiguous',
     errorRecovery: false,
-    plugins: [
-      'typescript',
-      'jsx',
-      'classProperties',
-      'decorators-legacy',
-      'dynamicImport',
-      'importMeta',
-      'optionalChaining',
-      'nullishCoalescingOperator'
-    ]
+    // Babel 8 enables classProperties, dynamicImport, importMeta,
+    // optionalChaining and nullishCoalescingOperator by default and rejects
+    // them as plugin names.
+    plugins: ['typescript', 'jsx', 'decorators-legacy']
   });
 
   const functions: FunctionInfo[] = [];
