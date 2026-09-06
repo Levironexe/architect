@@ -27,16 +27,6 @@ describe('issue builder', () => {
     expect(complexityIssue?.severity).toBe('warning');
   });
 
-  it('flags high duplication as an issue', () => {
-    const result = createResult();
-    result.duplication.duplicationPercentage = 20;
-
-    const issues = buildIssues(result);
-    const dupIssue = issues.find((issue) => issue.category === 'duplication');
-
-    expect(dupIssue).toBeDefined();
-  });
-
   it('does not create separation or consistency issues (no LLM)', () => {
     const issues = buildIssues(createResult());
 

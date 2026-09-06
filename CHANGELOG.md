@@ -2,6 +2,16 @@
 
 All notable changes to Architect CLI are recorded here.
 
+## Unreleased
+
+### Added
+
+- Nothing yet.
+
+### Security
+
+- No security-relevant changes.
+
 ## 0.7.12
 
 ### Added

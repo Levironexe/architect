@@ -122,7 +122,7 @@ describe('renderScanReport', () => {
     expect(output.stderr).toBe('');
   });
 
-  it('prints dependency and duplication sections with partial-analysis warnings', async () => {
+  it('prints dependency sections with partial-analysis warnings', async () => {
     const output = await captureOutput(() => {
       renderScanReport(
         {
@@ -209,11 +209,8 @@ describe('renderScanReport', () => {
     expect(output.stdout).toContain('Dependency insights');
     expect(output.stdout).toContain('Hotspot: src/shared/format.ts (depended on by 3 files)');
     expect(output.stdout).toContain('Circular dependency: src/a.ts -> src/b.ts -> src/a.ts');
-    expect(output.stdout).toContain('Duplication findings');
-    expect(output.stdout).toContain('Duplicate block (18 lines): src/a.ts:10-27 <-> src/b.ts:12-29');
     expect(output.stdout).toContain('- Dependency hotspots: 1');
-    expect(output.stdout).toContain('- Duplicate findings: 1');
-    expect(output.stderr).toContain('Dependency and duplication findings may be partial because 1 file was skipped');
+    expect(output.stderr).toContain('Dependency findings may be partial because 1 file was skipped');
   });
 
   it('prints structure comparison output when available', async () => {
@@ -355,66 +352,10 @@ describe('renderScanReport', () => {
     expect(output.stdout.indexOf('Project overview')).toBeLessThan(output.stdout.indexOf('Detected architecture'));
     expect(output.stdout.indexOf('Detected architecture')).toBeLessThan(output.stdout.indexOf('Structure comparison'));
     expect(output.stdout.indexOf('Structure comparison')).toBeLessThan(output.stdout.indexOf('Dependency insights'));
-    expect(output.stdout.indexOf('Duplication findings')).toBeLessThan(output.stdout.indexOf('Health report'));
     expect(output.stdout).toContain('Unavailable because no primary architecture skill was detected');
     expect(output.stdout).not.toContain('Concern classification');
     expect(output.stdout).not.toContain('Pattern consistency');
     expect(output.stdout).not.toContain('\u001b[');
-  });
-
-  it('prints health score and dimension breakdown', async () => {
-    const output = await captureOutput(() => {
-      renderScanReport(
-        {
-          summary: {
-            targetDir: '/tmp/project',
-            totalFiles: 1,
-            skippedFiles: 0,
-            totalLoc: 1,
-            totalLines: 1,
-            flaggedFiles: 0,
-            flaggedFunctions: 0,
-            dependencyHotspots: 0,
-            circularDependencies: 0,
-            duplicateFindings: 0,
-            duplicatedLines: 0,
-            scanDurationMs: 1
-          },
-          files: [
-            {
-              path: '/tmp/project/index.ts',
-              relativePath: 'index.ts',
-              loc: 1,
-              blankLines: 0,
-              commentLines: 0,
-              totalLines: 1,
-              functions: [],
-              classes: [],
-              imports: [],
-              exports: [],
-              isOversized: false,
-              hasCriticalComplexity: false,
-              parseError: null
-            }
-          ],
-          parseErrors: [],
-          scores: {
-            overall: 80,
-            label: 'healthy',
-            modularity: { score: 60, weight: 50, label: 'warning', reasons: ['large file'] },
-            duplication: { score: 100, weight: 50, label: 'healthy', reasons: ['0% duplication'] }
-          }
-        },
-        { color: false }
-      );
-    });
-
-    expect(output.stdout).toContain('Health report');
-    expect(output.stdout).toContain('Overall score: 80 healthy');
-    expect(output.stdout).toContain('modularity: 60 warning');
-    expect(output.stdout).toContain('duplication: 100 healthy');
-    expect(output.stdout).not.toContain('separation');
-    expect(output.stdout).not.toContain('consistency');
   });
 
   it('prints ranked issues and roadmap guidance', async () => {

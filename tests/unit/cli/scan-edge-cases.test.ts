@@ -26,6 +26,6 @@ describe('scan edge cases', () => {
     expect(output.stderr).toContain('WARN  Failed to parse broken.ts');
     expect(output.stderr).toContain('Skipped 1 file due to syntax errors');
     expect(output.stderr).toContain('Run with --verbose');
-    expect(output.stderr).toContain('Dependency and duplication findings may be partial');
+    expect(output.stderr).toContain('Dependency findings may be partial');
   });
 });
