@@ -351,7 +351,8 @@ function parseDetect(value: unknown): DetectSpec | null {
     ['not_paths', 'notPaths'],
     ['modules', 'modules'],
     ['callee', 'callee'],
-    ['not_matching', 'notMatching']
+    ['not_matching', 'notMatching'],
+    ['not_to', 'notTo']
   ] as const;
   for (const [yamlKey, specKey] of stringArrays) {
     const raw = value[yamlKey];

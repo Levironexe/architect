@@ -29,6 +29,8 @@ export interface DetectSpec {
   /** kind: import_direction — files under `from` may not import from `to`. */
   from?: string;
   to?: string;
+  /** Targets matching any of these are allowed, even if they match `to`. */
+  notTo?: string[];
 
   /** kind: directive — the directive prologue to look for, e.g. "use client". */
   value?: string;

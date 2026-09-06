@@ -90,6 +90,24 @@ describe('rule engine', () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
+  describe('false positives found against real repositories', () => {
+    it('does not flag process.env.NODE_ENV in a client component', () => {
+      expect(clean.filter((violation) => violation.file.endsWith('DebugBadge.tsx'))).toEqual([]);
+    });
+
+    it('does not flag process.env in a tool config file', () => {
+      expect(clean.filter((violation) => violation.file.endsWith('playwright.config.ts'))).toEqual([]);
+    });
+
+    it('does not flag process.env in a test file', () => {
+      expect(clean.filter((violation) => violation.file.includes('tests/'))).toEqual([]);
+    });
+
+    it('does not flag a components/ tree nested inside app/ importing a sibling layer', () => {
+      expect(clean.filter((violation) => violation.file.endsWith('NestedCard.tsx'))).toEqual([]);
+    });
+  });
+
   it('does not let a NEXT_PUBLIC_ read count as a leaked server secret', () => {
     const leaks = violationsFor(messy, 'leaked_server_secret');
 

@@ -55,7 +55,11 @@ export async function analyzeProject(rootDir: string): Promise<ProjectAnalysis> 
   const characteristics = await collectProjectCharacteristics(rootDir, filePaths, files);
   const matchedSkills = detectSkills(characteristics, skillLoadResult.skills);
   const primarySkill = (matchedSkills.find((match) => match.primary)?.skill as ArchitectureSkill | undefined) ?? null;
-  const structureComparison = await compareStructure(rootDir, matchedSkills);
+  const structureComparison = await compareStructure(
+    rootDir,
+    matchedSkills,
+    files.map((file) => file.relativePath)
+  );
 
   return {
     rootDir,
