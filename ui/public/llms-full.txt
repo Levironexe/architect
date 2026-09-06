@@ -1,0 +1,300 @@
+# Architect — full reference
+
+> An architecture linter for Next.js App Router projects written in TypeScript.
+> Version 1.0.0. Next.js App Router + TypeScript only.
+
+Architect evaluates a stack blueprint against your code. Every rule is
+deterministic — there is no model call, no API key and no network access.
+
+## Install
+
+```bash
+npx @levironexe/architect check .          # no install
+npm install -g @levironexe/architect       # or install globally
+```
+
+Requires Node.js >=20.0.0.
+
+## Commands
+
+### `architect check [directory]`
+
+Check a project against its stack blueprint
+
+| Flag | Effect |
+|------|--------|
+| `--json` | Emit machine-readable JSON output |
+| `--list-rules` | List every rule with its severity, then exit |
+| `--baseline` | Write .architect/baseline.json instead of reporting |
+| `--no-color` | Disable ANSI color output |
+
+### `architect init [directory]`
+
+Install the Claude Code skills for this project
+
+| Flag | Effect |
+|------|--------|
+| `--skill <id>` | Override automatic stack detection |
+| `--update` | Overwrite existing Architect guidance files |
+
+### `architect verify [directory]`
+
+Fail if the violation count rose against the recorded baseline
+
+| Flag | Effect |
+|------|--------|
+| `--phase <number>` | Phase number (saves a snapshot as phase-N) |
+| `--strict` | Fail when violations increase against the baseline |
+| `--json` | Emit machine-readable JSON output |
+| `--no-color` | Disable ANSI color output |
+
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | No violations, or warnings only |
+| 1 | At least one critical violation |
+| 2 | No supported stack detected, or the directory does not exist |
+
+Warnings alone do not fail the command. Use `verify --strict` to ratchet.
+
+## JSON output
+
+```json
+{
+  "stack": "nextjs-app-router",
+  "files_checked": 18,
+  "violations": [
+    {
+      "rule": "use_client_everywhere",
+      "severity": "warning",
+      "file": "src/app/projects/page.tsx",
+      "line": 24,
+      "message": "...",
+      "fix": "..."
+    }
+  ],
+  "summary": { "critical": 1, "warning": 0, "info": 0 }
+}
+```
+
+## Rules
+
+11 rules are checked. 1 is guidance for a coding agent and is never reported.
+
+| Rule | Severity | Checked |
+|------|----------|---------|
+| `use_client_everywhere` | warning | yes |
+| `client_data_fetching_by_default` | warning | yes |
+| `direct_db_in_page` | critical | yes |
+| `server_action_throws` | warning | yes |
+| `leaked_server_secret` | critical | yes |
+| `scattered_process_env` | warning | yes |
+| `direct_db_in_route` | critical | yes |
+| `alert_for_errors` | warning | yes |
+| `oversized_extraction` | warning | yes |
+| `illegal_import` | critical | yes |
+| `missing_layer` | warning | yes |
+| `auth_mechanism_mismatch` | critical | no — agent guidance only |
+
+### `use_client_everywhere`
+
+The 'use client' directive is placed at the top of layout, page, or large wrapper components rather than pushed down to only the leaf components that actually need browser interactivity. This unnecessarily turns large component subtrees into client bundles, increasing JavaScript shipped to the browser.
+
+- Severity: warning
+- Matcher: `directive`
+- Message: 'use client' on a layout turns the whole subtree into a client bundle.
+- Fix: Remove the directive here and mark only the interactive leaf component.
+
+### `client_data_fetching_by_default`
+
+Data fetching is moved to client components using useEffect/useState without a user interaction requirement. This delays the first meaningful paint, exposes API endpoints unnecessarily, and forfeits React Server Component streaming and caching benefits.
+
+- Severity: warning
+- Matcher: `call`
+- Message: Client component fetches its own data in useEffect.
+- Fix: Fetch in a server component and pass the result down as props.
+
+### `direct_db_in_page`
+
+Database queries or external API calls are made directly inside page.tsx or layout.tsx files instead of being encapsulated in lib/. This scatters data-access logic across the route tree, makes it impossible to reuse queries in Server Actions or Route Handlers, and prevents centralized error handling and logging.
+
+- Severity: critical
+- Matcher: `import`
+- Message: Database client imported directly in a page or layout component.
+- Fix: Move the query into lib/ and call that function from the page.
+
+### `server_action_throws`
+
+Server Actions throw errors instead of returning typed result objects. When a Server Action throws, Next.js shows a generic error boundary or the error is lost — the client component cannot distinguish between error types or show specific messages.
+
+- Severity: warning
+- Matcher: `throw`
+- Message: Server Action throws instead of returning a result object.
+- Fix: Return { ok: false, error } so the client can handle it.
+
+### `leaked_server_secret`
+
+Importing a module that reads process.env secrets (database URL, API keys) inside a Client Component or a file without 'server-only' guard. Next.js may bundle the secret into client JavaScript, exposing it to anyone who inspects the page source.
+
+- Severity: critical
+- Matcher: `member`
+- Message: Client component reads a server-only environment variable.
+- Fix: Read it in a server component, or prefix it NEXT_PUBLIC_ if it is safe to expose.
+
+### `scattered_process_env`
+
+process.env.NEXT_PUBLIC_* and process.env.DATABASE_URL read directly in lib/ functions, Server Actions, and components. No validation, no typing, no single source of truth. If a variable name changes, every file must be updated.
+
+- Severity: warning
+- Matcher: `member`
+- Message: process.env read outside the centralized config module.
+- Fix: Read and validate it in lib/config.ts and import from there.
+
+### `direct_db_in_route`
+
+Database queries or ORM calls are made directly inside API route handlers (route.ts) instead of delegating to service/lib functions. This scatters data-access logic, makes routes untestable, and duplicates queries across GET/POST/PUT handlers.
+
+- Severity: critical
+- Matcher: `import`
+- Message: Database client imported directly in an API route handler.
+- Fix: Move the query into lib/ and call that function from the handler.
+
+### `alert_for_errors`
+
+Using window.alert() or alert() to display errors to the user. Alert blocks the UI thread, cannot be styled, provides no actionable context, and is impossible to test. Use toast notifications or inline error messages instead.
+
+- Severity: warning
+- Matcher: `call`
+- Message: alert() used to surface an error to the user.
+- Fix: Render the error in the UI, or use a toast component.
+
+### `oversized_extraction`
+
+A component or module was extracted from a page to a separate file, but the extracted file is still 300+ LOC. This just moved the god file — it did not solve the modularity problem. After extraction, split further into focused sub-components.
+
+- Severity: warning
+- Matcher: `metric`
+- Message: File exceeds 300 LOC and is doing too many jobs.
+- Fix: Extract data access into lib/ and presentation into components/.
+
+### `illegal_import`
+
+A file in components/ imports from app/. Components are shared leaves: routes depend on them, never the other way round. This coupling makes the component unusable from another route and creates import cycles between the route tree and the component library.
+
+- Severity: critical
+- Matcher: `import_direction`
+- Message: components/ imports from app/, which inverts the dependency direction.
+- Fix: Pass the value in as a prop, or move the shared code to lib/.
+
+### `auth_mechanism_mismatch` (agent guidance only)
+
+The login flow uses one auth mechanism (e.g., custom localStorage blob, manual JWT) but API route guards check a different one (e.g., Supabase session, NextAuth getServerSession). The two systems never connect — every authenticated API request will be rejected. This creates false security confidence: the guards look correct but block all real users.
+
+- Severity: critical
+- Not reported by `check`: it needs cross-file semantic judgement.
+
+## The detect: schema
+
+Rules live in `skills/stacks/nextjs-app-router/SKILL.md` as YAML, not in TypeScript.
+An anti-pattern becomes checkable by gaining a `detect:` block; without one it
+stays guidance for a coding agent.
+
+```yaml
+- id: direct_db_in_page
+  severity: critical
+  detect:
+    kind: import
+    paths: ["app/**/page.tsx", "app/**/layout.tsx"]
+    modules: ["@prisma/client", drizzle-orm, mongoose]
+    message: "Database client imported directly in a page or layout component."
+    fix: "Move the query into lib/ and call that function from the page."
+```
+
+### Matcher kinds
+
+| kind | Fires when | Key fields |
+|------|-----------|------------|
+| `import` | A module is imported inside `paths` | `modules` |
+| `import_direction` | A file under `from` imports one under `to` | `from`, `to` |
+| `directive` | A file carries a directive prologue | `value` |
+| `call` | A named function is called | `callee` |
+| `member` | A member expression appears | `object`, `property` |
+| `throw` | A throw statement appears | — |
+| `metric` | A file metric exceeds a ceiling | `metric`, `gt` |
+
+### Shared fields
+
+| Field | Effect |
+|-------|--------|
+| `paths` | Globs the rule applies to. Omitted means every file. |
+| `not_paths` | Globs excluded, applied after `paths` |
+| `requires_directive` | The file must also carry this directive |
+| `requires_call` | The file must also contain this call |
+| `not_matching` | Matched text starting with any of these is not a violation |
+| `message` | What is wrong |
+| `fix` | What to do about it |
+
+Globs anchor at a segment boundary, so `app/**/page.tsx` matches both
+`app/users/page.tsx` and `src/app/users/page.tsx`, but not
+`src/myapp/users/page.tsx`.
+
+Matching runs against a real parse, so a commented-out `alert()` is not a
+violation. Two rules never report the same `file:line`.
+
+## GitHub Actions
+
+```yaml
+name: architecture
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npx @levironexe/architect check .
+```
+
+## Claude Code Stop hook
+
+Runs `check` after every agent turn so the agent sees what it broke.
+In `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "npx @levironexe/architect check . --json" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Non-goals
+
+Architect checks one thing: whether your code is in the right place. It does not
+do these, and will not grow into them:
+
+- Duplicate code detection — use jscpd
+- Dead code and unused exports — use knip
+- Secret scanning — use gitleaks
+- A 0-100 health score — use fallow
+- Any language but TypeScript
+- Any stack but Next.js App Router
+- Auto-fixing violations — that is your coding agent's job
+
+If you want a broad codebase scanner, use fallow. Architect answers a narrower
+question that scanners do not.
+
+## Source
+
+- GitHub: https://github.com/Levironexe/architect
+- npm: https://www.npmjs.com/package/@levironexe/architect
+- Docs: https://architect-cli.vercel.app/docs
