@@ -7,17 +7,17 @@ is this file in the layer it belongs to? Next.js App Router + TypeScript only.
 
 ## Docs
 
-- [Overview](https://architect-cli.vercel.app/docs): what Architect is, why it exists, and its non-goals
-- [Commands](https://architect-cli.vercel.app/docs/commands): check, init, verify, their flags and exit codes
-- [Rules](https://architect-cli.vercel.app/docs/skills): all 11 checked rules and the detect: schema
-- [Integrations](https://architect-cli.vercel.app/docs/integrations): GitHub Actions and the Claude Code Stop hook
-- [Contributing](https://architect-cli.vercel.app/docs/contributing): how to add a rule with a detect: block
+- [Overview](https://leviron-architect.vercel.app/docs): what Architect is, why it exists, and its non-goals
+- [Commands](https://leviron-architect.vercel.app/docs/commands): check, init, verify, their flags and exit codes
+- [Rules](https://leviron-architect.vercel.app/docs/skills): all 11 checked rules and the detect: schema
+- [Integrations](https://leviron-architect.vercel.app/docs/integrations): GitHub Actions and the Claude Code Stop hook
+- [Contributing](https://leviron-architect.vercel.app/docs/contributing): how to add a rule with a detect: block
 
 ## Commands
 
-- [check](https://architect-cli.vercel.app/docs/commands): Check a project against its stack blueprint
-- [init](https://architect-cli.vercel.app/docs/commands): Install the Claude Code skills for this project
-- [verify](https://architect-cli.vercel.app/docs/commands): Fail if the violation count rose against the recorded baseline
+- [check](https://leviron-architect.vercel.app/docs/commands): Check a project against its stack blueprint
+- [init](https://leviron-architect.vercel.app/docs/commands): Install the Claude Code skills for this project
+- [verify](https://leviron-architect.vercel.app/docs/commands): Fail if the violation count rose against the recorded baseline
 
 ## Rules
 
@@ -37,4 +37,4 @@ is this file in the layer it belongs to? Next.js App Router + TypeScript only.
 
 - [GitHub](https://github.com/Levironexe/architect): source, issues and the stack blueprint
 - [npm](https://www.npmjs.com/package/@levironexe/architect): `npx @levironexe/architect check .`
-- [Full reference](https://architect-cli.vercel.app/llms-full.txt): install, flags, exit codes, detect: schema
+- [Full reference](https://leviron-architect.vercel.app/llms-full.txt): install, flags, exit codes, detect: schema

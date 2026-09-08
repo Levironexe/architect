@@ -20,9 +20,7 @@ const { loadSkills } = await import(join(root, 'dist/skills/loader.js'));
 const { createProgram } = await import(join(root, 'dist/cli/index.js'));
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 
-// No deployed URL exists in the repo yet. Set ARCHITECT_SITE_URL before
-// generating for production, or these links will point at a guess.
-const SITE = process.env.ARCHITECT_SITE_URL ?? 'https://architect-cli.vercel.app';
+const SITE = process.env.ARCHITECT_SITE_URL ?? 'https://leviron-architect.vercel.app';
 const REPO = 'https://github.com/Levironexe/architect';
 const NPM = `https://www.npmjs.com/package/${pkg.name}`;
 
