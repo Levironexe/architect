@@ -1,154 +1,124 @@
-const PRINCIPLES = [
+/**
+ * Every entry names the rule that enforces it. If a rule is removed from the
+ * blueprint, its card must go too — nothing here describes behaviour architect
+ * does not actually check. `architect check --list-rules` is the source of truth.
+ */
+const RULES = [
   {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="7" height="7" rx="1" />
-        <rect x="14" y="3" width="7" height="7" rx="1" />
-        <rect x="3" y="14" width="7" height="7" rx="1" />
-        <rect x="14" y="14" width="7" height="7" rx="1" />
-      </svg>
-    ),
-    title: "Separation of Concerns",
+    group: "Data access",
+    severity: "critical" as const,
+    rules: ["direct_db_in_page", "direct_db_in_route"],
     description:
-      "Your agent learns which code belongs where — routes, services, models, middleware — and enforces boundaries.",
+      "A database client imported straight into a page, layout or route handler. Queries belong in lib/, where a Server Action or another route can reuse them.",
   },
   {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="3" />
-        <path d="M12 3v6M12 15v6M3 12h6M15 12h6" />
-      </svg>
-    ),
-    title: "SOLID Principles",
+    group: "Layer direction",
+    severity: "critical" as const,
+    rules: ["illegal_import"],
     description:
-      "Single Responsibility, Open-Closed, Interface Segregation, and Dependency Injection — taught per stack.",
+      "components/ importing from app/. Components are shared leaves: routes depend on them, never the other way round.",
   },
   {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 6h16M4 12h16M4 18h16" />
-        <path d="M8 3v3M8 21v-3M16 3v3M16 21v-3" />
-      </svg>
-    ),
-    title: "Layered Architecture",
+    group: "Server/client boundary",
+    severity: "critical" as const,
+    rules: ["leaked_server_secret"],
     description:
-      "Route → Controller → Service → Model. Every stack gets its own data flow blueprint with strict layer rules.",
+      "A 'use client' file reading a server-only environment variable. NEXT_PUBLIC_ and NODE_ENV are excluded — they are inlined at build time.",
   },
   {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 2v6l-2 2" />
-        <path d="M15 2v6l2 2" />
-        <path d="M12 17v5" />
-        <circle cx="12" cy="14" r="3" />
-      </svg>
-    ),
-    title: "DRY",
+    group: "Client bundle size",
+    severity: "warning" as const,
+    rules: ["use_client_everywhere", "client_data_fetching_by_default"],
     description:
-      "Duplicate code detected and eliminated. Shared logic extracted into reusable hooks, utilities, and modules.",
+      "'use client' on a layout drags the whole subtree into the client bundle, and a client component fetching in useEffect forfeits server rendering.",
   },
   {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="11" width="18" height="11" rx="2" />
-        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        <circle cx="12" cy="16" r="1" />
-      </svg>
-    ),
-    title: "Security Patterns",
+    group: "Configuration",
+    severity: "warning" as const,
+    rules: ["scattered_process_env"],
     description:
-      "Secrets from environment only. Auth middleware enforced. Input validated. RLS policies on every table.",
+      "process.env read outside lib/config.ts. Test files and tool configs are exempt — reading env there is correct.",
   },
   {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 9v4M12 17h.01" />
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-      </svg>
-    ),
-    title: "Error Handling",
+    group: "Error handling",
+    severity: "warning" as const,
+    rules: ["server_action_throws", "alert_for_errors"],
     description:
-      "Typed errors, fail-fast validation, no empty catch blocks. Resilient patterns from day one.",
+      "A Server Action that throws instead of returning a typed result, or alert() standing in for real error UI.",
   },
   {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <path d="M14 2v6h6" />
-        <path d="M8 13h8M8 17h8" />
-      </svg>
-    ),
-    title: "API Contracts",
+    group: "Structure",
+    severity: "warning" as const,
+    rules: ["oversized_extraction", "missing_layer"],
     description:
-      "Clean DTOs, separate input and output schemas, typed responses. Your API surface stays predictable.",
-  },
-  {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 11l3 3L22 4" />
-        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-      </svg>
-    ),
-    title: "Testability",
-    description:
-      "Services accept plain data, not HTTP objects. Every layer independently testable without mocking the world.",
-  },
-  {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 20V10" />
-        <path d="M18 20V4" />
-        <path d="M6 20v-4" />
-      </svg>
-    ),
-    title: "Config Management",
-    description:
-      "Environment validated at startup via schema. No scattered process.env reads. One source of truth.",
+      "A file past 300 LOC doing several jobs, or a directory the blueprint requires that does not exist yet.",
   },
 ];
 
 export function Principles() {
   return (
-    <section className="max-w-280 mx-auto px-6 py-24">
+    <section id="the-rules" className="max-w-280 mx-auto px-6 py-24">
       <div className="mb-12">
         <span className="inline-block border border-gray-300 rounded-full px-4 py-1.5 text-xs font-medium text-muted mb-6">
-          Principles
+          The rules
         </span>
         <h2 className="text-4xl md:text-5xl font-serif mb-4">
-          Real engineering principles.
+          Ten rules.
           <br />
-          Not generic advice.
+          Every one of them deterministic.
         </h2>
         <p className="text-lg text-muted leading-relaxed max-w-2xl">
-          Every skill is grounded in battle-tested software engineering principles — your agent doesn{"'"}t guess, it follows the blueprint.
+          No model call, no heuristics, no score out of a hundred. Each rule is a{" "}
+          <code className="font-mono text-base bg-gray-100 px-1.5 py-0.5 rounded">detect:</code>{" "}
+          block in the stack blueprint, matched against a real parse of your code. Run{" "}
+          <code className="font-mono text-base bg-gray-100 px-1.5 py-0.5 rounded">architect check --list-rules</code>{" "}
+          to print this list from the blueprint itself.
         </p>
       </div>
 
       <div className="bg-[#fafaf8] border border-gray-200 rounded-3xl shadow-sm overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-3">
-          {PRINCIPLES.map((principle, index) => (
-            <div
-              key={principle.title}
-              className={[
-                "p-8 md:p-10",
-                index % 3 !== 2 ? "md:border-r md:border-gray-200" : "",
-                index < 6 ? "border-b border-gray-200" : "",
-                index >= 6 && index < PRINCIPLES.length - (PRINCIPLES.length % 3 || 3)
-                  ? "border-b border-gray-200"
-                  : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              <div className="text-muted mb-6">{principle.icon}</div>
-              <h3 className="text-lg font-semibold mb-2">{principle.title}</h3>
-              <p className="text-sm text-muted leading-relaxed">
-                {principle.description}
-              </p>
+        {RULES.map((entry, index) => (
+          <div
+            key={entry.group}
+            className={[
+              "p-8 md:p-10 flex flex-col md:flex-row md:items-baseline gap-4 md:gap-10",
+              index < RULES.length - 1 ? "border-b border-gray-200" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            <div className="md:w-64 shrink-0">
+              <div className="flex items-baseline gap-3">
+                <h3 className="text-lg font-semibold">{entry.group}</h3>
+                <span
+                  className={[
+                    "text-[10px] font-bold uppercase tracking-widest",
+                    entry.severity === "critical" ? "text-red-700" : "text-amber-700",
+                  ].join(" ")}
+                >
+                  {entry.severity}
+                </span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                {entry.rules.map((rule) => (
+                  <code key={rule} className="font-mono text-xs text-muted">
+                    {rule}
+                  </code>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
+            <p className="text-sm text-muted leading-relaxed flex-1">{entry.description}</p>
+          </div>
+        ))}
       </div>
+
+      <p className="mt-6 text-sm text-muted">
+        One further rule,{" "}
+        <code className="font-mono text-xs">auth_mechanism_mismatch</code>, ships in the
+        blueprint as guidance for a coding agent but is never reported by{" "}
+        <code className="font-mono text-xs">check</code> — it needs judgement a static
+        matcher would get wrong.
+      </p>
     </section>
   );
 }

@@ -8,7 +8,6 @@ export function Navbar() {
       <div className="hidden md:flex items-center space-x-8 text-sm font-medium">
         <a href="/docs" className="text-dark hover:text-muted transition-colors">Docs</a>
         <a href="/docs/skills" className="text-dark hover:text-muted transition-colors">Skills</a>
-        <a href="#" className="text-dark hover:text-muted transition-colors">Registry</a>
       </div>
       <a
         href="https://github.com/Levironexe/architect"
