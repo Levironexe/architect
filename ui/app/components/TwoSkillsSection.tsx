@@ -20,9 +20,9 @@ export function TwoSkillsSection() {
             </div>
             <h3 className="text-xl font-serif mb-3">Roadmap Generation</h3>
             <p className="text-muted text-sm leading-relaxed mb-4">
-              The agent walks the codebase, calls{" "}
-              <code className="font-mono text-xs bg-gray-100 px-1 rounded">architect check</code>{" "}
-              to load the full blueprint, compares current structure against it, and writes a phased refactoring roadmap to{" "}
+              The agent walks the codebase, reads the stack blueprint that{" "}
+              <code className="font-mono text-xs bg-gray-100 px-1 rounded">init</code>{" "}
+              installed, compares your current structure against it, and writes a phased refactoring roadmap to{" "}
               <code className="font-mono text-xs bg-gray-100 px-1 rounded">.architect/plan.md</code>.
             </p>
             <ul className="text-sm text-gray-600 space-y-2">
