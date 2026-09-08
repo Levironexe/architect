@@ -8,6 +8,7 @@
 </p>
 
 <p align="center">
+  <a href="https://leviron-architect.vercel.app/docs"><img src="https://img.shields.io/badge/docs-architect-1a5f8f" alt="Documentation"/></a>
   <a href="https://www.npmjs.com/package/@levironexe/architect"><img src="https://img.shields.io/npm/v/@levironexe/architect" alt="npm version"/></a>
   <a href="https://github.com/Levironexe/architect/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Levironexe/architect" alt="License"/></a>
   <img src="https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen" alt="Node.js 20+"/>
@@ -210,6 +211,12 @@ Every rule needs a fixture with a known violation **and** a fixture proving it s
 silent on correct code. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
+
+## Documentation
+
+Full docs at **<https://leviron-architect.vercel.app/docs>** — [commands](https://leviron-architect.vercel.app/docs/commands),
+[rules and the `detect:` schema](https://leviron-architect.vercel.app/docs/skills),
+[integrations](https://leviron-architect.vercel.app/docs/integrations).
 
 ## Prerequisites
 

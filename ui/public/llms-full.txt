@@ -297,4 +297,4 @@ question that scanners do not.
 
 - GitHub: https://github.com/Levironexe/architect
 - npm: https://www.npmjs.com/package/@levironexe/architect
-- Docs: https://architect-cli.vercel.app/docs
+- Docs: https://leviron-architect.vercel.app/docs
