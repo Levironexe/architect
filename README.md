@@ -17,7 +17,7 @@
 ---
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Levironexe/architect/main/docs/demo.gif" alt="architect check finding architectural violations in a Next.js project" width="820"/>
+  <img src="https://raw.githubusercontent.com/Levironexe/architect/main/docs/demo.gif" alt="architect check finding architectural violations in a real Next.js project, then verify failing the build on a regression" width="880"/>
 </p>
 
 ## Quick Start
