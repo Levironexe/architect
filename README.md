@@ -16,6 +16,10 @@
 
 ---
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Levironexe/architect/main/docs/demo.gif" alt="architect check finding architectural violations in a Next.js project" width="820"/>
+</p>
+
 ## Quick Start
 
 ```bash
