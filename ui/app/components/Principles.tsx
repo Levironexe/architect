@@ -21,9 +21,6 @@ export function Principles() {
   return (
     <section id="the-rules" className="max-w-280 mx-auto px-6 py-24">
       <div className="mb-10 max-w-3xl">
-        <span className="inline-block border border-gray-300 rounded-full px-4 py-1.5 text-xs font-medium text-muted mb-6">
-          The rules
-        </span>
         <h2 className="text-4xl md:text-5xl font-serif mb-4">
           Eleven rules.
           <br />
