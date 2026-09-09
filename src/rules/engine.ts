@@ -156,8 +156,11 @@ function matchAst(
 
     if (detect.kind === 'call') {
       const names = detect.callee ?? [];
+      const methodNot = (detect.methodNot ?? []).map((method) => method.toUpperCase());
       for (const call of facts.calls) {
         if (!names.includes(call.name)) continue;
+        if (detect.insideCallbackOf && !call.insideCallbackOf.includes(detect.insideCallbackOf)) continue;
+        if (call.method && methodNot.includes(call.method)) continue;
         violations.push(violation(antiPattern, detect, file.relativePath, call.line));
       }
       continue;

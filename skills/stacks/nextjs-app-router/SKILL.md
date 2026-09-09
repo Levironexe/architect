@@ -262,7 +262,8 @@ anti_patterns:
       kind: call
       callee: [fetch]
       requires_directive: "use client"
-      requires_call: useEffect
+      inside_callback_of: useEffect
+      method_not: [POST, PUT, PATCH, DELETE]
       message: "Client component fetches its own data in useEffect."
       fix: "Fetch in a server component and pass the result down as props."
     description: "Data fetching is moved to client components using useEffect/useState without a user interaction requirement. This delays the first meaningful paint, exposes API endpoints unnecessarily, and forfeits React Server Component streaming and caching benefits."
