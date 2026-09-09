@@ -133,4 +133,33 @@ describe('check command', () => {
 
     expect(missing.map((violation) => violation.file)).toEqual(expect.arrayContaining(['components/', 'lib/']));
   });
+
+  it('drops the rules named by --ignore', async () => {
+    const output = await captureOutput(async () => {
+      await runCli(['check', path.resolve('tests/fixtures/messy-nextjs'), '--json', '--ignore', 'oversized_extraction,alert_for_errors']);
+    });
+
+    const payload = JSON.parse(output.stdout) as { violations: Array<{ rule: string }> };
+    const rules = new Set(payload.violations.map((violation) => violation.rule));
+
+    expect(payload.violations).toHaveLength(9);
+    expect(rules.has('oversized_extraction')).toBe(false);
+    expect(rules.has('alert_for_errors')).toBe(false);
+  });
+
+  it('lets --ignore silence missing_layer too', async () => {
+    const target = mkdtempSync(path.join(tmpdir(), 'architect-layer-'));
+    temporaryDirs.push(target);
+    writeFileSync(path.join(target, 'package.json'), JSON.stringify({ dependencies: { next: '^15.0.0' } }));
+    mkdirSync(path.join(target, 'app'), { recursive: true });
+    writeFileSync(path.join(target, 'app/page.tsx'), 'export default function Page() {\n  return <div />;\n}\n');
+
+    const output = await captureOutput(async () => {
+      await runCli(['check', target, '--json', '--ignore', 'missing_layer']);
+    });
+
+    const payload = JSON.parse(output.stdout) as { violations: Array<{ rule: string }> };
+
+    expect(payload.violations.some((violation) => violation.rule === 'missing_layer')).toBe(false);
+  });
 });

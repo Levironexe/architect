@@ -61,6 +61,7 @@ export async function analyzeFile(filePath: string, rootDirectory: string, thres
         imports.push({
           source: sourceValue,
           line: node.loc?.start?.line ?? 0,
+          isTypeOnly: node.importKind === 'type',
           isRelative: sourceValue.startsWith('.'),
           isBuiltin: builtinModuleSet.has(sourceValue) || builtinModuleSet.has(sourceValue.replace(/^node:/, '')),
           specifiers: getArray(node.specifiers).map((specifier) => getIdentifierName((specifier as AstNode).local) ?? 'unknown')
