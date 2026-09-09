@@ -17,7 +17,18 @@ npx @levironexe/architect check .
 | `--json` | Emit machine-readable JSON for CI and coding agents |
 | `--list-rules` | Print every rule with its severity, then exit |
 | `--baseline` | Write `.architect/baseline.json` instead of reporting |
+| `--ignore <rules>` | Comma-separated rule ids to suppress, e.g. `--ignore oversized_extraction,alert_for_errors` |
 | `--no-color` | Disable ANSI colour output |
+
+### Suppressing a finding
+
+```ts
+// architect-ignore-next-line
+alert('legacy path — tracked in #42');
+```
+
+`// architect-ignore-file` in the first ten lines silences every rule for that file.
+Prefer the line form; the file form hides new findings too.
 
 ### Exit codes
 

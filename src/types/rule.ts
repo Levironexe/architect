@@ -25,6 +25,13 @@ export interface DetectSpec {
 
   /** kind: import — bare module specifiers that must not be imported here. */
   modules?: string[];
+  /**
+   * kind: import — also match one hop away: an import from a workspace package
+   * whose package.json depends on a `modules` entry, or from a local file that
+   * imports one — but only when one of these bindings is what gets imported.
+   * `import { prisma } from '@acme/db'` matches; `import { listUsers } from '@/lib/users'` does not.
+   */
+  bindings?: string[];
 
   /** kind: import_direction — files under `from` may not import from `to`. */
   from?: string;
@@ -49,7 +56,7 @@ export interface DetectSpec {
   /** Matched text starting with any of these is not a violation. */
   notMatching?: string[];
 
-  /** kind: metric — a numeric file metric and its ceiling. */
+  /** kind: metric — a numeric file metric and its ceiling. `{value}` and `{limit}` interpolate into message. */
   metric?: 'loc';
   gt?: number;
 

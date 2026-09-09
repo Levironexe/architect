@@ -15,6 +15,8 @@ export interface CheckCommandOptions {
   color?: boolean;
   listRules?: boolean;
   baseline?: boolean;
+  /** Comma-separated rule ids to drop from the report. */
+  ignore?: string;
 }
 
 export interface Baseline {
@@ -38,7 +40,7 @@ export async function executeCheck(directory: string | undefined, options: Check
   }
 
   const rootDir = ensureDirectoryPath(target);
-  const result = await runCheck(rootDir);
+  const result = await runCheck(rootDir, parseIgnore(options.ignore));
 
   if (result.stack === null) {
     if (options.json) {
@@ -65,7 +67,7 @@ export async function executeCheck(directory: string | undefined, options: Check
   return result.summary.critical > 0 ? 1 : 0;
 }
 
-export async function runCheck(rootDir: string): Promise<CheckResult> {
+export async function runCheck(rootDir: string, ignoredRules: Set<string> = new Set()): Promise<CheckResult> {
   const analysis = await analyzeProject(rootDir);
   const primary = analysis.primarySkill;
 
@@ -73,10 +75,12 @@ export async function runCheck(rootDir: string): Promise<CheckResult> {
     return { stack: null, filesChecked: analysis.files.length, violations: [], summary: emptySummary() };
   }
 
-  const violations = runRules(primary, createRuleContext(analysis.files));
+  const violations = runRules(primary, createRuleContext(analysis.files, rootDir))
+    .filter((violation) => !ignoredRules.has(violation.rule));
 
   for (const entry of analysis.structureComparison?.entries ?? []) {
     if (entry.status !== 'missing' || !entry.required) continue;
+    if (ignoredRules.has('missing_layer')) continue;
     violations.push({
       rule: 'missing_layer',
       severity: 'warning',
@@ -141,6 +145,10 @@ export function readBaseline(rootDir: string): Baseline | null {
   } catch {
     return null;
   }
+}
+
+function parseIgnore(value: string | undefined): Set<string> {
+  return new Set((value ?? '').split(',').map((rule) => rule.trim()).filter(Boolean));
 }
 
 function toJson(result: CheckResult): Record<string, unknown> {

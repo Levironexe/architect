@@ -4,9 +4,35 @@ All notable changes to Architect CLI are recorded here.
 
 ## Unreleased
 
+Findings from a first-time-user pass on two real Next.js projects.
+
 ### Added
 
-- Nothing yet.
+- `direct_db_in_page` and `direct_db_in_route` now follow one import hop.
+  `import { prisma } from '@acme/db'` is caught when `@acme/db` is a workspace
+  package whose package.json depends on a database module, or a local file that
+  imports one. The binding name is the discriminator, so
+  `import { listUsers } from '@/lib/users'` stays clean. On a 168-file monorepo
+  this took the two critical rules from 0 findings to 35 — every one confirmed
+  against a raw grep, with no false positives.
+- `check --ignore <rules>` suppresses rules by id. `// architect-ignore-next-line`
+  and `// architect-ignore-file` suppress findings at the source.
+- `oversized_extraction` reports the actual line count.
+
+### Changed
+
+- `scattered_process_env` is scoped to the app's own layers (`app/`, `lib/`,
+  `components/`, `actions/`, `hooks/`). Library packages in a monorepo reading
+  their own env are no longer reported, and the centralised config helper no
+  longer flags itself.
+- `oversized_extraction` exempts test files.
+
+### Fixed
+
+- `verify` no longer reports stylesheet imports, or generated files that exist on
+  disk but are gitignored, as broken imports. On a real monorepo it could never
+  pass because of `./globals.css`.
+- Type-only imports never count as a database client import.
 
 ### Security
 

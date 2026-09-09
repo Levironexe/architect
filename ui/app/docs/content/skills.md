@@ -59,7 +59,7 @@ reported.
 
 | `kind` | Fires when | Key fields |
 |--------|-----------|------------|
-| `import` | A module is imported inside `paths` | `modules` |
+| `import` | A module is imported inside `paths` — or, with `bindings`, one hop away through a workspace package or local file | `modules`, `bindings` |
 | `import_direction` | A file under `from` imports one under `to` | `from`, `to` |
 | `directive` | A file carries a directive prologue | `value` |
 | `call` | A named function is called | `callee` |
@@ -76,6 +76,7 @@ reported.
 | `requires_directive` | The file must also carry this directive, e.g. `use client` |
 | `requires_call` | The file must also contain this call, e.g. `useEffect` |
 | `not_matching` | Matched text starting with any of these is not a violation |
+| `bindings` | `import` only. Names that, when imported from a module that depends on or imports a `modules` entry, count as importing that module. `prisma` yes, `listUsers` no. Type-only imports never match. |
 | `message` | What is wrong. Shown to the user. |
 | `fix` | What to do about it. States the move, not the diagnosis. |
 

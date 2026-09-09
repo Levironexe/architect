@@ -75,7 +75,11 @@ Check a project against its stack blueprint. Defaults to the current directory.
 | `--json` | Machine-readable output for CI and agents |
 | `--list-rules` | Print every rule with its severity, then exit |
 | `--baseline` | Write `.architect/baseline.json` instead of reporting |
+| `--ignore <rules>` | Comma-separated rule ids to suppress |
 | `--no-color` | Disable ANSI colour |
+
+To suppress a single finding at the source, put `// architect-ignore-next-line` above it,
+or `// architect-ignore-file` in the first ten lines of a file.
 
 **Exit codes:** `0` clean · `1` critical violations · `2` no supported stack, or the directory does not exist.
 
@@ -207,6 +211,7 @@ Rules live in the blueprint, not in code. Add a `detect:` block to an anti-patte
     kind: import
     paths: ["app/**/page.tsx", "app/**/layout.tsx"]
     modules: ["@prisma/client", drizzle-orm, mongoose]
+    bindings: [prisma, db, drizzle]     # also match one hop away, e.g. `import { prisma } from '@acme/db'`
     message: "Database client imported directly in a page or layout component."
     fix: "Move the query into lib/ and call that function from the page."
 ```
