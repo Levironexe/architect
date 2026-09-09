@@ -1,3 +1,5 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -131,5 +133,100 @@ describe('rule engine', () => {
 
     expect(first.length).toBeGreaterThan(0);
     expect(second).toEqual([]);
+  });
+
+  describe('one hop through a workspace package or a local file', () => {
+    let monorepo: RuleViolation[];
+
+    beforeAll(async () => {
+      monorepo = await checkFixture('monorepo-nextjs');
+    });
+
+    it('flags a page importing the client binding from a workspace package', () => {
+      const found = violationsFor(monorepo, 'direct_db_in_page').map((v) => v.file);
+
+      expect(found).toContain('apps/web/src/app/page.tsx');
+    });
+
+    it('flags a route handler importing the client binding from a workspace package', () => {
+      const found = violationsFor(monorepo, 'direct_db_in_route').map((v) => v.file);
+
+      expect(found).toEqual(['apps/web/src/app/api/users/route.ts']);
+    });
+
+    it('flags a page importing the client binding from a local file that imports prisma', () => {
+      const found = violationsFor(monorepo, 'direct_db_in_page').map((v) => v.file);
+
+      expect(found).toContain('apps/web/src/app/local/page.tsx');
+    });
+
+    it('does not flag a helper binding from a package that merely depends on prisma', () => {
+      expect(monorepo.map((v) => v.file)).not.toContain('apps/web/src/app/users/page.tsx');
+    });
+
+    it('does not flag a type-only import of the client package', () => {
+      expect(monorepo.map((v) => v.file)).not.toContain('apps/web/src/app/types/page.tsx');
+    });
+
+    it('does not flag a page calling a lib helper that uses the client', () => {
+      expect(monorepo.map((v) => v.file)).not.toContain('apps/web/src/app/helper/page.tsx');
+    });
+
+    it('finds exactly three criticals and nothing else', () => {
+      expect(monorepo).toHaveLength(3);
+      expect(monorepo.every((v) => v.severity === 'critical')).toBe(true);
+    });
+  });
+
+  describe('suppression comments', () => {
+    async function runOn(source: string): Promise<RuleViolation[]> {
+      const rootDir = mkdtempSync(path.join(tmpdir(), 'architect-ignore-'));
+      writeFileSync(path.join(rootDir, 'package.json'), JSON.stringify({ dependencies: { next: '^15.0.0' } }));
+      const file = path.join(rootDir, 'app', 'Widget.tsx');
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, source);
+      const files = [await analyzeFile(file, rootDir)];
+      const { skills } = await loadSkills();
+      const skill = skills.find((entry) => entry.id === 'nextjs-app-router') as ArchitectureSkill;
+      return runRules(skill, createRuleContext(files, rootDir));
+    }
+
+    const widget = (comment: string) =>
+      `'use client';\nexport function Widget() {\n  function go() {\n${comment}    alert('x');\n  }\n  return <button onClick={go} />;\n}\n`;
+
+    it('fires without the comment', async () => {
+      expect(violationsFor(await runOn(widget('')), 'alert_for_errors')).toHaveLength(1);
+    });
+
+    it('architect-ignore-next-line silences the line beneath it', async () => {
+      expect(violationsFor(await runOn(widget('    // architect-ignore-next-line\n')), 'alert_for_errors')).toEqual([]);
+    });
+
+    it('architect-ignore-file silences the whole file', async () => {
+      const source = `// architect-ignore-file\n${widget('')}`;
+      expect(await runOn(source)).toEqual([]);
+    });
+
+    it('the clean fixture keeps its suppressed files silent', () => {
+      expect(clean.map((v) => v.file)).not.toContain('src/components/Suppressed.tsx');
+      expect(clean.map((v) => v.file)).not.toContain('src/lib/legacy.ts');
+    });
+  });
+
+  describe('scoped warnings', () => {
+    it('does not call a long test file oversized', () => {
+      expect(clean.map((v) => v.file)).not.toContain('tests/unit/big.test.ts');
+    });
+
+    it('does not flag env reads inside a library package', () => {
+      expect(clean.map((v) => v.file)).not.toContain('packages/mailer/src/index.ts');
+    });
+
+    it('reports the real line count in the oversized message', () => {
+      const found = violationsFor(messy, 'oversized_extraction')[0];
+
+      expect(found?.message).toMatch(/^File is \d+ lines, over the 300-line ceiling/);
+      expect(found?.message).not.toContain('{value}');
+    });
   });
 });

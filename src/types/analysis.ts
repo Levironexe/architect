@@ -26,6 +26,8 @@ export interface ClassInfo {
 export interface ImportInfo {
   source: string;
   line: number;
+  /** `import type { X }` — never a runtime dependency on the module. */
+  isTypeOnly: boolean;
   isRelative: boolean;
   isBuiltin: boolean;
   specifiers: string[];

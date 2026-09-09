@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 
 import {
@@ -133,6 +134,11 @@ function detectCycles(nodes: DependencyNode[]): { files: string[] }[] {
   return cycles;
 }
 
+/** Imports the bundler handles that are not TypeScript modules to resolve. */
+const NON_CODE_IMPORT = /\.(css|scss|sass|less|svg|png|jpe?g|gif|webp|avif|ico|json|md|txt|woff2?|ttf|otf|mp[34]|webm)$/i;
+
+const RESOLVE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'];
+
 export function findBrokenImports(
   rootDirectory: string,
   files: FileAnalysis[]
@@ -143,14 +149,33 @@ export function findBrokenImports(
   for (const file of files) {
     for (const imp of file.imports) {
       if (!imp.isRelative) continue;
+      // A stylesheet or asset import is the bundler's problem, not a broken module.
+      if (NON_CODE_IMPORT.test(imp.source)) continue;
+
       const resolved = resolveRelativeImport(file.relativePath, imp.source);
-      if (resolved && !knownPaths.has(resolved) && !matchesWithExtensions(resolved, knownPaths)) {
-        broken.push(`${file.relativePath} → ${imp.source}`);
-      }
+      if (!resolved) continue;
+      if (knownPaths.has(resolved) || matchesWithExtensions(resolved, knownPaths)) continue;
+      // Generated output is usually gitignored, so discovery never sees it — but
+      // if it exists on disk the import is not broken.
+      if (existsOnDisk(rootDirectory, resolved)) continue;
+
+      broken.push(`${file.relativePath} → ${imp.source}`);
     }
   }
 
   return broken;
+}
+
+function existsOnDisk(rootDirectory: string, resolved: string): boolean {
+  const base = path.join(rootDirectory, resolved);
+  if (fs.existsSync(base)) return true;
+  for (const ext of RESOLVE_EXTENSIONS) {
+    if (fs.existsSync(base + ext)) return true;
+    if (fs.existsSync(path.join(base, `index${ext}`))) return true;
+  }
+  // `./foo.js` written for ESM output while the source is `./foo.ts`.
+  const swapped = base.replace(/\.(m|c)?js$/, (m) => m.replace('js', 'ts'));
+  return swapped !== base && fs.existsSync(swapped);
 }
 
 function resolveRelativeImport(fromFile: string, importSource: string): string | null {
