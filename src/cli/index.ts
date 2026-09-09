@@ -45,6 +45,7 @@ export function createProgram(
     .option('--json', 'Emit machine-readable JSON output')
     .option('--list-rules', 'List every rule with its severity, then exit')
     .option('--baseline', 'Write .architect/baseline.json instead of reporting')
+    .option('--ignore <rules>', 'Comma-separated rule ids to suppress, e.g. --ignore oversized_extraction,alert_for_errors')
     .option('--no-color', 'Disable ANSI color output')
     .exitOverride()
     .action(async (directory: string | undefined, options: CheckCommandOptions) => {

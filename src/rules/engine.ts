@@ -5,6 +5,7 @@ import type { DetectSpec, RuleViolation } from '../types/rule.js';
 import type { AntiPattern, ArchitectureSkill } from '../types/skill.js';
 import { createAstFactsCache, extractAstFacts, type AstFactsCache } from './ast-facts.js';
 import { matchesAnyGlob, matchesGlob } from './glob.js';
+import { findWorkspacePackages, type WorkspacePackage } from './workspace.js';
 
 export interface RuleContext {
   files: FileAnalysis[];
@@ -12,18 +13,37 @@ export interface RuleContext {
   sources: Map<string, string>;
   /** Absolute path -> parsed facts. Scoped to this context, never global. */
   astCache: AstFactsCache;
+  /** Package name -> workspace package, for the one-hop import match. */
+  workspace: Map<string, WorkspacePackage>;
+  /** Path-without-extension -> file, for resolving local imports to a file. */
+  byStem: Map<string, FileAnalysis>;
 }
 
-export function createRuleContext(files: FileAnalysis[]): RuleContext {
+export function createRuleContext(files: FileAnalysis[], rootDir?: string): RuleContext {
   const sources = new Map<string, string>();
+  const byStem = new Map<string, FileAnalysis>();
+
   for (const file of files) {
     try {
       sources.set(file.relativePath, readFileSync(file.path, 'utf8'));
     } catch {
       // Unreadable files are skipped; the scan already reported them.
     }
+    const stem = file.relativePath.replace(/\.[^/.]+$/, '');
+    byStem.set(stem, file);
+    if (/\/index$/.test(stem)) byStem.set(stem.replace(/\/index$/, ''), file);
   }
-  return { files, sources, astCache: createAstFactsCache() };
+
+  const root = rootDir ?? deriveRoot(files);
+  const workspace = root ? findWorkspacePackages(root) : new Map<string, WorkspacePackage>();
+
+  return { files, sources, astCache: createAstFactsCache(), workspace, byStem };
+}
+
+function deriveRoot(files: FileAnalysis[]): string | null {
+  const first = files[0];
+  if (!first) return null;
+  return first.path.slice(0, first.path.length - first.relativePath.length).replace(/\/$/, '') || null;
 }
 
 export function runRules(skill: ArchitectureSkill, context: RuleContext): RuleViolation[] {
@@ -34,7 +54,22 @@ export function runRules(skill: ArchitectureSkill, context: RuleContext): RuleVi
     violations.push(...runRule(antiPattern, antiPattern.detect, context));
   }
 
-  return dedupe(violations.sort(compareViolations));
+  return dedupe(violations.sort(compareViolations)).filter((violation) => !isIgnoredInSource(violation, context));
+}
+
+/**
+ * `// architect-ignore-next-line` above a line, or `// architect-ignore-file`
+ * anywhere in the first ten lines, suppresses a finding at the source.
+ */
+function isIgnoredInSource(violation: RuleViolation, context: RuleContext): boolean {
+  const source = context.sources.get(violation.file);
+  if (!source) return false;
+  const lines = source.split('\n');
+
+  if (lines.slice(0, 10).some((line) => line.includes('architect-ignore-file'))) return true;
+
+  const previous = lines[violation.line - 2];
+  return violation.line > 1 && previous !== undefined && previous.includes('architect-ignore-next-line');
 }
 
 /**
@@ -64,7 +99,7 @@ function runRule(antiPattern: AntiPattern, detect: DetectSpec, context: RuleCont
 
   switch (detect.kind) {
     case 'import':
-      return matchImport(antiPattern, detect, scoped);
+      return matchImport(antiPattern, detect, scoped, context);
     case 'import_direction':
       return matchImportDirection(antiPattern, detect, context);
     case 'metric':
@@ -85,7 +120,13 @@ function matchMetric(antiPattern: AntiPattern, detect: DetectSpec, files: FileAn
 
   return files
     .filter((file) => file.loc > detect.gt!)
-    .map((file) => violation(antiPattern, detect, file.relativePath, 1));
+    .map((file) => {
+      const found = violation(antiPattern, detect, file.relativePath, 1);
+      found.message = found.message
+        .replace('{value}', String(file.loc))
+        .replace('{limit}', String(detect.gt));
+      return found;
+    });
 }
 
 /** Directive, call, member and throw matchers, all driven off a real parse. */
@@ -148,18 +189,69 @@ function isExcluded(text: string, notMatching: string[] | undefined): boolean {
 }
 
 /** A bare module specifier that must not be imported inside `paths`. */
-function matchImport(antiPattern: AntiPattern, detect: DetectSpec, files: FileAnalysis[]): RuleViolation[] {
+function matchImport(
+  antiPattern: AntiPattern,
+  detect: DetectSpec,
+  files: FileAnalysis[],
+  context: RuleContext
+): RuleViolation[] {
   const modules = detect.modules ?? [];
   const violations: RuleViolation[] = [];
 
   for (const file of files) {
     for (const imported of file.imports) {
-      if (!modules.some((module) => moduleMatches(imported.source, module))) continue;
-      violations.push(violation(antiPattern, detect, file.relativePath, imported.line));
+      const direct = modules.some((module) => moduleMatches(imported.source, module));
+      if (direct || importsClientOneHopAway(imported, file, detect, context)) {
+        violations.push(violation(antiPattern, detect, file.relativePath, imported.line));
+      }
     }
   }
 
   return violations;
+}
+
+/**
+ * `import { prisma } from '@acme/db'` is a database client in a page even though
+ * the specifier is not '@prisma/client'. Follow exactly one hop: a workspace
+ * package whose package.json depends on a listed module, or a local file that
+ * imports one. The binding name is what separates a client from a helper —
+ * `import { listUsers } from '@/lib/users'` is the pattern the rule wants.
+ */
+function importsClientOneHopAway(
+  imported: FileAnalysis['imports'][number],
+  from: FileAnalysis,
+  detect: DetectSpec,
+  context: RuleContext
+): boolean {
+  const bindings = detect.bindings ?? [];
+  const modules = detect.modules ?? [];
+  if (bindings.length === 0 || modules.length === 0) return false;
+  if (imported.isTypeOnly) return false;
+  if (!imported.specifiers.some((name) => bindings.includes(name.toLowerCase()))) return false;
+
+  // Hop 1a: a workspace package, identified by its own dependencies.
+  const pkg = context.workspace.get(imported.source);
+  if (pkg) {
+    return [...pkg.deps].some((dep) => modules.some((module) => moduleMatches(dep, module)));
+  }
+
+  // Hop 1b: a local file, identified by what it imports.
+  const target = resolveImportTarget(from.relativePath, imported.source);
+  if (!target) return false;
+  const targetFile = findByStem(target, context);
+  if (!targetFile) return false;
+  return targetFile.imports.some((entry) => modules.some((module) => moduleMatches(entry.source, module)));
+}
+
+/** `@/lib/db` resolves to `lib/db`, which lives at `src/lib/db.ts` in most projects. */
+function findByStem(target: string, context: RuleContext): FileAnalysis | undefined {
+  const exact = context.byStem.get(target);
+  if (exact) return exact;
+  const suffix = `/${target}`;
+  for (const [stem, file] of context.byStem) {
+    if (stem.endsWith(suffix)) return file;
+  }
+  return undefined;
 }
 
 /** Files under `from` may not import files under `to`. */

@@ -303,6 +303,16 @@ anti_patterns:
         - pg
         - mysql2
         - better-sqlite3
+      bindings:
+        - prisma
+        - db
+        - drizzle
+        - sql
+        - pool
+        - client
+        - supabase
+        - mongoose
+        - knex
       message: "Database client imported directly in a page or layout component."
       fix: "Move the query into lib/ and call that function from the page."
     description: "Database queries or external API calls are made directly inside page.tsx or layout.tsx files instead of being encapsulated in lib/. This scatters data-access logic across the route tree, makes it impossible to reuse queries in Server Actions or Route Handlers, and prevents centralized error handling and logging."
@@ -385,6 +395,12 @@ anti_patterns:
       kind: member
       object: process
       property: env
+      paths:
+        - "app/**"
+        - "lib/**"
+        - "components/**"
+        - "actions/**"
+        - "hooks/**"
       not_paths:
         - "lib/config.ts"
         - "lib/config.tsx"
@@ -430,6 +446,16 @@ anti_patterns:
         - pg
         - mysql2
         - better-sqlite3
+      bindings:
+        - prisma
+        - db
+        - drizzle
+        - sql
+        - pool
+        - client
+        - supabase
+        - mongoose
+        - knex
       message: "Database client imported directly in an API route handler."
       fix: "Move the query into lib/ and call that function from the handler."
     description: "Database queries or ORM calls are made directly inside API route handlers (route.ts) instead of delegating to service/lib functions. This scatters data-access logic, makes routes untestable, and duplicates queries across GET/POST/PUT handlers."
@@ -478,7 +504,15 @@ anti_patterns:
       kind: metric
       metric: loc
       gt: 300
-      message: "File exceeds 300 LOC and is doing too many jobs."
+      not_paths:
+        - "*.test.ts"
+        - "*.test.tsx"
+        - "*.spec.ts"
+        - "*.spec.tsx"
+        - "tests/**"
+        - "__tests__/**"
+        - "e2e/**"
+      message: "File is {value} lines, over the {limit}-line ceiling — it is doing too many jobs."
       fix: "Extract data access into lib/ and presentation into components/."
     description: "A component or module was extracted from a page to a separate file, but the extracted file is still 300+ LOC. This just moved the god file — it did not solve the modularity problem. After extraction, split further into focused sub-components."
     bad_example: |

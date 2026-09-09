@@ -26,6 +26,7 @@ Check a project against its stack blueprint
 | `--json` | Emit machine-readable JSON output |
 | `--list-rules` | List every rule with its severity, then exit |
 | `--baseline` | Write .architect/baseline.json instead of reporting |
+| `--ignore <rules>` | Comma-separated rule ids to suppress, e.g. --ignore oversized_extraction,alert_for_errors |
 | `--no-color` | Disable ANSI color output |
 
 ### `architect init [directory]`
@@ -175,7 +176,7 @@ A component or module was extracted from a page to a separate file, but the extr
 
 - Severity: warning
 - Matcher: `metric`
-- Message: File exceeds 300 LOC and is doing too many jobs.
+- Message: File is {value} lines, over the {limit}-line ceiling — it is doing too many jobs.
 - Fix: Extract data access into lib/ and presentation into components/.
 
 ### `illegal_import`

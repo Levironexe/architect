@@ -1,9 +1,11 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { analyzeFile } from '../../../src/analyzers/ast-parser';
-import { buildDependencyGraphFromImports } from '../../../src/analyzers/dependency-graph';
+import { buildDependencyGraphFromImports, findBrokenImports } from '../../../src/analyzers/dependency-graph';
 import { discoverFiles } from '../../../src/analyzers/file-walker';
 
 describe('buildDependencyGraphFromImports', () => {
@@ -23,5 +25,29 @@ describe('buildDependencyGraphFromImports', () => {
     });
     expect(graph.unreferencedFiles).toContain('src/unused.ts');
     expect(graph.isPartial).toBe(false);
+  });
+});
+
+describe('findBrokenImports', () => {
+  it('ignores stylesheet imports and files that exist on disk but were not analysed', async () => {
+    const rootDir = mkdtempSync(path.join(tmpdir(), 'architect-broken-'));
+    mkdirSync(path.join(rootDir, 'generated'), { recursive: true });
+    writeFileSync(path.join(rootDir, 'generated/client.js'), 'export const client = 1;\n');
+    writeFileSync(path.join(rootDir, 'styles.css'), 'body {}\n');
+    writeFileSync(
+      path.join(rootDir, 'entry.ts'),
+      [
+        "import './styles.css';",
+        "import { client } from './generated/client.js';",
+        "import { gone } from './missing';",
+        'export const value = [client, gone];',
+        ''
+      ].join('\n')
+    );
+
+    // Only entry.ts is "discovered": the generated dir is the kind of thing .gitignore hides.
+    const files = [await analyzeFile(path.join(rootDir, 'entry.ts'), rootDir)];
+
+    expect(findBrokenImports(rootDir, files)).toEqual(['entry.ts → ./missing']);
   });
 });
