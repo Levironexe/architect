@@ -161,8 +161,8 @@ export function Hero() {
       <h2 className="text-3xl md:text-5xl font-serif text-dark mb-8 leading-tight">
         Your code compiles.<br />Is it in the right place?
       </h2>
-      <p className="text-lg md:text-xl text-muted max-w-2xl mx-auto mb-10 font-normal leading-relaxed">
-        An architecture linter for Next.js App Router projects written in TypeScript. Ten deterministic rules, no model call, exit 1 on a violation.
+      <p className="text-lg md:text-xl text-muted max-w-3xl mx-auto mb-10 font-normal leading-relaxed text-balance">
+        An architecture linter for Next.js App Router projects written in TypeScript. Eleven deterministic rules, no model call, exit 1 on a violation.
       </p>
       <div className="flex justify-center mb-8">
         <InstallCommand />
