@@ -353,7 +353,8 @@ function parseDetect(value: unknown): DetectSpec | null {
     ['callee', 'callee'],
     ['not_matching', 'notMatching'],
     ['not_to', 'notTo'],
-    ['bindings', 'bindings']
+    ['bindings', 'bindings'],
+    ['method_not', 'methodNot']
   ] as const;
   for (const [yamlKey, specKey] of stringArrays) {
     const raw = value[yamlKey];
@@ -370,6 +371,7 @@ function parseDetect(value: unknown): DetectSpec | null {
     ['property', 'property'],
     ['requires_directive', 'requiresDirective'],
     ['requires_call', 'requiresCall'],
+    ['inside_callback_of', 'insideCallbackOf'],
     ['metric', 'metric']
   ] as const;
   for (const [yamlKey, specKey] of strings) {

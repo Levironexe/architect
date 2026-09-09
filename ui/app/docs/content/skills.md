@@ -75,6 +75,8 @@ reported.
 | `not_paths` | Globs excluded, applied after `paths` |
 | `requires_directive` | The file must also carry this directive, e.g. `use client` |
 | `requires_call` | The file must also contain this call, e.g. `useEffect` |
+| `inside_callback_of` | `call` only. The call must sit lexically inside a function passed to this call — `useEffect(() => { fetch() })` yes, a fetch in an `onClick` handler no |
+| `method_not` | `call` only. Skip a fetch whose literal `method:` is one of these, e.g. `[POST, PUT, PATCH, DELETE]` |
 | `not_matching` | Matched text starting with any of these is not a violation |
 | `bindings` | `import` only. Names that, when imported from a module that depends on or imports a `modules` entry, count as importing that module. `prisma` yes, `listUsers` no. Type-only imports never match. |
 | `message` | What is wrong. Shown to the user. |
