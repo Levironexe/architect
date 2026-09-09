@@ -6,7 +6,6 @@ import { ProblemStatement } from "./components/ProblemStatement";
 import { Pipeline } from "./components/Pipeline";
 import { TwoSkillsSection } from "./components/TwoSkillsSection";
 import { Principles } from "./components/Principles";
-import { BuiltInSkills } from "./components/BuiltInSkills";
 import { Footer } from "./components/Footer";
 
 export default function Home() {
@@ -21,7 +20,6 @@ export default function Home() {
         <Pipeline />
         <TwoSkillsSection />
         <Principles />
-        <BuiltInSkills />
       </main>
       <Footer />
     </div>

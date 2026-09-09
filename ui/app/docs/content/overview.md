@@ -65,7 +65,7 @@ YAML and two fixtures. See [Contributing](/docs/contributing).
 ## Where to go next
 
 - [Commands](/docs/commands) — `check`, `verify`, `init`, flags and exit codes
-- [Rules](/docs/skills) — all ten rules and the `detect:` schema
+- [Rules](/docs/skills) — all eleven rules and the `detect:` schema
 - [Integrations](/docs/integrations) — GitHub Actions and the Claude Code hook
 - [Contributing](/docs/contributing) — how to add a rule
 
