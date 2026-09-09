@@ -3,7 +3,6 @@ export function Quickstart() {
     <section className="max-w-280 mx-auto px-6 py-24">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-16 gap-y-6 items-end mb-10">
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-widest text-muted mb-4">Quickstart</h3>
           <h2 className="text-4xl md:text-5xl font-serif text-balance">One command. No setup.</h2>
         </div>
         <div>
