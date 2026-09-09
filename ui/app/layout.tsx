@@ -3,8 +3,8 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Architect  -  Skill Installer for Coding Agents",
-  description: "Point it at an existing vibe-coded project, pick your agent, and Architect installs three slash commands that give the agent a complete, stack-specific architectural blueprint to work from.",
+  title: "Architect  -  Architecture linter for Next.js App Router",
+  description: "Eleven deterministic rules for Next.js App Router projects: no model call, nothing leaves your machine, exit 1 on a violation. One npx command, no config.",
 };
 
 export default function RootLayout({

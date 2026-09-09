@@ -4,7 +4,7 @@
 </div>
 
 <p align="center">
-  <strong>An architecture linter for Next.js App Router projects written in TypeScript. Ten deterministic rules, no model call, exit 1 on a violation.</strong>
+  <strong>An architecture linter for Next.js App Router projects written in TypeScript. Eleven deterministic rules, no model call, exit 1 on a violation.</strong>
 </p>
 
 <p align="center">

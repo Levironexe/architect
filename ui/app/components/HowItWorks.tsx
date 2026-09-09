@@ -7,7 +7,7 @@ const STEPS = [
   {
     n: "2",
     title: "Check",
-    body: "Parses every TypeScript file and evaluates the blueprint's ten rules against it - imports, directives, calls and layer boundaries. Deterministic, no model call.",
+    body: "Parses every TypeScript file and evaluates the blueprint's eleven rules against it - imports, directives, calls and layer boundaries. Deterministic, no model call.",
   },
   {
     n: "3",
