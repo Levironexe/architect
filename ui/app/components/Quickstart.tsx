@@ -4,12 +4,14 @@ export function Quickstart() {
       <div className="flex flex-col lg:flex-row items-center gap-16">
         <div className="flex-1 max-w-xl">
           <h3 className="text-xs font-bold uppercase tracking-widest text-muted mb-4">Quickstart</h3>
-          <h2 className="text-4xl font-serif mb-6">Zero API key friction.</h2>
+          <h2 className="text-4xl font-serif mb-6">One command. No setup.</h2>
           <p className="text-lg text-muted mb-8 leading-relaxed">
-            No provider setup. No ANTHROPIC_API_KEY, no OPENAI_API_KEY. Architect runs local static analysis to detect your stack and generates agent-ready skill files. The coding agent you already have IS the intelligence  -  Architect gives it the right knowledge to act on.
+            No install, no config file, no API key. Architect parses your TypeScript
+            locally and checks it against the Next.js App Router blueprint. Every rule is
+            deterministic — there is no model call, and nothing leaves your machine.
           </p>
-          <a href="#supported-agents" className="inline-flex items-center text-dark font-medium border-b border-dark pb-0.5 hover:text-muted hover:border-muted transition-colors">
-            View supported agents
+          <a href="#the-rules" className="inline-flex items-center text-dark font-medium border-b border-dark pb-0.5 hover:text-muted hover:border-muted transition-colors">
+            See the rules
           </a>
         </div>
         <div className="flex-1 w-full">
@@ -20,19 +22,20 @@ export function Quickstart() {
               <div className="w-3 h-3 rounded-full bg-gray-700" />
             </div>
             <div className="text-gray-300">
-              <p><span className="text-muted">$</span> npm install -g @levironexe/architect</p>
+              <p><span className="text-muted">$</span> npx @levironexe/architect check .</p>
               <br />
-              <p><span className="text-muted">$</span> cd my-messy-express-app</p>
-              <p><span className="text-muted">$</span> architect init . --integration claude</p>
+              <p><span className="text-red-400">✗</span> src/app/projects/page.tsx<span className="text-gray-500">:24</span></p>
+              <p className="text-gray-300 ml-4">Database client imported directly in a page component.</p>
+              <p className="text-gray-400 ml-4"><span className="text-green-400">→</span> Move the query into lib/ and call that function from the page.</p>
+              <p className="text-gray-500 ml-4">direct_db_in_page</p>
               <br />
-              <p className="text-green-400">✓ Detected stack:  Express.js REST API</p>
-              <p className="text-green-400">✓ Detected agent:  Claude Code</p>
-              <p className="text-green-400">✓ Installed 3 skills:</p>
-              <p className="text-gray-400 ml-4">/architect-plan     → .claude/skills/architect-plan/</p>
-              <p className="text-gray-400 ml-4">/architect-refactor → .claude/skills/architect-refactor/</p>
-              <p className="text-gray-400 ml-4">/architect-catchup  → .claude/skills/architect-catchup/</p>
+              <p><span className="text-yellow-400">⚠</span> src/components/TaskCard.tsx<span className="text-gray-500">:7</span></p>
+              <p className="text-gray-300 ml-4">alert() used to surface an error to the user.</p>
+              <p className="text-gray-400 ml-4"><span className="text-green-400">→</span> Render the error in the UI, or use a toast component.</p>
+              <p className="text-gray-500 ml-4">alert_for_errors</p>
               <br />
-              <p className="text-white">Open Claude Code and run /architect-plan to get started.</p>
+              <p className="text-white">11 violations (4 critical, 7 warning) <span className="text-gray-500">· 13 files checked · nextjs-app-router</span></p>
+              <p className="text-red-400">exit 1<span className="text-gray-500"> — fails CI as-is</span></p>
             </div>
           </div>
         </div>
