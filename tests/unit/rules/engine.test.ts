@@ -229,4 +229,55 @@ describe('rule engine', () => {
       expect(found?.message).not.toContain('{value}');
     });
   });
+
+  describe('client_data_fetching_by_default precision', () => {
+    async function runOn(source: string): Promise<RuleViolation[]> {
+      const rootDir = mkdtempSync(path.join(tmpdir(), 'architect-fetch-'));
+      writeFileSync(path.join(rootDir, 'package.json'), JSON.stringify({ dependencies: { next: '^15.0.0' } }));
+      const file = path.join(rootDir, 'app', 'Widget.tsx');
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, source);
+      const files = [await analyzeFile(file, rootDir)];
+      const { skills } = await loadSkills();
+      const skill = skills.find((entry) => entry.id === 'nextjs-app-router') as ArchitectureSkill;
+      return violationsFor(runRules(skill, createRuleContext(files, rootDir)), 'client_data_fetching_by_default');
+    }
+
+    const client = (body: string) =>
+      `'use client';\nimport { useEffect, useState } from 'react';\nexport function Widget() {\n  const [d, setD] = useState(null);\n${body}\n  return <div>{String(d)}</div>;\n}\n`;
+
+    it('fires on a GET inside a useEffect callback', async () => {
+      const source = client(`  useEffect(() => {\n    void fetch('/api/x').then((r) => r.json()).then(setD);\n  }, []);`);
+      expect(await runOn(source)).toHaveLength(1);
+    });
+
+    it('fires when the fetch sits in an inner async function inside the effect', async () => {
+      const source = client(`  useEffect(() => {\n    const run = async () => { setD(await (await fetch('/api/x')).json()); };\n    void run();\n  }, []);`);
+      expect(await runOn(source)).toHaveLength(1);
+    });
+
+    it('does not fire on a POST inside a useEffect callback', async () => {
+      const source = client(`  useEffect(() => {\n    void fetch('/api/track', { method: 'POST', body: '{}' });\n  }, []);`);
+      expect(await runOn(source)).toEqual([]);
+    });
+
+    it('does not fire on a fetch in an event handler, even with a useEffect elsewhere', async () => {
+      const source = client(`  useEffect(() => { document.title = 'x'; }, []);\n  async function onClick() { setD(await (await fetch('/api/x')).json()); }`);
+      expect(await runOn(source)).toEqual([]);
+    });
+
+    it('does not fire on a fetch inside a useCallback', async () => {
+      const source = `'use client';\nimport { useCallback, useEffect } from 'react';\nexport function Widget() {\n  const load = useCallback(async () => { await fetch('/api/x'); }, []);\n  useEffect(() => { void load(); }, [load]);\n  return null;\n}\n`;
+      expect(await runOn(source)).toEqual([]);
+    });
+
+    it('keeps the clean-fixture forms and beacons silent', () => {
+      expect(clean.map((v) => v.file)).not.toContain('src/components/BookingForm.tsx');
+      expect(clean.map((v) => v.file)).not.toContain('src/components/PageViewBeacon.tsx');
+    });
+
+    it('still fires on the messy fixture page that loads in an effect', () => {
+      expect(violationsFor(messy, 'client_data_fetching_by_default').map((v) => v.file)).toEqual(['src/app/users/page.tsx']);
+    });
+  });
 });

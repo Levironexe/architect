@@ -18,8 +18,17 @@ Findings from a first-time-user pass on two real Next.js projects.
 - `check --ignore <rules>` suppresses rules by id. `// architect-ignore-next-line`
   and `// architect-ignore-file` suppress findings at the source.
 - `oversized_extraction` reports the actual line count.
+- `call` rules can require the call to sit lexically inside a callback passed
+  to a named function (`inside_callback_of`), and can skip a fetch whose
+  literal `method:` is in a list (`method_not`).
 
 ### Changed
+
+- `client_data_fetching_by_default` fires only for a `fetch` inside a
+  `useEffect` callback that is not a POST, PUT, PATCH or DELETE. It used to
+  fire on any `fetch` in a client file that had a `useEffect` anywhere, which
+  on a real project meant five of seven findings were mutations in event
+  handlers or an analytics beacon. Now 2 of 7 remain, both genuine.
 
 - `scattered_process_env` is scoped to the app's own layers (`app/`, `lib/`,
   `components/`, `actions/`, `hooks/`). Library packages in a monorepo reading
