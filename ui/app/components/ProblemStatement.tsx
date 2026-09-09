@@ -64,11 +64,10 @@ export function ProblemStatement() {
     );
 
   return (
-    <section className="bg-cream text-dark py-32 px-6">
-      <div className="max-w-280 mx-auto grid grid-cols-1 md:grid-cols-5 gap-10 md:gap-12 items-stretch">
+    <section className="bg-cream text-dark py-32">
+      <div className="max-w-280 mx-auto px-6 grid grid-cols-1 md:grid-cols-5 gap-10 md:gap-12 items-stretch">
         <div className="md:col-span-2 h-full flex flex-col">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-muted mb-6">The Gap</h3>
-          <h2 className="text-4xl md:text-6xl font-serif mb-8 leading-tight">The Spaghetti Point.</h2>
+            <h2 className="text-4xl md:text-6xl font-serif mb-8 leading-tight">The Spaghetti Point.</h2>
           <p className="text-lg text-muted mb-6 leading-relaxed font-serif italic">
             &ldquo;Vibe-coded projects accumulate technical debt fast. AI-generated code optimizes for &lsquo;make it work,&rsquo; not &lsquo;make it maintainable.&rsquo;&rdquo;
           </p>
