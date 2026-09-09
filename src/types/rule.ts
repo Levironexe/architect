@@ -44,6 +44,10 @@ export interface DetectSpec {
 
   /** kind: call — callee names, e.g. ["alert"]. */
   callee?: string[];
+  /** kind: call — only match calls lexically inside a function passed to this call, e.g. useEffect. */
+  insideCallbackOf?: string;
+  /** kind: call — skip a fetch whose literal `method:` is one of these. */
+  methodNot?: string[];
 
   /** kind: member — an object/property pair, e.g. process.env. */
   object?: string;
