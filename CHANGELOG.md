@@ -4,9 +4,18 @@ All notable changes to Architect CLI are recorded here.
 
 ## Unreleased
 
+- Nothing yet.
+
+## 1.0.0
+
+A deliberate narrowing. Architect is now an architecture linter for Next.js
+App Router projects written in TypeScript, and nothing else. If you relied on
+any removed capability, pin `0.7.13`.
+
+#### First-user pass (folded into this release)
 Findings from a first-time-user pass on two real Next.js projects.
 
-### Added
+**Added**
 
 - `direct_db_in_page` and `direct_db_in_route` now follow one import hop.
   `import { prisma } from '@acme/db'` is caught when `@acme/db` is a workspace
@@ -22,7 +31,7 @@ Findings from a first-time-user pass on two real Next.js projects.
   to a named function (`inside_callback_of`), and can skip a fetch whose
   literal `method:` is in a list (`method_not`).
 
-### Changed
+**Changed**
 
 - `client_data_fetching_by_default` fires only for a `fetch` inside a
   `useEffect` callback that is not a POST, PUT, PATCH or DELETE. It used to
@@ -36,22 +45,12 @@ Findings from a first-time-user pass on two real Next.js projects.
   longer flags itself.
 - `oversized_extraction` exempts test files.
 
-### Fixed
+**Fixed**
 
 - `verify` no longer reports stylesheet imports, or generated files that exist on
   disk but are gitignored, as broken imports. On a real monorepo it could never
   pass because of `./globals.css`.
 - Type-only imports never count as a database client import.
-
-### Security
-
-- No security-relevant changes.
-
-## 1.0.0
-
-A deliberate narrowing. Architect is now an architecture linter for Next.js
-App Router projects written in TypeScript, and nothing else. If you relied on
-any removed capability, pin `0.7.13`.
 
 ### Added
 
