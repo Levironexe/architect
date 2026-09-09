@@ -1,7 +1,6 @@
 export function Navbar() {
   return (
-    <div className="px-6">
-    <nav className="flex items-center justify-between py-6 max-w-280 mx-auto w-full">
+    <nav className="flex items-center justify-between py-6 max-w-280 mx-auto px-6 w-full">
       <div className="select-none leading-tight">
         <a href="/" className="font-serif text-2xl font-semibold tracking-tight">Architect</a>
       </div>
@@ -20,6 +19,5 @@ export function Navbar() {
         GitHub
       </a>
     </nav>
-    </div>
   );
 }
