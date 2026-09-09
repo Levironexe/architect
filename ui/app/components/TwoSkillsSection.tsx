@@ -44,7 +44,7 @@ export function TwoSkillsSection() {
             <p className="text-muted text-sm leading-relaxed mb-4">
               The agent reads{" "}
               <code className="font-mono text-xs bg-gray-100 px-1 rounded">.architect/plan.md</code>{" "}
-              and executes each phase step by step, pausing after each phase to wait for your confirmation before continuing.
+              and executes each phase step by step. After every phase it runs <code className="font-mono text-xs bg-gray-100 px-1 rounded">architect verify . --phase N --strict</code>, then pauses for your confirmation before continuing.
             </p>
             <ul className="text-sm text-gray-600 space-y-2">
               <li className="flex items-center gap-2">
@@ -53,7 +53,7 @@ export function TwoSkillsSection() {
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1 h-1 bg-dark rounded-full shrink-0" />
-                Explains every action during execution
+                Stops on a failed verify instead of pressing on
               </li>
             </ul>
           </div>
