@@ -96,12 +96,12 @@ architect verify . --phase N --strict
 ```
 (Replace N with the current phase number.)
 
-This creates `.architect/scans/phase-N.json` which is required for `architect diff` to work.
-Every phase MUST have its own snapshot. If you skip verify, the diff comparison will be broken.
+This writes `.architect/scans/phase-N.json`, the snapshot for this phase, and re-checks the
+project against `.architect/baseline.json`. Every phase MUST have its own snapshot.
 
 If the command is not available, fall back to:
 ```
-architect scan .
+architect check .
 ```
 
 **If verification FAILS** (exit code 1, or tsc errors / broken imports reported):
@@ -116,14 +116,14 @@ Update `.architect/state.json` (if it exists):
 - Set the current phase's `status` to `"completed"` and add `"completed_at": "<ISO timestamp>"`
 - If a next phase exists, set its `status` to `"in_progress"` and `"started_at": "<ISO timestamp>"`
 - Update `current_phase` to N+1
-- **CRITICAL**: Read `.architect/scans/phase-N.json`, extract the `health_score` field, and set `latest_health` to that exact number. Do NOT estimate, round, or hardcode this value — it MUST match the scan file exactly. If the scan file shows `"health_score": 62`, then `latest_health` must be `62`.
+- **CRITICAL**: Run `architect check . --json` and count the entries in the `violations` array. Set `latest_violations` to that exact number. Do NOT estimate, round, or hardcode it.
 
 Then output exactly this (replacing the placeholders):
 
 ```
 ✅ Phase N complete: <phase name>
 Verification: PASSED (0 tsc errors, 0 broken imports)
-Health: <baseline_health> → <latest_health> (+<delta>)
+Violations: <baseline_violations> → <latest_violations> (<delta>)
 
 Steps executed:
 - [x] Step N.1: <description>
@@ -144,9 +144,10 @@ Proceed to Phase N+1 (<next phase name>)? **yes / no**
      the same god file in a new location, decompose it further into 3-5 focused sub-components
      under 200 LOC each.
    Relocating a 730 LOC file to a 730 LOC component is NOT splitting — it's renaming.
-2. **Duplication**: Compare `duplication_pct` from phase-N scan to baseline. If duplication
-   increased by more than 1%, warn the developer and list the new duplicate blocks. Common
-   cause: extracting logic to a service but leaving the original copy in the model/view.
+2. **New god files**: Read `.architect/scans/phase-N.json`. If `god_files` rose against the
+   previous phase's snapshot, this phase created a new oversized file. Common cause:
+   extracting logic into one big module instead of a few focused ones. Split it before
+   continuing.
 3. **Cross-domain model methods**: If this phase extracted services, verify that model methods
    no longer call `send_mail`, create objects from other apps (e.g., `Invoice.objects.create`
    inside an `Appointment` method), or import from sibling apps. These must live in services.
@@ -172,7 +173,7 @@ If there is no next phase, output:
 ```
 ✅ All phases complete.
 
-The refactoring is done. Run `architect diff .` to see the full before/after comparison.
+The refactoring is done. Run `architect check .` for the current violation report.
 ```
 
 Then STOP. Do not make any further changes to the codebase. Proceed to step 5 below.
@@ -223,10 +224,11 @@ Before declaring the refactoring done, verify these invariants:
 
 1. **No oversized files remain**: Read the last phase scan. If `god_files > 0`, propose splitting
    them as extra phases.
-2. **Duplication did not regress**: Compare last phase scan `duplication_pct` to baseline. If it
-   increased, identify the duplicate blocks (usually old files left behind) and propose cleanup.
-3. **state.json is accurate**: Read the last phase scan's `health_score` and confirm
-   `latest_health` in state.json matches exactly. If not, fix it now.
+2. **Violations did not regress**: Run `architect verify . --strict`. It compares the current
+   count to `.architect/baseline.json` and exits 1 if it rose. Fix any increase before
+   declaring the refactor done.
+3. **state.json is accurate**: Run `architect check . --json`, count the `violations` array,
+   and confirm `latest_violations` in state.json matches exactly. If not, fix it now.
 4. **No orphaned old directories**: If the plan created per-app services/selectors, verify the
    old top-level `services/` directory was deleted. `find . -name "*.py" -path "*/services/*"`
    should only return app-level service files, not duplicates.
