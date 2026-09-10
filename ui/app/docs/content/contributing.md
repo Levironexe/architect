@@ -90,7 +90,7 @@ npx architect check tests/fixtures/messy-nextjs   # your rule should appear
 npx architect check tests/fixtures/clean-nextjs   # must stay silent
 ```
 
-Update the rule table in `README.md` and in [Rules](/docs/skills).
+Update the rule table in `README.md` and in [Rules](/docs/rules).
 
 ## Pull Requests
 

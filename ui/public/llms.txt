@@ -9,7 +9,7 @@ is this file in the layer it belongs to? Next.js App Router + TypeScript only.
 
 - [Overview](https://leviron-architect.vercel.app/docs): what Architect is, why it exists, and its non-goals
 - [Commands](https://leviron-architect.vercel.app/docs/commands): check, init, verify, their flags and exit codes
-- [Rules](https://leviron-architect.vercel.app/docs/skills): all 11 checked rules and the detect: schema
+- [Rules](https://leviron-architect.vercel.app/docs/rules): all 11 checked rules and the detect: schema
 - [Integrations](https://leviron-architect.vercel.app/docs/integrations): GitHub Actions and the Claude Code Stop hook
 - [Contributing](https://leviron-architect.vercel.app/docs/contributing): how to add a rule with a detect: block
 
