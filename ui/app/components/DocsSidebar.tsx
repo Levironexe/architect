@@ -26,14 +26,14 @@ const NAV: NavGroup[] = [
     label: 'REFERENCE',
     items: [
       { label: 'Commands', href: '/docs/commands', matchMode: 'prefix' },
-      { label: 'Skills', href: '/docs/skills', matchMode: 'prefix' },
+      { label: 'Rules', href: '/docs/rules', matchMode: 'prefix' },
       { label: 'Agent Integrations', href: '/docs/integrations', matchMode: 'prefix' },
     ],
   },
   {
     label: 'CONTRIBUTING',
     items: [
-      { label: 'Writing Skills', href: '/docs/contributing', matchMode: 'prefix' },
+      { label: 'Adding a rule', href: '/docs/contributing', matchMode: 'prefix' },
     ],
   },
 ]

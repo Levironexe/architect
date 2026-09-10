@@ -224,7 +224,7 @@ silent on correct code. See [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Documentation
 
 Full docs at **<https://leviron-architect.vercel.app/docs>** — [commands](https://leviron-architect.vercel.app/docs/commands),
-[rules and the `detect:` schema](https://leviron-architect.vercel.app/docs/skills),
+[rules and the `detect:` schema](https://leviron-architect.vercel.app/docs/rules),
 [integrations](https://leviron-architect.vercel.app/docs/integrations).
 
 ## Prerequisites
