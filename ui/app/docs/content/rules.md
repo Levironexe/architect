@@ -8,7 +8,7 @@ Run `architect check --list-rules` to print the current list straight from the
 blueprint — that output is generated from the source, so it cannot drift from
 this page.
 
-## The ten checked rules
+## The eleven checked rules
 
 | Rule | Severity | Fires when |
 |------|----------|-----------|
