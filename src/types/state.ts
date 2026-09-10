@@ -13,8 +13,8 @@ export interface ArchitectState {
   total_phases: number;
   current_phase: number;
   phases: PhaseState[];
-  baseline_health: number | null;
-  latest_health: number | null;
+  baseline_violations: number | null;
+  latest_violations: number | null;
 }
 
 export interface ScanSnapshot {

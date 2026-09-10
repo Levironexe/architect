@@ -41,19 +41,17 @@ architect init . --update
 
 Wait for the command to complete before proceeding.
 
-### 3. Save snapshot and show comparison
+### 3. Show where the project stands
 
-If `.architect/scans/baseline.json` exists, save a fresh snapshot and show the delta:
-
+Run a fresh check and show the developer the result:
 ```
-architect scan . --snapshot .architect/scans/latest.json
-architect diff .
+architect check .
 ```
 
-Show the diff table output to the developer so they can see what changed since the baseline
-(or since the last refactoring phase).
+If `.architect/baseline.json` exists, this report is directly comparable to the violation
+count recorded there.
 
-If the baseline snapshot does not exist, or the commands fail, skip this step silently.
+If the command fails, skip this step silently.
 
 ### 4. Hand off
 
@@ -61,8 +59,8 @@ After the update finishes, output:
 
 > ✅ Architecture skills updated with the latest scan of your project.
 
-If a diff table was shown, add:
-> Health: `<before>` → `<after>` (`<delta>`)
+If a check was run and a baseline exists, add:
+> Violations: `<baseline>` → `<current>`
 
 Then:
 > Ready to create a fresh refactoring plan? Run `/architect-plan` to continue.
