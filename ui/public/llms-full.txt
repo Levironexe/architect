@@ -1,7 +1,7 @@
 # Architect — full reference
 
 > An architecture linter for Next.js App Router projects written in TypeScript.
-> Version 1.0.0. Next.js App Router + TypeScript only.
+> Version 1.0.1. Next.js App Router + TypeScript only.
 
 Architect evaluates a stack blueprint against your code. Every rule is
 deterministic — there is no model call, no API key and no network access.

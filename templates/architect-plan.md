@@ -83,26 +83,16 @@ Record all findings as problem areas to address in the plan.
 
 ### 2. Confirm the detected stack
 
-Based on what you read, confirm or correct the detected stack (`{{skill.name}}`). If the stack
-looks wrong, call:
-```
-architect context --techstack <correct-id>
-```
-Otherwise call:
-```
-architect context --techstack {{skills.detected}}
-```
+The blueprint for the detected stack (`{{skill.name}}`) is already in this file. `architect init`
+rendered it in when it installed this skill, so there is nothing to fetch. Read the
+structure, separation and anti-pattern sections below; they are the architectural contract
+for this project.
 
-If `architect` is not found globally, fall back to:
+If the detected stack is wrong, tell the developer to re-run:
 ```
-architect context --techstack {{skills.detected}}
+architect init . --skill <correct-id> --update
 ```
-
-This may return blueprints for several detected stacks. Apply the rules from each  -  the primary
-stack ({{skill.name}}) takes precedence on conflicts.
-
-Read the output  -  it gives you the full architectural blueprint: required directories, separation
-rules, anti-patterns to avoid.
+and stop. Do not plan against the wrong blueprint.
 
 ### 3. Compare current vs target structure
 
@@ -275,12 +265,15 @@ of regression in refactoring scores.
 blueprint well, write a single phase with steps for minor cleanup and note "Structure largely
 follows the {{skill.name}} blueprint."
 
-### 6. Save baseline snapshot and initialize state tracking
+### 6. Record the baseline and initialize state tracking
 
 After writing the plan, run:
 ```
-architect scan . --snapshot .architect/scans/baseline.json
+architect check . --baseline
 ```
+
+This writes `.architect/baseline.json`, the violation count that every later
+`architect verify . --strict` is measured against.
 
 Then create `.architect/state.json` with the following structure (replace placeholders with
 actual values from the plan you just wrote):
@@ -294,13 +287,13 @@ actual values from the plan you just wrote):
     { "id": 1, "name": "<phase 1 name>", "status": "pending" },
     { "id": 2, "name": "<phase 2 name>", "status": "pending" }
   ],
-  "baseline_health": <health_score from the scan snapshot>,
-  "latest_health": null
+  "baseline_violations": <violations from .architect/baseline.json>,
+  "latest_violations": null
 }
 ```
 
-Include one entry per phase from the plan. Read the health score from the snapshot you just
-saved (open `.architect/scans/baseline.json` and use the `health_score` field).
+Include one entry per phase from the plan. Read the count from the baseline you just saved
+(open `.architect/baseline.json` and use the `violations` field).
 
 If the `npx` command fails (e.g. architect not installed), skip this step silently  -  the
 refactor skill falls back to checkbox-based tracking.
@@ -329,7 +322,7 @@ After writing the plan, summarize in the chat:
 - How many phases and total steps
 - The single biggest structural problem you found
 - Which phase to start with and why
-- Baseline health score (from the snapshot)
+- Baseline violation count (from `.architect/baseline.json`)
 
 Do not ask for confirmation before writing the plan  -  just do it and report when done.
 

@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { analyzeProject } from '../analyzers/project.js';
+import { extractSnapshot } from '../reporters/snapshot.js';
 import { renderCheckReport, renderRuleList } from '../reporters/check-terminal.js';
 import { createRuleContext, runRules } from '../rules/engine.js';
 import { loadSkills } from '../skills/loader.js';
@@ -9,6 +10,9 @@ import type { CheckResult, RuleViolation } from '../types/rule.js';
 import { ensureDirectoryPath } from '../utils/path.js';
 
 export const BASELINE_PATH = '.architect/baseline.json';
+/** Structural snapshot `verify` diffs against, so pre-existing circular
+ *  dependencies are not reported as new ones. */
+export const SCAN_BASELINE_PATH = '.architect/scans/baseline.json';
 
 export interface CheckCommandOptions {
   json?: boolean;
@@ -120,7 +124,7 @@ async function listRules(options: CheckCommandOptions): Promise<number> {
   return 0;
 }
 
-function writeBaseline(rootDir: string, result: CheckResult): number {
+async function writeBaseline(rootDir: string, result: CheckResult): Promise<number> {
   const baseline: Baseline = {
     created: new Date().toISOString(),
     stack: result.stack,
@@ -132,6 +136,16 @@ function writeBaseline(rootDir: string, result: CheckResult): number {
   const target = join(rootDir, BASELINE_PATH);
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, `${JSON.stringify(baseline, null, 2)}\n`);
+
+  // Record the structural snapshot too. Nothing else writes it, and without it
+  // `verify` treats every existing circular dependency as newly introduced.
+  const snapshotTarget = join(rootDir, SCAN_BASELINE_PATH);
+  mkdirSync(dirname(snapshotTarget), { recursive: true });
+  writeFileSync(
+    snapshotTarget,
+    `${JSON.stringify(extractSnapshot(await analyzeProject(rootDir)), null, 2)}\n`
+  );
+
   process.stdout.write(`Baseline written to ${BASELINE_PATH} (${baseline.violations} violations).\n`);
   return 0;
 }
