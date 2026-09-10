@@ -6,6 +6,37 @@ All notable changes to Architect CLI are recorded here.
 
 - Nothing yet.
 
+## 1.0.1
+
+The 1.0 narrowing removed the scan, diff and context commands and the health
+score, but the three skill templates still told coding agents to use them. An
+agent following the shipped `/architect-refactor` would reach a step marked
+CRITICAL that told it to read a `health_score` field no longer written, and was
+warned in the same breath not to estimate the value.
+
+**Fixed**
+
+- Skill templates now reference only commands that exist. `architect scan`,
+  `architect diff` and `architect context` are gone from all three; the plan
+  skill records a baseline with `architect check . --baseline`, the refactor
+  skill reads violation counts from `architect check . --json`, and the catchup
+  skill reports with `architect check .`.
+- Phase tracking counts violations instead of a deleted health score.
+  `.architect/state.json` now carries `baseline_violations` and
+  `latest_violations`; `ArchitectState` matches.
+- The refactor skill no longer compares `duplication_pct`, which nothing
+  produces. It checks `god_files` from the phase snapshot instead, a field the
+  snapshot really has.
+- The plan skill no longer tells the agent to call a command to fetch the
+  blueprint. `architect init` renders the blueprint into the skill file, so it
+  is already there; a wrong stack is corrected with `init --skill <id> --update`.
+- `architect check . --baseline` now also writes `.architect/scans/baseline.json`.
+  Nothing had written it since 1.0, so `verify` counted every pre-existing
+  circular dependency as newly introduced and printed a failing line for it. The
+  strict gate was unaffected, but the report was wrong.
+- The warning `verify` prints on a stale snapshot pointed at `architect scan`,
+  which does not exist. It names `architect check . --baseline` now.
+
 ## 1.0.0
 
 A deliberate narrowing. Architect is now an architecture linter for Next.js

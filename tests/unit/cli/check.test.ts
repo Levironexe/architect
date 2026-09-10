@@ -117,6 +117,33 @@ describe('check command', () => {
     expect(baseline.stack).toBe('nextjs-app-router');
   });
 
+  it('records the structural snapshot alongside the violation baseline', async () => {
+    const target = copyFixture('messy-nextjs');
+    // A circular dependency that exists before the baseline is taken must not be
+    // reported as newly introduced afterwards.
+    mkdirSync(path.join(target, 'lib'), { recursive: true });
+    writeFileSync(path.join(target, 'lib/cycle-a.ts'), "import { b } from './cycle-b';\nexport const a = () => b();\n");
+    writeFileSync(path.join(target, 'lib/cycle-b.ts'), "import { a } from './cycle-a';\nexport const b = () => a();\n");
+
+    await captureOutput(async () => {
+      expect(await runCli(['check', target, '--baseline'])).toBe(0);
+    });
+
+    const snapshot = JSON.parse(
+      readFileSync(path.join(target, '.architect/scans/baseline.json'), 'utf8')
+    ) as { circular_deps: number; total_files: number };
+
+    expect(snapshot.total_files).toBeGreaterThan(0);
+    expect(snapshot.circular_deps).toBeGreaterThan(0);
+
+    const verify = await captureOutput(async () => {
+      await runCli(['verify', target, '--no-color']);
+    });
+
+    expect(verify.stdout).toContain('No new circular deps');
+    expect(verify.stdout).toContain('(+0)');
+  });
+
   it('reports the missing_layer rule when a required directory is absent', async () => {
     const target = mkdtempSync(path.join(tmpdir(), 'architect-layer-'));
     temporaryDirs.push(target);

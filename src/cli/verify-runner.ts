@@ -78,7 +78,7 @@ export async function executeVerify(directory: string, options: VerifyCommandOpt
   }
 
   if (baselineSnapshot && baselineSnapshot.total_files === 0) {
-    process.stderr.write('WARN  Baseline snapshot has 0 files — health deltas will be inaccurate. Regenerate with: architect scan . --snapshot .architect/scans/baseline.json\n');
+    process.stderr.write('WARN  Baseline snapshot has 0 files — structural deltas will be inaccurate. Regenerate with: architect check . --baseline\n');
   }
 
   if (options.json) {
