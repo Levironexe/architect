@@ -78,7 +78,7 @@ is this file in the layer it belongs to? Next.js App Router + TypeScript only.
 
 - [Overview](${SITE}/docs): what Architect is, why it exists, and its non-goals
 - [Commands](${SITE}/docs/commands): ${commands.map((c) => c.name).join(', ')}, their flags and exit codes
-- [Rules](${SITE}/docs/skills): all ${checkable.length + 1} checked rules and the detect: schema
+- [Rules](${SITE}/docs/rules): all ${checkable.length + 1} checked rules and the detect: schema
 - [Integrations](${SITE}/docs/integrations): GitHub Actions and the Claude Code Stop hook
 - [Contributing](${SITE}/docs/contributing): how to add a rule with a detect: block
 

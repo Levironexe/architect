@@ -3,7 +3,6 @@ import { Hero } from "./components/Hero";
 import { Quickstart } from "./components/Quickstart";
 import { HowItWorks } from "./components/HowItWorks";
 import { ProblemStatement } from "./components/ProblemStatement";
-import { Pipeline } from "./components/Pipeline";
 import { TwoSkillsSection } from "./components/TwoSkillsSection";
 import { Principles } from "./components/Principles";
 import { Footer } from "./components/Footer";
@@ -17,7 +16,6 @@ export default function Home() {
         <Quickstart />
         <HowItWorks />
         <ProblemStatement />
-        <Pipeline />
         <TwoSkillsSection />
         <Principles />
       </main>

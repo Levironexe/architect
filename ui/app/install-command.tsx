@@ -14,9 +14,9 @@ const TABS = [
     id: "claude",
     label: "claude",
     content:
-      "Please install architect\nhttps://leviron-architect.vercel.app/prompt.txt",
+      "Please install architect\nhttps://leviron-architect.vercel.app/llms.txt",
     copyText:
-      "Please install architect https://leviron-architect.vercel.app/prompt.txt",
+      "Please install architect https://leviron-architect.vercel.app/llms.txt",
     prefix: null,
   },
 ] as const;
